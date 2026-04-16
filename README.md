@@ -1,4 +1,4 @@
-# Go Harness Engineering 工具包
+# Harness Engineering 工具包
 
 > 让 AI 编码代理（Claude Code / OpenAI Codex）在严格约束下写出企业生产级代码。
 >
@@ -8,15 +8,17 @@
 
 ## 这是什么
 
-三套针对不同场景的 AI 编码约束系统（Harness），安装后 AI 代理每次写代码都会自动遵守你定义的架构规范、编码标准和质量检查流程。
+五套针对不同场景的 AI 编码约束系统（Harness），安装后 AI 代理每次写代码都会自动遵守你定义的架构规范、编码标准和质量检查流程。
 
 | 包名 | 适用场景 | 目录 |
 |-----|---------|------|
 | **go-harness** | 纯 Go 后端业务服务（Gin + GORM + gtkit） | `go-harness/` |
 | **fullstack-harness** | Go 后端 + Vue 前端（同一项目目录） | `fullstack-harness/` |
 | **go-pkg-harness** | Go 扩展包 / 第三方库开发 | `go-pkg-harness/` |
+| **laravel-harness** | 纯 Laravel 项目（API / Web，默认纳入 Queue / Scheduler / Event / Notification） | `laravel-harness/` |
+| **laravel-fullstack-harness** | Laravel 后端 + Vue 前端（`backend/` + `frontend/` 同仓库） | `laravel-fullstack-harness/` |
 
-三套互相独立，按项目类型选用一套即可。
+五套互相独立，按项目类型选用一套即可。
 
 ---
 
@@ -71,6 +73,41 @@ harness-engineering/
         ├── pkg-docs.md
         ├── pkg-generics.md
         ├── pkg-review.md
+        └── error-journal-template.md
+│
+├── laravel-harness/         ← 纯 Laravel 项目
+│   ├── setup.sh
+│   ├── SKILL.md
+│   ├── CLAUDE.md
+│   ├── AGENTS.md
+│   └── guides/
+│       ├── architecture.md
+│       ├── http-and-api.md
+│       ├── data-and-eloquent.md
+│       ├── queues-events-scheduling.md
+│       ├── notifications-and-mail.md
+│       ├── testing-and-validation.md
+│       ├── laravel-modules.md
+│       ├── review-checklist.md
+│       └── error-journal-template.md
+│
+└── laravel-fullstack-harness/ ← Laravel + Vue 全栈项目
+    ├── setup.sh
+    ├── SKILL.md
+    ├── CLAUDE.md
+    ├── AGENTS.md
+    └── guides/
+        ├── architecture.md
+        ├── http-and-api.md
+        ├── data-and-eloquent.md
+        ├── queues-events-scheduling.md
+        ├── notifications-and-mail.md
+        ├── testing-and-validation.md
+        ├── laravel-modules.md
+        ├── frontend-architecture.md
+        ├── frontend-api.md
+        ├── frontend-coding.md
+        ├── review-checklist.md
         └── error-journal-template.md
 ```
 
@@ -206,9 +243,78 @@ your-go-package/
 
 ---
 
+#### 场景 D：纯 Laravel 项目
+
+适用于纯 Laravel 项目，兼容 API / Web 两类形态，并默认把 Queue、Scheduler、Event、Notification 纳入强约束。若项目使用 `nwidart/laravel-modules`，模板也支持 `Modules/` 结构。
+
+```bash
+# 进入你的 Laravel 项目根目录
+cd ~/code/your-laravel-project
+
+# 运行安装脚本
+bash ~/tools/harness-engineering/laravel-harness/setup.sh
+```
+
+安装完成后你的项目会多出：
+
+```text
+your-laravel-project/
+├── CLAUDE.md
+├── AGENTS.md
+└── .harness/
+    ├── error-journal.md
+    └── guides/
+        ├── architecture.md
+        ├── http-and-api.md
+        ├── data-and-eloquent.md
+        ├── queues-events-scheduling.md
+        ├── notifications-and-mail.md
+        ├── testing-and-validation.md
+        ├── laravel-modules.md
+        └── review-checklist.md
+```
+
+---
+
+#### 场景 E：Laravel + Vue 全栈项目（`backend/` + `frontend/` 同仓库）
+
+适用于 Laravel 后端在 `backend/`、Vue 3 + Vite + TypeScript 前端在 `frontend/` 的同仓库项目。
+
+```bash
+# 进入你的 Laravel 全栈项目根目录
+cd ~/code/your-laravel-fullstack-project
+
+# 运行安装脚本
+bash ~/tools/harness-engineering/laravel-fullstack-harness/setup.sh
+```
+
+安装完成后你的项目会多出：
+
+```text
+your-laravel-fullstack-project/
+├── CLAUDE.md
+├── AGENTS.md
+└── .harness/
+    ├── error-journal.md
+    └── guides/
+        ├── architecture.md
+        ├── http-and-api.md
+        ├── data-and-eloquent.md
+        ├── queues-events-scheduling.md
+        ├── notifications-and-mail.md
+        ├── testing-and-validation.md
+        ├── laravel-modules.md
+        ├── frontend-architecture.md
+        ├── frontend-api.md
+        ├── frontend-coding.md
+        └── review-checklist.md
+```
+
+---
+
 ## 安装后的全局 Skill 一览
 
-三套脚本各自安装到不同目录，互不覆盖：
+五套脚本各自安装到不同目录，互不覆盖：
 
 ```
 ~/.claude/skills/
@@ -216,7 +322,11 @@ your-go-package/
 │   └── SKILL.md
 ├── fullstack-harness/       ← 场景 B
 │   └── SKILL.md
-└── go-pkg-harness/          ← 场景 C
+├── go-pkg-harness/          ← 场景 C
+│   └── SKILL.md
+├── laravel-harness/         ← 场景 D
+│   └── SKILL.md
+└── laravel-fullstack-harness/ ← 场景 E
     └── SKILL.md
 
 ~/.codex/skills/
@@ -224,7 +334,11 @@ your-go-package/
 │   └── SKILL.md
 ├── fullstack-harness/       ← 场景 B
 │   └── SKILL.md
-└── go-pkg-harness/          ← 场景 C
+├── go-pkg-harness/          ← 场景 C
+│   └── SKILL.md
+├── laravel-harness/         ← 场景 D
+│   └── SKILL.md
+└── laravel-fullstack-harness/ ← 场景 E
     └── SKILL.md
 ```
 
@@ -237,7 +351,7 @@ your-go-package/
 ### 为什么 AI 每次都会遵守规则
 
 ```
-Claude Code 启动 → 自动读取项目 CLAUDE.md → 触发 go-xxx-harness skill → 读取 .harness/guides/
+Claude Code 启动 → 自动读取项目 CLAUDE.md → 触发 xxx-harness skill → 读取 .harness/guides/
 Codex 启动      → 自动读取项目 AGENTS.md  → 读取 .harness/guides/
 ```
 
@@ -266,22 +380,15 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"，越用
 
 ---
 
-## 三套 Harness 的核心差异
+## 五套 Harness 的核心差异
 
-| | go-harness | fullstack-harness | go-pkg-harness |
-|--|-----------|-------------------|---------------|
-| **定位** | 后端业务服务 | Go + Vue 全栈 | 扩展包/第三方库 |
-| **分层** | handler → service → repo | 后端同左 + 前端 views → composables → api | 无分层，按功能文件拆分 |
-| **依赖** | Gin、GORM、Redis 等 | 后端同左 + Vue、Vite、Pinia | 零依赖优先，第三方优先 gtkit |
-| **JSON** | **必须 gtkit/json，禁止 encoding/json** | **必须 gtkit/json，禁止 encoding/json** | **必须 gtkit/json，禁止 encoding/json** |
-| **错误** | AppError + HTTP 状态码 | 后端同左 + 前端 ApiError 类 | sentinel + 自定义类型 + wrapping |
-| **配置** | 环境变量/config | 后端同左 + 前端 VITE_ 环境变量 | Functional Options |
-| **测试** | 单元测试 ≥ 80% | 后端同左 + 前端 vue-tsc + Vitest | 单元 + Example + Benchmark + Fuzz |
-| **文档** | 代码注释 | 同左 | GoDoc 全覆盖 + README + CHANGELOG |
-| **版本** | 业务版本号 | 同左 | 语义化版本（semver） |
-| **前端** | 无 | Vue 3 + TS strict + 禁止 any | 无 |
-| **Guides 数量** | 7 个 | 10 个 | 6 个 |
-| **审查维度** | 12 维度 | 16 维度 | 9 维度 |
+| 包名 | 定位 | 默认结构 | 关键约束 |
+|--|--|--|--|
+| `go-harness` | Go 后端业务服务 | 单仓后端 | Gin + GORM + gtkit、分层、支付/LLM/DB 规范 |
+| `fullstack-harness` | Go + Vue 全栈 | `backend/` + `frontend/` | Go 后端分层 + Vue 3 + TS strict + 契约同步 |
+| `go-pkg-harness` | Go 扩展包 / 第三方库 | 单包 / 多包库 | GoDoc、Benchmark、Example、语义化版本 |
+| `laravel-harness` | Laravel 项目 | 单仓 Laravel | HTTP、Eloquent、Queue、Scheduler、Event、Notification、可选 `Modules/` |
+| `laravel-fullstack-harness` | Laravel + Vue 全栈 | `backend/` + `frontend/` | Laravel API 契约 + Vue 3 + TS strict + 可选 `Modules/` |
 
 ---
 
@@ -314,7 +421,11 @@ cat .harness/error-journal.md
 
 ```bash
 cd ~/code/new-project
-bash ~/tools/harness-engineering/go-harness/setup.sh   # 选对应的类型
+bash ~/tools/harness-engineering/go-harness/setup.sh                  # Go 后端
+bash ~/tools/harness-engineering/fullstack-harness/setup.sh           # Go + Vue 全栈
+bash ~/tools/harness-engineering/go-pkg-harness/setup.sh              # Go 扩展包
+bash ~/tools/harness-engineering/laravel-harness/setup.sh             # Laravel
+bash ~/tools/harness-engineering/laravel-fullstack-harness/setup.sh   # Laravel + Vue 全栈
 ```
 
 全局 Skill 已经装过了不会重复，只会安装项目级文件。
@@ -339,13 +450,17 @@ AGENTS.md
 .DS_Store
 ```
 
+如果你想让 `main` 分支必须等 CI 通过后才能合并，见：
+
+- [GitHub Branch Protection](./docs/github-branch-protection.md)
+
 ---
 
 ## 常见问题
 
 **Q：一个项目能同时装两套 Harness 吗？**
 
-不建议。每个项目选一套最匹配的。如果你的项目是全栈的，用 fullstack-harness，它已经包含了 go-harness 的所有后端规范。
+不建议。每个项目选一套最匹配的。如果你的项目是 Go 全栈，用 `fullstack-harness`；如果你的项目是 Laravel 全栈，用 `laravel-fullstack-harness`。
 
 **Q：我用的不是 Claude Code 也不是 Codex，能用吗？**
 
@@ -354,8 +469,17 @@ AGENTS.md
 **Q：全局 Skill 装错了怎么删？**
 
 ```bash
-rm -rf ~/.claude/skills/go-harness          # 删 Claude Code 的
-rm -rf ~/.codex/skills/go-harness           # 删 Codex 的
+rm -rf ~/.claude/skills/go-harness
+rm -rf ~/.claude/skills/fullstack-harness
+rm -rf ~/.claude/skills/go-pkg-harness
+rm -rf ~/.claude/skills/laravel-harness
+rm -rf ~/.claude/skills/laravel-fullstack-harness
+
+rm -rf ~/.codex/skills/go-harness
+rm -rf ~/.codex/skills/fullstack-harness
+rm -rf ~/.codex/skills/go-pkg-harness
+rm -rf ~/.codex/skills/laravel-harness
+rm -rf ~/.codex/skills/laravel-fullstack-harness
 ```
 
 **Q：guides 改错了想恢复怎么办？**
@@ -364,6 +488,12 @@ rm -rf ~/.codex/skills/go-harness           # 删 Codex 的
 
 ```bash
 HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/go-harness/setup.sh
+```
+
+Laravel 系列同理：
+
+```bash
+HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/laravel-harness/setup.sh
 ```
 
 **Q：setup.sh 在 macOS 上能跑吗？**

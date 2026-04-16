@@ -43,6 +43,17 @@ run_setup() {
     )
 }
 
+workflow_file="${ROOT_DIR}/.github/workflows/ci.yml"
+test -f "${workflow_file}" || fail "expected GitHub Actions workflow at ${workflow_file}"
+assert_file_contains "${workflow_file}" "name: CI"
+assert_file_contains "${workflow_file}" "push:"
+assert_file_contains "${workflow_file}" "pull_request:"
+assert_file_contains "${workflow_file}" "branches: [main]"
+assert_file_contains "${workflow_file}" "runs-on: ubuntu-latest"
+assert_file_contains "${workflow_file}" "uses: actions/checkout@v4"
+assert_file_contains "${workflow_file}" "bash -n go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh"
+assert_file_contains "${workflow_file}" "bash tests/setup_smoke_test.sh"
+
 tmpdir="$(mktemp -d /tmp/harness-smoke-XXXXXX)"
 trap 'rm -rf "$tmpdir"' EXIT
 

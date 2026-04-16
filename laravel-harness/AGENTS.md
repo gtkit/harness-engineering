@@ -1,0 +1,103 @@
+# AGENTS.md
+
+> Laravel 项目 Harness。适用于 API / 后端服务项目，也兼容传统 Laravel Web 项目。
+
+## 行为纪律
+
+1. **禁止编造**：不确定的 Laravel / PHP API、artisan 命令、配置项、第三方包能力不写。
+2. **禁止猜测**：不说“应该支持”“大概如此”，版本和项目结构都必须以仓库事实为准。
+3. **严格按结构输出**：只做用户要求的事，不追加无关功能或重构。
+4. **不扩展无关内容**：只处理 Laravel、PHP、HTTP、Eloquent、Queue、Event、Scheduler、Notification、Testing 相关内容。
+5. **清理杂物**：发现 `.idea/`、`.DS_Store` 或误写的 `.Ds_Store`，必须删除并保持工作区干净。
+
+## 技术栈
+
+- Laravel / PHP 版本优先跟随项目已有 `composer.json` / `composer.lock`
+- 如果项目未体现明确版本，默认按当前稳定版 Laravel + PHP 理解，但必须标明这是默认基线
+- 可选支持 `nwidart/laravel-modules`
+- Queue / Scheduler / Event / Notification 默认纳入强约束
+
+## Logic 四步
+
+1. **理解需求**：判断是 HTTP、数据层、队列、事件、定时任务、通知、测试还是模块化问题
+2. **提取信息**：识别项目版本、现有目录结构、受影响模块、验证范围
+3. **按结构组织**：Controller / Form Request / Resource / Service / Repository / Job / Listener / Notification 各司其职
+4. **检查合规**：运行验证命令、自审、交叉验证、输出合规摘要
+
+## Guide 加载表
+
+| 任务 | 读哪个 Guide |
+| --- | --- |
+| 结构设计 / 分层 / 目录边界 | `.harness/guides/architecture.md` |
+| Controller / Form Request / Resource / API | `.harness/guides/http-and-api.md` |
+| Eloquent / Repository / 事务 / 迁移 | `.harness/guides/data-and-eloquent.md` |
+| Queue / Scheduler / Event / Listener | `.harness/guides/queues-events-scheduling.md` |
+| Notification / Mail / Channel | `.harness/guides/notifications-and-mail.md` |
+| 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 检测到 `Modules/` 或 `nwidart/laravel-modules` | `.harness/guides/laravel-modules.md` |
+| 代码审查 | `.harness/guides/review-checklist.md` |
+
+## 默认分层
+
+```text
+Controller / Form Request / Resource
+        ↓
+Action / Service / Domain
+        ↓
+Repository / Query Object / Eloquent
+```
+
+补充约束：
+
+- Controller 只做参数接收、授权、调用、返回
+- Form Request 承担输入校验与授权入口
+- API Resource 负责输出序列化
+- Job 只承接异步边界，不承接隐式事务编排
+- Listener 保持轻量，跨边界逻辑优先下沉到 Service
+- Notification / Mail 独立建类，避免内联模板和文案
+
+## 提交前检查
+
+优先使用项目已有统一入口：
+
+```bash
+composer test
+composer pint --test
+./vendor/bin/phpstan analyse
+./vendor/bin/psalm
+```
+
+如果项目没有统一入口，至少执行：
+
+```bash
+php artisan about
+php artisan test
+php artisan route:list
+```
+
+## 必查风险
+
+- Queue Job 是否幂等
+- 定时任务是否可重复执行且无副作用失控
+- 事件 / 监听器是否存在隐式递归或隐藏 IO
+- Notification / Mail 是否泄漏敏感信息
+- Eloquent 是否有 N+1、事务缺失、锁粒度错误
+- 模块化项目是否存在跨 `Modules/` 乱依赖
+
+## 合规检查摘要
+
+每次交付附上：
+
+```text
+## 合规检查摘要
+- [x] Laravel / PHP 版本按项目事实处理
+- [x] Controller / Service / Data 边界明确
+- [x] Queue / Scheduler / Event / Notification 已纳入检查
+- [x] Modules 可选规则已按需加载
+- [x] 验证命令已执行或明确说明缺失条件
+- [x] 无编造内容
+```
+
+## 错误记忆
+
+`.harness/error-journal.md` —— 每次任务前读取，犯错时追加。

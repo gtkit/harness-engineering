@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate shell scripts
+        run: bash -n go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh
+
+      - name: Run smoke test
+        run: bash tests/setup_smoke_test.sh
+
+      - name: Run C++ package smoke test
+        run: bash tests/cpp_package_smoke_test.sh
+
+      - name: Run Laravel package smoke test
+        run: bash tests/laravel_package_smoke_test.sh

@@ -1,0 +1,6 @@
+interface:
+  display_name: "C++ Linux AI Harness"
+  short_description: "Enterprise C++ Linux AI harness"
+  default_prompt: "Use $cpp-linux-ai-harness to enforce enterprise harness rules, validation, review, and error-memory workflow for this C++ Linux AI project."
+policy:
+  allow_implicit_invocation: true
