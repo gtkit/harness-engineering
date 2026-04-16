@@ -11,10 +11,12 @@
 2. **禁止猜测**：不说"应该支持"、"大概是"。不确定的库版本/特性不写。
 3. **严格按结构输出**：只做用户要求的事，不附加"你可能还需要"等扩展内容。
 4. **不扩展无关内容**：用户要一个 handler，就只写 handler + 必要 DTO，不自动生成 model、migration。
+5. **清理杂物**：发现项目中有 `.idea/`、`.DS_Store` 或误写的 `.Ds_Store`，必须删除并保持工作区干净。
 
 ## 技术栈
 
 - Go 1.26.2（使用所有现代特性：range-over-func、slices/maps/cmp、iterator 等）
+- JSON 编解码统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 - 依赖使用最新稳定版，不用 RC/Beta
 - 已有 go.mod 的项目遵循已锁定版本
 
@@ -54,6 +56,7 @@ repository（GORM 数据访问，一表一 repo）
 
 - context.Context 全链路透传
 - 错误用 `fmt.Errorf("xxx: %w", err)` 包装，用 `errors.Is`/`errors.As` 判断
+- JSON 编解码统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`
 - 所有外部调用设超时
 - 敏感信息禁止硬编码
 - 命名：mixedCaps、包名小写、接口 -er 结尾

@@ -17,13 +17,14 @@ description: |
 2. **禁止猜测**：不说"这个包应该有 xxx 方法"。
 3. **严格按结构输出**：只写用户要求的功能，不自作主张加 feature。
 4. **库代码零容忍**：不留 TODO、不留 panic、不留未处理的 error。
+5. **执行清理**：如果项目中存在 `.idea/`、`.DS_Store` 或误写的 `.Ds_Store`，必须删除并保持工作区干净。
 
 ---
 
 ## 第一章：技术栈
 
 - **Go 1.26.2**（使用所有现代特性：泛型、range-over-func、slices/maps/cmp、iterator）
-- **零外部依赖优先**：能用标准库实现的绝不引入第三方
+- **零外部依赖优先**：能用标准库实现的绝不引入第三方；JSON 场景统一视为例外
 - **必须引入第三方时，优先使用 `github.com/gtkit/` 仓库下的包**
 - gtkit 没有的，再选最小依赖、最活跃维护的第三方
 - **JSON 操作必须使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`**，禁止使用 `encoding/json` 或其他第三方 JSON 库

@@ -9,8 +9,9 @@
 
 ## 项目信息
 
-- **后端**：Go 1.26.2 + Gin + GORM + gtkit — 代码在 `cmd/`、`internal/`、`pkg/`
-- **前端**：Vue 3 + Vite + TypeScript + Pinia — 代码在 `web/`
+- **后端**：Go 1.26.2 + Gin + GORM + gtkit — 代码在 `backend/`
+- **前端**：Vue 3 + Vite + TypeScript + Pinia — 代码在 `frontend/`
+- **JSON**：后端统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`
 - **规范文档**：`.harness/guides/`（唯一来源）
 - **错误记忆**：`.harness/error-journal.md`（每次任务前读取）
 
@@ -21,3 +22,4 @@
 3. 禁止跳过检查——每次交付附合规摘要
 4. Logic 四步走完——理解 → 提取 → 组织 → 合规
 5. 前后端不混——后端任务不自动补前端，反之亦然
+6. 清理杂物——发现 `.idea/`、`.DS_Store` 或 `.Ds_Store` 必须删除

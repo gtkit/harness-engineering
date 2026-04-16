@@ -100,10 +100,11 @@ mv harness-engineering ~/tools/harness-engineering
 
 ### 第二步：根据项目类型运行对应脚本
 
-每个项目只需要运行一次。脚本会做两件事：
+每个项目只需要运行一次。脚本会做三件事：
 
 1. **全局 Skill** 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`（只装一次，所有项目共享）
 2. **项目文件** 安装到当前项目目录（每个项目各一份）
+3. **`.gitignore` 规则** 自动创建/补齐（错误记忆、`.idea/`、`.DS_Store`）
 
 ---
 
@@ -139,9 +140,9 @@ your-backend-project/
 
 ---
 
-#### 场景 B：Go + Vue 全栈项目（前后端同目录）
+#### 场景 B：Go + Vue 全栈项目（`backend/` + `frontend/` 同仓库）
 
-适用于后端 Go + 前端 Vue 3 + Vite + TypeScript 放在同一个仓库的项目。
+适用于后端 Go 放在 `backend/`、前端 Vue 3 + Vite + TypeScript 放在 `frontend/` 的同仓库项目。
 
 ```bash
 # 进入你的全栈项目根目录
@@ -272,7 +273,7 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"，越用
 | **定位** | 后端业务服务 | Go + Vue 全栈 | 扩展包/第三方库 |
 | **分层** | handler → service → repo | 后端同左 + 前端 views → composables → api | 无分层，按功能文件拆分 |
 | **依赖** | Gin、GORM、Redis 等 | 后端同左 + Vue、Vite、Pinia | 零依赖优先，第三方优先 gtkit |
-| **JSON** | encoding/json 或 gtkit/json | 同左 | **必须 gtkit/json，禁止 encoding/json** |
+| **JSON** | **必须 gtkit/json，禁止 encoding/json** | **必须 gtkit/json，禁止 encoding/json** | **必须 gtkit/json，禁止 encoding/json** |
 | **错误** | AppError + HTTP 状态码 | 后端同左 + 前端 ApiError 类 | sentinel + 自定义类型 + wrapping |
 | **配置** | 环境变量/config | 后端同左 + 前端 VITE_ 环境变量 | Functional Options |
 | **测试** | 单元测试 ≥ 80% | 后端同左 + 前端 vue-tsc + Vitest | 单元 + Example + Benchmark + Fuzz |
@@ -288,7 +289,7 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"，越用
 
 ### 安装完就不用管了
 
-脚本只需运行一次。之后正常用 Claude Code 或 Codex 写代码，AI 会自动遵守所有规则。
+脚本只需运行一次。之后正常用 Claude Code 或 Codex 写代码，AI 会自动遵守所有规则。重复执行默认只补齐缺失文件，不覆盖你已经修改过的 guide。
 
 ### 修改规范
 
@@ -334,6 +335,8 @@ AGENTS.md
 
 ```
 .harness/error-journal.md   # 已自动添加到 .gitignore
+.idea/
+.DS_Store
 ```
 
 ---
@@ -357,7 +360,11 @@ rm -rf ~/.codex/skills/go-harness           # 删 Codex 的
 
 **Q：guides 改错了想恢复怎么办？**
 
-重新跑一次 setup.sh，`.harness/guides/` 会被覆盖为初始版本。`CLAUDE.md`、`AGENTS.md`、`error-journal.md` 不会被覆盖（脚本检测到已存在会跳过）。
+默认重新跑 `setup.sh` 只会补齐缺失 guide，不会覆盖你已经修改过的内容。想强制恢复模板版本时，显式加环境变量：
+
+```bash
+HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/go-harness/setup.sh
+```
 
 **Q：setup.sh 在 macOS 上能跑吗？**
 

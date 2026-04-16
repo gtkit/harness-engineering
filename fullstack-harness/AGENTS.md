@@ -8,11 +8,13 @@
 2. **禁止猜测**：不说"应该支持"、"大概是"。
 3. **严格按结构输出**：只做用户要求的事，不扩展。
 4. **前后端不混**：后端任务不自动补前端，反之亦然。
+5. **清理杂物**：发现项目中有 `.idea/`、`.DS_Store` 或误写的 `.Ds_Store`，必须删除并保持工作区干净。
 
 ## 技术栈
 
-**后端**：Go 1.26.2 + Gin + GORM + gtkit（代码在 `cmd/`、`internal/`、`pkg/`）
-**前端**：Vue 3 + Vite + TypeScript strict + Pinia + Axios（代码在 `web/`）
+**后端**：Go 1.26.2 + Gin + GORM + gtkit（代码在 `backend/`）
+**前端**：Vue 3 + Vite + TypeScript strict + Pinia + Axios（代码在 `frontend/`）
+**JSON**：后端统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 依赖使用最新稳定版。
 
 ## Logic 四步
@@ -58,20 +60,19 @@ views → composables → api → 后端
 
 ```bash
 # 后端
-golangci-lint run ./...
-go vet ./...
-go test -race -count=1 -timeout=5m ./...
+cd backend && golangci-lint run ./...
+cd backend && go vet ./...
+cd backend && go test -race -count=1 -timeout=5m ./...
 
 # 前端
-cd web
-npx vue-tsc --noEmit
-npx eslint src/ --ext .vue,.ts,.tsx
-npx vite build
+cd frontend && npx vue-tsc --noEmit
+cd frontend && npx eslint src/ --ext .vue,.ts,.tsx
+cd frontend && npx vite build
 ```
 
 ## 前后端类型同步
 
-后端 DTO 改了，前端 `web/src/api/types.ts` 必须同步：
+后端 DTO 改了，前端 `frontend/src/api/types.ts` 必须同步：
 - Go struct json tag ↔ TS interface 字段名
 - Go 指针字段 ↔ TS 可选字段 `?`
 - Go oneof ↔ TS union type

@@ -79,7 +79,7 @@
 ## 前后端联调
 
 ### 13. 类型同步
-- [ ] 后端 DTO struct ↔ 前端 api/types.ts interface 字段一致
+- [ ] 后端 DTO struct ↔ 前端 `frontend/src/api/types.ts` interface 字段一致
 - [ ] 后端 json tag ↔ 前端字段名一致
 - [ ] 后端可选字段（指针）↔ 前端可选字段（?）
 - [ ] 后端错误码 ↔ 前端错误处理映射一致

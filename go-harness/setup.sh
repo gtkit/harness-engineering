@@ -15,6 +15,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(pwd)"
+FORCE_GUIDES="${HARNESS_FORCE_GUIDES:-0}"
+
+append_gitignore_line() {
+    local file="$1"
+    local line="$2"
+
+    if ! grep -Fxq "$line" "$file" 2>/dev/null; then
+        printf '%s\n' "$line" >> "$file"
+        return 0
+    fi
+    return 1
+}
 
 echo ""
 echo "============================================"
@@ -96,16 +108,29 @@ fi
 # -- .harness/guides/ --
 mkdir -p "${PROJECT_DIR}/.harness/guides"
 
+GUIDE_COPIED=0
+GUIDE_PRESERVED=0
+
 for f in "${SCRIPT_DIR}/guides/"*.md; do
     filename="$(basename "$f")"
     if [ "$filename" = "error-journal-template.md" ]; then
         continue
     fi
-    cp "$f" "${PROJECT_DIR}/.harness/guides/${filename}"
+    dest="${PROJECT_DIR}/.harness/guides/${filename}"
+    if [ "${FORCE_GUIDES}" = "1" ] || [ ! -f "$dest" ]; then
+        cp "$f" "$dest"
+        GUIDE_COPIED=$((GUIDE_COPIED + 1))
+    else
+        GUIDE_PRESERVED=$((GUIDE_PRESERVED + 1))
+    fi
 done
 
 GUIDE_COUNT=$(ls "${PROJECT_DIR}/.harness/guides/"*.md 2>/dev/null | wc -l | tr -d ' ')
-echo "  ✓ .harness/guides/ — ${GUIDE_COUNT} 个规范文档"
+if [ "${FORCE_GUIDES}" = "1" ]; then
+    echo "  ✓ .harness/guides/ — ${GUIDE_COUNT} 个规范文档（强制刷新 ${GUIDE_COPIED} 个）"
+else
+    echo "  ✓ .harness/guides/ — ${GUIDE_COUNT} 个规范文档（新增 ${GUIDE_COPIED} 个，保留 ${GUIDE_PRESERVED} 个）"
+fi
 
 # -- .harness/error-journal.md --
 if [ ! -f "${PROJECT_DIR}/.harness/error-journal.md" ]; then
@@ -126,15 +151,30 @@ echo "[Step 3] 更新 .gitignore"
 echo "--------------------------------------------"
 echo ""
 
-if [ -f "${PROJECT_DIR}/.gitignore" ]; then
-    if ! grep -q "error-journal.md" "${PROJECT_DIR}/.gitignore" 2>/dev/null; then
-        printf '\n# Harness: Agent 错误记忆（本地开发用，不提交）\n.harness/error-journal.md\n' >> "${PROJECT_DIR}/.gitignore"
-        echo "  ✓ 已添加 error-journal.md 到 .gitignore"
-    else
-        echo "  ⊘ .gitignore 已包含相关规则"
-    fi
+GITIGNORE_FILE="${PROJECT_DIR}/.gitignore"
+if [ ! -f "${GITIGNORE_FILE}" ]; then
+    touch "${GITIGNORE_FILE}"
+    echo "  ✓ 已创建 .gitignore"
 else
-    echo "  ⊘ 无 .gitignore，跳过"
+    echo "  ⊘ .gitignore 已存在，继续补充规则"
+fi
+
+GITIGNORE_UPDATED=0
+if ! grep -Fq "# Harness: 本地工具与 Agent 运行产物" "${GITIGNORE_FILE}" 2>/dev/null; then
+    printf '\n# Harness: 本地工具与 Agent 运行产物\n' >> "${GITIGNORE_FILE}"
+    GITIGNORE_UPDATED=1
+fi
+
+for pattern in ".harness/error-journal.md" ".idea/" ".DS_Store"; do
+    if append_gitignore_line "${GITIGNORE_FILE}" "${pattern}"; then
+        GITIGNORE_UPDATED=1
+    fi
+done
+
+if [ "${GITIGNORE_UPDATED}" -eq 1 ]; then
+    echo "  ✓ .gitignore 已同步 Harness 忽略规则"
+else
+    echo "  ⊘ .gitignore 已包含相关规则"
 fi
 
 echo ""

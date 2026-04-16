@@ -3,7 +3,7 @@
 ## Axios 实例
 
 ```typescript
-// src/api/client.ts
+// frontend/src/api/client.ts
 import axios from 'axios'
 import type { ApiResponse } from '@/types/api'
 
@@ -50,7 +50,7 @@ export default client
 每个后端模块对应一个文件，函数名与后端 handler 对应：
 
 ```typescript
-// src/api/user.ts
+// frontend/src/api/user.ts
 import client from './client'
 import type { ApiResponse, PagedResponse } from '@/types/api'
 import type { User, CreateUserReq, UpdateUserReq, ListReq } from './types'
@@ -79,7 +79,7 @@ export function deleteUser(id: number) {
 ## 类型定义
 
 ```typescript
-// src/api/types.ts — 与后端 DTO 对齐
+// frontend/src/api/types.ts — 与后端 DTO 对齐
 export interface User {
   id: number
   name: string
@@ -116,7 +116,7 @@ export interface ListReq {
 2. **请求和响应必须有类型**，禁止 `any`
 3. **错误处理在调用方**，api 层只负责请求，不负责 UI 提示
 4. **后端 URL 从环境变量获取**：`import.meta.env.VITE_API_BASE_URL`
-5. **前后端类型同步**：后端 DTO 变了，前端 `api/types.ts` 必须同步更新
+5. **前后端类型同步**：后端 DTO 变了，前端 `frontend/src/api/types.ts` 必须同步更新
 
 ## 自定义错误类
 

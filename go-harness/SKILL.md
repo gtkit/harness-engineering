@@ -33,6 +33,7 @@ description: |
 - 如果用户要求写一个 handler，就只写 handler + 必要的 DTO。不要同时生成 model、migration、配置文件，除非用户明确要求。
 - 代码注释只说明 why（为什么这样设计），不写显而易见的 what（这行代码做了什么）。
 - 不输出与当前任务无关的"最佳实践建议"。
+- 如果项目中存在 `.idea/`、`.DS_Store` 或误写的 `.Ds_Store`，必须删除并保持工作区干净。
 
 ---
 
@@ -58,6 +59,7 @@ description: |
   - go-redis: 最新稳定版 (v9+)
   - zap/slog: 按项目已有选择
   - github.com/gtkit/*: 按用户项目已有版本
+- JSON 编解码统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 
 ---
 
@@ -215,7 +217,7 @@ service（业务编排 + 调用 repo 和外部服务）
 repository（GORM 数据访问，一表一 repo）
 ```
 
-详见 `references/architecture.md`。
+详见 `.harness/guides/architecture.md`。
 
 ---
 

@@ -17,7 +17,7 @@ description: |
 3. **严格按结构输出**：只做用户要求的事，不附加扩展内容。
 4. **不扩展无关内容**：用户要前端组件就只写前端，不自动补后端；反之亦然。
 5. **前后端边界清晰**：后端代码不出现前端逻辑，前端代码不出现 SQL 或 Go 语法。
-6. **执行操作**：一定要删除项目中所有的 .idea/ 目录 和 .Ds_Store
+6. **执行操作**：一定要删除项目中所有的 `.idea/` 目录、`.DS_Store` 和误写的 `.Ds_Store`
 
 ---
 
@@ -33,7 +33,7 @@ project-root/
 │   ├── error-journal.md
 │   └── guides/                 ← 所有规范文档（唯一来源）
 │
-├── api/                          # Go 后端
+├── backend/                      # Go 后端
 │   ├── main.go                   # 入口
 │   ├── go.mod / go.work          # 模块管理
 │   ├── Makefile / migrate.mk     # 构建 & 迁移脚本
@@ -56,7 +56,7 @@ project-root/
 │   ├── public/                   # 静态资源 & 上传目录
 │   └── logs/                     # 运行日志
 │
-├── web/                          # Vue 3 前端
+├── frontend/                     # Vue 3 前端
 │   ├── package.json              # pnpm 管理
 │   ├── vite.config.ts            # Vite 构建配置
 │   └── src/
@@ -91,7 +91,7 @@ project-root/
 **后端：**
 - Go 1.26.2（使用所有现代特性）
 - Gin + GORM + github.com/gtkit/*
-- json 库 必须使用 github.com/gtkit/json
+- JSON 编解码必须使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 - 依赖使用最新稳定版
 
 **前端：**
@@ -137,17 +137,16 @@ project-root/
 
 **4a. 后端计算型传感器：**
 ```bash
-golangci-lint run ./...
-go vet ./...
-go test -race -count=1 -timeout=5m ./...
+cd backend && golangci-lint run ./...
+cd backend && go vet ./...
+cd backend && go test -race -count=1 -timeout=5m ./...
 ```
 
 **4b. 前端计算型传感器：**
 ```bash
-cd web
-npx vue-tsc --noEmit
-npx eslint src/ --ext .vue,.ts,.tsx
-npx vite build
+cd frontend && npx vue-tsc --noEmit
+cd frontend && npx eslint src/ --ext .vue,.ts,.tsx
+cd frontend && npx vite build
 ```
 
 **4c. 架构边界检查：**
@@ -164,7 +163,7 @@ npx vite build
 - 没有使用 `any` 类型 ✓
 
 **4d. 前后端类型同步检查（联调时）：**
-- 后端 DTO 与前端 `api/types.ts` 字段一致 ✓
+- 后端 DTO 与前端 `frontend/src/api/types.ts` 字段一致 ✓
 - 后端错误码与前端错误处理映射一致 ✓
 
 **4e. 推理型自审**（按 `review-checklist.md` 逐条核对）
@@ -201,7 +200,7 @@ npx vite build
 
 ### 前后端联调验证
 
-- 后端接口改了 → 前端 `api/types.ts` 必须同步 → `vue-tsc` 通过
+- 后端接口改了 → 前端 `frontend/src/api/types.ts` 必须同步 → `vue-tsc` 通过
 - 前端需要新字段 → 后端 DTO 先加 → 前端再用
 
 ---
@@ -221,7 +220,7 @@ npx vite build
 
 当后端修改了 DTO 时，必须同步检查：
 
-- [ ] Go `dto/` 的 struct → TS `api/types.ts` 的 interface
+- [ ] Go `dto/` 的 struct → TS `frontend/src/api/types.ts` 的 interface
 - [ ] Go json tag（字段名）→ TS interface 字段名一致
 - [ ] Go 可选字段（指针）→ TS 可选字段（`?`）
 - [ ] Go 枚举值（`oneof`）→ TS union type
@@ -236,27 +235,28 @@ npx vite build
 
 # 后端
 dev-server:
-	go run cmd/server/main.go
+	cd backend && go run ./cmd/server
 
 # 前端
 dev-web:
-	cd web && npm run dev
+	cd frontend && npm run dev
 
 # 全量测试
 test:
-	go test -race -count=1 ./...
-	cd web && npx vue-tsc --noEmit
+	cd backend && go test -race -count=1 ./...
+	cd frontend && npx vue-tsc --noEmit
 
 # 全量 lint
 lint:
-	golangci-lint run ./...
-	go vet ./...
-	cd web && npx eslint src/ --ext .vue,.ts,.tsx
+	cd backend && golangci-lint run ./...
+	cd backend && go vet ./...
+	cd frontend && npx eslint src/ --ext .vue,.ts,.tsx
 
 # 构建
 build:
-	go build -o bin/server cmd/server/main.go
-	cd web && npx vite build
+	mkdir -p bin
+	cd backend && go build -o ../bin/server ./cmd/server
+	cd frontend && npx vite build
 ```
 
 ---

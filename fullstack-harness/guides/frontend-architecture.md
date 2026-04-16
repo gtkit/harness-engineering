@@ -12,7 +12,7 @@
 ## 目录结构
 
 ```
-web/
+frontend/
 ├── index.html
 ├── vite.config.ts
 ├── tsconfig.json
@@ -73,7 +73,7 @@ api（HTTP 请求层，封装 Axios 调用）
 后端统一响应格式在前端的类型定义：
 
 ```typescript
-// src/types/api.d.ts
+// frontend/src/types/api.d.ts
 interface ApiResponse<T = unknown> {
   code: number
   message: string
@@ -90,7 +90,7 @@ interface PagedResponse<T = unknown> extends ApiResponse<T[]> {
 }
 ```
 
-每个后端接口在 `api/` 下有对应文件，请求和响应类型必须与后端 DTO 保持同步。
+每个后端接口在 `frontend/src/api/` 下有对应文件，请求和响应类型必须与后端 DTO 保持同步。
 
 ## Composition API 规范
 
