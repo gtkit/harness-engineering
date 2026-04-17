@@ -51,3 +51,157 @@
 - 更新范围：功能清单、安装/初始化步骤、命令示例、配置项说明、目录结构
 - 提交纪律：README 更新与功能代码须在同一次提交中完成，避免文档滞后
 - 交付前自检：若本次变更涉及对外接口、CLI 命令、环境变量、使用流程，而 README 未同步，判定为未完成
+
+## Git Tag 与版本发布（SemVer 强制）
+
+Go 扩展包的依赖解析直接按 tag 走，版本号即对外契约，规则不可违背。
+
+### 标签格式
+
+- 正式版：`vX.Y.Z`（必须以 `v` 开头，Go Module 硬要求）
+- 预发布：`vX.Y.Z-rc.N` / `vX.Y.Z-beta.N` / `vX.Y.Z-alpha.N`
+- 禁止：`1.2.3`（缺 `v` 前缀）、`v1.2`（缺 PATCH）、`release-1.2.3`、`latest`
+
+### 版本号递增规则（Semantic Versioning 2.0.0）
+
+- **MAJOR**：不兼容的 API 变更——删除/重命名导出符号、改函数签名、改返回类型、改行为语义、改错误类型
+- **MINOR**：向后兼容的新功能——新增导出 API、新增可选字段、新增 Option
+- **PATCH**：向后兼容的修复——Bug 修复、文档修正、内部重构、性能优化
+
+### v0.x.y 与 v2+ 特殊规则
+
+- `v0.x.y`：开发期不做兼容性承诺，但破坏性变更至少升 MINOR，便于下游识别
+- `v1.0.0`：宣告稳定，此后严格遵守 SemVer，MAJOR 不可回退
+- `v2.0.0` 及以上：`go.mod` 的 module path 必须带 `/v2`、`/v3` 后缀，且仓库需通过子目录（`v2/`）或分支提供该 major 版本（Go Module 规则）
+
+### 打 tag 前必须通过
+
+```bash
+go vet ./...
+golangci-lint run ./...
+go test -race -count=1 -timeout=5m ./...
+go test -bench=. -benchmem -count=3 ./...
+go test -coverprofile=coverage.out ./...
+```
+
+并确认：
+
+- `CHANGELOG.md` 已追加本版本条目
+- 变更已合并到主干分支（一般是 `main`）
+- 破坏性变更已在 CHANGELOG 和 tag message 中明确标注
+- 所有导出 API 的 GoDoc 与 Example 测试齐全
+
+### Tag 操作规范
+
+- 必须使用附注标签：`git tag -a vX.Y.Z -m "..."`
+- 禁止轻量标签（不带 `-a`）
+- Tag message 使用简体中文
+- 禁止重命名、删除或强制覆盖已推送的 tag——下游可能已缓存
+- 发错版本时，打新 tag 修复（如 `v1.2.4`），不回滚旧 tag
+
+### Tag Message 模板
+
+```text
+版本 vX.Y.Z
+
+主要变更：
+- feat: 新增 xxx
+- fix: 修复 xxx
+
+破坏性变更（如有）：
+- BREAKING CHANGE: xxx 已删除，请使用 yyy 替代
+
+相关 Issue：#123, #124
+```
+
+## 敏感信息与 .gitignore 安全基线
+
+### 禁止入库（零容忍）
+
+- 环境变量文件：`.env`、`.env.local`、`.env.production` 等
+- 密钥文件：`*.pem`、`*.key`、`id_rsa`、`secrets.*`、`credentials.*`
+- 带真实密钥的配置文件（`config.*.yml`、`application.properties` 含密钥版本等）
+- 云服务凭据：AWS / 阿里云 / 腾讯云 AccessKey、Service Account JSON
+- 系统 / IDE 产物：`.DS_Store`、`.idea/`、`.vscode/`（除非团队共享）
+- 构建 / 测试产物：`dist/`、`build/`、`bin/`、`coverage/`、`*.log`
+
+### 代码内禁止硬编码
+
+- API Key、密码、Token、私钥、JWT Secret、Session Secret、加密 Salt 一律从环境变量或密钥管理服务读取
+- 本地开发用 `.env.example` 提供占位符，真实值放 `.env`（不入库）
+- 日志禁止打印完整密钥，必要时脱敏（如 `sk-****abcd`、`Bearer ****`）
+- 返回给调用方的错误信息必须过滤敏感字段
+- 测试禁止使用真实密钥，用 mock / fixture 替代
+- **库代码额外约束**：导出 API 参数/返回值禁止包含明文密钥；文档与 Example 使用占位符
+
+### .gitignore 必备条目
+
+    .env
+    .env.*
+    !.env.example
+    *.pem
+    *.key
+    secrets.*
+    credentials.*
+    .DS_Store
+    .idea/
+    bin/
+    dist/
+    build/
+    coverage/
+    coverage.out
+    *.log
+
+### 事故响应
+
+- 发现敏感信息已入库：**立即吊销该密钥**，再从 Git 历史清除（`git filter-repo` / BFG）
+- 已推送到远端的密钥视作"已泄露"，不可靠删除掩盖
+- 事件记录到 `.harness/error-journal.md`，避免重蹈覆辙
+
+## CHANGELOG 规范（Keep a Changelog）
+
+根目录维护 `CHANGELOG.md`，遵循 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/) 格式。**与 Git Tag 规范强绑定：发版必须先更新 CHANGELOG，再打 tag。**
+
+### 区段结构（示例）
+
+    # Changelog
+
+    ## [Unreleased]
+
+    ### Added
+    ### Changed
+    ### Deprecated
+    ### Removed
+    ### Fixed
+    ### Security
+
+    ## [1.2.0] - 2026-04-17
+
+    ### Added
+    - 新增 `WithTimeout` Option，用于配置请求超时（#123）
+
+    ### Fixed
+    - 修复并发场景下 `Client.Do` 可能 panic 的问题（#124）
+
+### 变更类别
+
+- **Added** 新功能
+- **Changed** 现有功能的变更
+- **Deprecated** 即将移除的功能
+- **Removed** 已移除的功能
+- **Fixed** Bug 修复
+- **Security** 安全相关修复
+
+### 写作约束
+
+- 语言：简体中文
+- 视角：站在下游用户 / 调用方角度描述，不写实现细节
+- 粒度：一条一件事，对应一个 PR 或一组强相关 commit
+- 关联：条目尾部附 Issue / PR 链接，如 `（#123）`
+- 禁止写入：`refactor xxx`、`bump version`、`update deps` 等内部动作
+
+### 维护纪律
+
+- 每个 PR 合并主干时，同步更新 `[Unreleased]` 区段
+- 发版时：将 `[Unreleased]` 内容剪切到新版本区段，附日期（`YYYY-MM-DD`），Unreleased 清空
+- 破坏性变更在对应版本条目顶部用 **⚠ 破坏性变更** 标注，并与 tag message 的 `BREAKING CHANGE:` 描述保持一致

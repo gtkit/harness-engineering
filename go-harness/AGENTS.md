@@ -173,3 +173,94 @@ go test -race -count=1 -timeout=5m ./...
 - 更新范围：功能清单、安装/初始化步骤、命令示例、配置项说明、目录结构
 - 提交纪律：README 更新与功能代码须在同一次提交中完成，避免文档滞后
 - 交付前自检：若本次变更涉及对外接口、CLI 命令、环境变量、使用流程，而 README 未同步，判定为未完成
+
+## 敏感信息与 .gitignore 安全基线
+
+### 禁止入库（零容忍）
+
+- 环境变量文件：`.env`、`.env.local`、`.env.production` 等
+- 密钥文件：`*.pem`、`*.key`、`id_rsa`、`secrets.*`、`credentials.*`
+- 带真实密钥的配置文件（`config.*.yml`、`application.properties` 含密钥版本等）
+- 云服务凭据：AWS / 阿里云 / 腾讯云 AccessKey、Service Account JSON
+- 系统 / IDE 产物：`.DS_Store`、`.idea/`、`.vscode/`（除非团队共享）
+- 构建 / 测试产物：`dist/`、`build/`、`coverage/`、`*.log`
+
+### 代码内禁止硬编码
+
+- API Key、密码、Token、私钥、JWT Secret、Session Secret、加密 Salt 一律从环境变量或密钥管理服务读取
+- 本地开发用 `.env.example` 提供占位符，真实值放 `.env`（不入库）
+- 日志禁止打印完整密钥，必要时脱敏（如 `sk-****abcd`、`Bearer ****`）
+- 返回给客户端的错误信息、响应体必须过滤敏感字段
+- 测试禁止使用真实密钥，用 mock / fixture 替代
+
+### .gitignore 必备条目
+
+    .env
+    .env.*
+    !.env.example
+    *.pem
+    *.key
+    secrets.*
+    credentials.*
+    .DS_Store
+    .idea/
+    dist/
+    build/
+    coverage/
+    *.log
+
+各技术栈按需补齐（Go `bin/`、Node `node_modules/`、PHP `vendor/` 等）。
+
+### 事故响应
+
+- 发现敏感信息已入库：**立即吊销该密钥**，再从 Git 历史清除（`git filter-repo` / BFG）
+- 已推送到远端的密钥视作"已泄露"，不可靠删除掩盖
+- 事件记录到 `.harness/error-journal.md`，避免重蹈覆辙
+
+## CHANGELOG 规范（Keep a Changelog）
+
+根目录维护 `CHANGELOG.md`，遵循 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/) 格式。
+
+### 区段结构（示例）
+
+    # Changelog
+
+    ## [Unreleased]
+
+    ### Added
+    ### Changed
+    ### Deprecated
+    ### Removed
+    ### Fixed
+    ### Security
+
+    ## [1.2.0] - 2026-04-17
+
+    ### Added
+    - 新增用户导出 API（支持 CSV / Excel 格式）
+
+    ### Fixed
+    - 修复移动端登录页面显示异常
+
+### 变更类别
+
+- **Added** 新功能
+- **Changed** 现有功能的变更
+- **Deprecated** 即将移除的功能
+- **Removed** 已移除的功能
+- **Fixed** Bug 修复
+- **Security** 安全相关修复
+
+### 写作约束
+
+- 语言：简体中文
+- 视角：站在下游用户 / 消费者角度描述，不写实现细节
+- 粒度：一条一件事，对应一个 PR 或一组强相关 commit
+- 关联：条目尾部附 Issue / PR 链接，如 `（#123）`
+- 禁止写入：`refactor xxx`、`bump version`、`update deps` 等内部动作
+
+### 维护纪律
+
+- 每个 PR 合并主干时，同步更新 `[Unreleased]` 区段
+- 发版时：将 `[Unreleased]` 内容剪切到新版本区段，附日期（`YYYY-MM-DD`），Unreleased 清空
+- 破坏性变更在对应版本条目顶部用 **⚠ 破坏性变更** 标注
