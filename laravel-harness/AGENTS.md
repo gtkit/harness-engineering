@@ -101,3 +101,23 @@ php artisan route:list
 ## 错误记忆
 
 `.harness/error-journal.md` —— 每次任务前读取，犯错时追加。
+
+## 沟通与提交规范
+
+### 沟通语言
+
+**与用户的所有对话必须使用简体中文**，包括解释、确认、进度汇报、错误说明。
+
+### Commit 规范（强制）
+
+- 格式：`<类型>(<范围>): <标题>`，必要时附正文和页脚
+- 语言：Header / Body / Footer 全部使用简体中文
+- 类型：`feat` | `fix` | `docs` | `style` | `refactor` | `perf` | `test` | `chore` | `ci` | `revert`
+- 标题：祈使句、现在时态（用"添加"而非"添加了"），结尾不加句号
+- 范围：尽可能具体（如 `auth`、`ui`、`api`），不确定可省略括号
+- 正文：仅在需要解释"为什么"时添加，说明动机而非实现
+- 页脚：关联 Issue 用 `Closes #ID`；破坏性变更以 `BREAKING CHANGE:` 开头
+- 输出限制：仅输出 Commit Message，不加代码块标记、不加寒暄
+- 示例：
+  - `fix(auth): 修复移动端登录页面显示异常`
+  - `feat(cart): 添加购物车核心功能`
