@@ -12,7 +12,7 @@
 
 ## 技术栈
 
-**后端**：Go 1.26.2 + Gin + GORM + gtkit（代码在 `backend/`）
+**后端**：Go 1.26 + Gin + GORM + gtkit（代码在 `backend/`）
 **前端**：Vue 3 + Vite + TypeScript strict + Pinia + Axios（代码在 `frontend/`）
 **JSON**：后端统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 依赖使用最新稳定版。
@@ -82,7 +82,7 @@ cd frontend && npx vite build
 每次交付附上：
 ```
 ## 合规检查摘要
-- [x] Go 1.26.2 / Vue 3 + TS strict
+- [x] Go 1.26 / Vue 3 + TS strict
 - [x] 后端分层 + 前端分层
 - [x] 前后端类型同步
 - [x] 错误处理完整

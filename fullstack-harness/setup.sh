@@ -62,7 +62,7 @@ mkdir -p "${CODEX_SKILL_DIR}"
 cat > "${CODEX_SKILL_DIR}/SKILL.md" << 'EOF'
 ---
 name: fullstack-harness
-description: Go + Vue 全栈 Harness Engineering skill。Go 1.26.2 + Gin + GORM + Vue 3 + Vite + TypeScript。所有涉及本项目代码的任务都应触发。
+description: Go + Vue 全栈 Harness Engineering skill。Go 1.26 + Gin + GORM + Vue 3 + Vite + TypeScript。所有涉及本项目代码的任务都应触发。
 ---
 
 # Fullstack Harness Skill

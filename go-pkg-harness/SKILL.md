@@ -23,7 +23,7 @@ description: |
 
 ## 第一章：技术栈
 
-- **Go 1.26.2**（使用所有现代特性：泛型、range-over-func、slices/maps/cmp、iterator）
+- **Go 1.26**（使用所有现代特性：泛型、range-over-func、slices/maps/cmp、iterator）
 - **零外部依赖优先**：能用标准库实现的绝不引入第三方；JSON 场景统一视为例外
 - **必须引入第三方时，优先使用 `github.com/gtkit/` 仓库下的包**
 - gtkit 没有的，再选最小依赖、最活跃维护的第三方
@@ -72,7 +72,7 @@ go test -bench=. -benchmem ./...
 **合规摘要：**
 ```
 ## 合规检查摘要
-- [x] Go 1.26.2 现代特性
+- [x] Go 1.26 现代特性
 - [x] 零/最小外部依赖
 - [x] Functional Options
 - [x] 导出 API 全部有 GoDoc

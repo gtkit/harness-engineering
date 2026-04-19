@@ -12,7 +12,7 @@
 
 ## 技术栈
 
-- Go 1.26.2（使用所有现代特性：泛型、slices/maps/cmp、range-over-func、iterator）
+- Go 1.26（使用所有现代特性：泛型、slices/maps/cmp、range-over-func、iterator）
 - 零外部依赖优先，能用标准库的绝不引入第三方；JSON 场景统一视为例外
 - **必须引入第三方时，优先使用 `github.com/gtkit/*`**
 - **JSON 必须用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`**
@@ -51,7 +51,7 @@ go test -coverprofile=coverage.out ./...
 每次交付附上：
 ```
 ## 合规检查摘要
-- [x] Go 1.26.2 现代特性
+- [x] Go 1.26 现代特性
 - [x] 零/最小外部依赖
 - [x] Functional Options + 合理默认值
 - [x] 导出 API 全部有 GoDoc

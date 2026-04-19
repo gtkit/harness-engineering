@@ -1,7 +1,7 @@
 ---
 name: fullstack-harness
 description: |
-  Go + Vue 全栈项目的 Harness Engineering skill。后端 Go 1.26.2 + Gin + GORM + gtkit，前端 Vue 3 + Vite + TypeScript + Pinia，前后端代码在同一项目目录下。将架构约束、编码规范、AI 行为纪律、全面测试与交叉验证自动注入 Agent 工作流。触发场景：Go 后端开发（handler/service/repository/LLM/支付/扩展包）、Vue 前端开发（组件/页面/composable/api 层/store）、前后端联调（类型同步/接口对接）、代码审查、架构设计。关键词：Go、Gin、GORM、gtkit、Vue、Vite、TypeScript、Pinia、Axios、handler、service、composable、component、api、前后端、全栈。即使用户没有明确提到"harness"，只要涉及本项目的任何开发任务都应触发。
+  Go + Vue 全栈项目的 Harness Engineering skill。后端 Go 1.26 + Gin + GORM + gtkit，前端 Vue 3 + Vite + TypeScript + Pinia，前后端代码在同一项目目录下。将架构约束、编码规范、AI 行为纪律、全面测试与交叉验证自动注入 Agent 工作流。触发场景：Go 后端开发（handler/service/repository/LLM/支付/扩展包）、Vue 前端开发（组件/页面/composable/api 层/store）、前后端联调（类型同步/接口对接）、代码审查、架构设计。关键词：Go、Gin、GORM、gtkit、Vue、Vite、TypeScript、Pinia、Axios、handler、service、composable、component、api、前后端、全栈。即使用户没有明确提到"harness"，只要涉及本项目的任何开发任务都应触发。
 ---
 
 # Fullstack Harness Engineering Skill
@@ -89,7 +89,7 @@ project-root/
 ### 技术栈锁定
 
 **后端：**
-- Go 1.26.2（使用所有现代特性）
+- Go 1.26（使用所有现代特性）
 - Gin + GORM + github.com/gtkit/*
 - JSON 编解码必须使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 - 依赖使用最新稳定版
@@ -171,7 +171,7 @@ cd frontend && npx vite build
 **4f. 合规摘要：**
 ```
 ## 合规检查摘要
-- [x] Go 1.26.2 / Vue 3 + TS strict
+- [x] Go 1.26 / Vue 3 + TS strict
 - [x] 后端分层架构
 - [x] 前端分层架构
 - [x] 前后端类型同步

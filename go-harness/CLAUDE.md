@@ -11,7 +11,7 @@
 
 ## 项目信息
 
-- **语言**：Go 1.26.2
+- **语言**：Go 1.26
 - **框架**：Gin + GORM + github.com/gtkit/*
 - **JSON**：统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 - **类型**：企业级 Web 服务

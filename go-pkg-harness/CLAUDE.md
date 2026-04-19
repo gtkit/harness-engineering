@@ -11,7 +11,7 @@
 这是一个 **Go 扩展包**（供其他项目引用的第三方库），不是业务服务。
 库代码标准比业务代码更高——你写的每一行都会被别人依赖。
 
-- **Go 1.26.2**，使用所有现代特性
+- **Go 1.26**，使用所有现代特性
 - **零外部依赖优先**，JSON 场景除外；必须引入第三方时优先用 `github.com/gtkit/*`
 - **JSON 必须用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`**
 - 规范文档在 `.harness/guides/`

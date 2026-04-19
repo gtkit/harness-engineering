@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> 本项目使用 Go 1.26.2 + Gin + GORM + github.com/gtkit/* 开发企业级 Web 服务。
+> 本项目使用 Go 1.26 + Gin + GORM + github.com/gtkit/* 开发企业级 Web 服务。
 > 以下规则适用于所有 Codex 任务，不可跳过。
 
 ---
@@ -15,7 +15,7 @@
 
 ## 技术栈
 
-- Go 1.26.2（使用所有现代特性：range-over-func、slices/maps/cmp、iterator 等）
+- Go 1.26（使用所有现代特性：range-over-func、slices/maps/cmp、iterator 等）
 - JSON 编解码统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 - 依赖使用最新稳定版，不用 RC/Beta
 - 已有 go.mod 的项目遵循已锁定版本
@@ -108,7 +108,7 @@ go test -race -count=1 -timeout=5m ./...
 
 ```
 ## 合规检查摘要
-- [x] Go 1.26.2 现代特性
+- [x] Go 1.26 现代特性
 - [x] 分层架构
 - [x] 错误处理
 - [x] 并发安全
