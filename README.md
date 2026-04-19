@@ -499,3 +499,53 @@ HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/laravel-harness/setup.sh
 **Q：setup.sh 在 macOS 上能跑吗？**
 
 能。脚本兼容 macOS 自带的 bash 3.2 和 zsh，没有用任何 Linux 专有语法。
+---
+
+## Windows 用法
+
+现在 5 个 harness 模块都提供 Windows 原生入口：
+
+- `setup.ps1`，用于 PowerShell
+- `setup.bat`，用于 `cmd.exe`
+
+建议先进入目标项目根目录，再执行对应模块脚本。下面用相对占位路径示例，避免依赖任何本机绝对路径。
+
+### PowerShell 示例
+
+```powershell
+cd .\your-backend-project
+powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\go-harness\setup.ps1
+
+cd .\your-fullstack-project
+powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\fullstack-harness\setup.ps1
+
+cd .\your-go-package
+powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\go-pkg-harness\setup.ps1
+
+cd .\your-laravel-project
+powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\laravel-harness\setup.ps1
+
+cd .\your-laravel-fullstack-project
+powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\laravel-fullstack-harness\setup.ps1
+```
+
+### 命令提示符示例
+
+```bat
+cd /d .\your-backend-project
+.\path\to\harness-engineering\go-harness\setup.bat
+
+cd /d .\your-fullstack-project
+.\path\to\harness-engineering\fullstack-harness\setup.bat
+
+cd /d .\your-go-package
+.\path\to\harness-engineering\go-pkg-harness\setup.bat
+
+cd /d .\your-laravel-project
+.\path\to\harness-engineering\laravel-harness\setup.bat
+
+cd /d .\your-laravel-fullstack-project
+.\path\to\harness-engineering\laravel-fullstack-harness\setup.bat
+```
+
+Windows 下同样支持先设置 `HARNESS_FORCE_GUIDES=1`，再执行任一脚本。
