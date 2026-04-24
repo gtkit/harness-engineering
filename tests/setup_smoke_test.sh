@@ -31,6 +31,39 @@ assert_line_exists() {
     grep -Fxq "$line" "$file" || fail "expected ${file} to contain line: ${line}"
 }
 
+assert_gitignore_baseline() {
+    local file="$1"
+
+    for line in \
+        ".openspec-auto-backup/" \
+        ".openspec-auto/" \
+        ".idea/" \
+        ".vscode/" \
+        ".Ds_Store" \
+        ".DS_Store" \
+        "*.log" \
+        "# Harness: 本地工具与 Agent 运行产物" \
+        ".harness/" \
+        ".claude/" \
+        ".codex/" \
+        ".agents/" \
+        "openspec/" \
+        "AGENTS.md" \
+        "CLAUDE.md" \
+        "tools/"; do
+        assert_line_exists "$file" "$line"
+    done
+}
+
+assert_generated_docs_do_not_require_cleanup() {
+    local project_dir="$1"
+
+    assert_file_not_contains "${project_dir}/AGENTS.md" "清理杂物"
+    assert_file_not_contains "${project_dir}/AGENTS.md" "必须删除并保持工作区干净"
+    assert_file_not_contains "${project_dir}/CLAUDE.md" "清理杂物"
+    assert_file_not_contains "${project_dir}/CLAUDE.md" "必须删除"
+}
+
 run_setup() {
     local harness_dir="$1"
     local project_dir="$2"
@@ -63,18 +96,23 @@ mkdir -p "$go_home" "$go_project"
 run_setup "go-harness" "$go_project" "$go_home"
 
 test -f "${go_project}/.gitignore" || fail "go-harness should create .gitignore when missing"
-assert_line_exists "${go_project}/.gitignore" ".harness/error-journal.md"
-assert_line_exists "${go_project}/.gitignore" ".idea/"
-assert_line_exists "${go_project}/.gitignore" ".DS_Store"
+assert_gitignore_baseline "${go_project}/.gitignore"
+assert_generated_docs_do_not_require_cleanup "${go_project}"
 
 printf 'LOCAL CHANGE\n' > "${go_project}/.harness/guides/architecture.md"
 run_setup "go-harness" "$go_project" "$go_home"
 assert_file_contains "${go_project}/.harness/guides/architecture.md" "LOCAL CHANGE"
 
-assert_file_contains "${ROOT_DIR}/go-harness/AGENTS.md" ".idea/"
-assert_file_contains "${ROOT_DIR}/go-harness/AGENTS.md" ".DS_Store"
-assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" ".idea/"
-assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" ".DS_Store"
+for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
+    project_dir="${tmpdir}/${harness_dir}-project"
+    home_dir="${tmpdir}/${harness_dir}-home"
+    mkdir -p "$project_dir" "$home_dir"
+    run_setup "${harness_dir}" "${project_dir}" "${home_dir}"
+    test -f "${project_dir}/.gitignore" || fail "${harness_dir} should create .gitignore when missing"
+    assert_gitignore_baseline "${project_dir}/.gitignore"
+    assert_generated_docs_do_not_require_cleanup "${project_dir}"
+done
+
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "github.com/gtkit/json"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "禁止 \`encoding/json\`"
 

@@ -123,13 +123,31 @@ else
     echo "  ⊘ .gitignore 已存在，继续补充规则"
 fi
 
+GITIGNORE_PATTERNS=(
+    ".openspec-auto-backup/"
+    ".openspec-auto/"
+    ".idea/"
+    ".vscode/"
+    ".Ds_Store"
+    ".DS_Store"
+    "*.log"
+    ".harness/"
+    ".claude/"
+    ".codex/"
+    ".agents/"
+    "openspec/"
+    "AGENTS.md"
+    "CLAUDE.md"
+    "tools/"
+)
+
 GITIGNORE_UPDATED=0
 if ! grep -Fq "# Harness: 本地工具与 Agent 运行产物" "${GITIGNORE_FILE}" 2>/dev/null; then
     printf '\n# Harness: 本地工具与 Agent 运行产物\n' >> "${GITIGNORE_FILE}"
     GITIGNORE_UPDATED=1
 fi
 
-for pattern in ".harness/error-journal.md" ".idea/" ".DS_Store"; do
+for pattern in "${GITIGNORE_PATTERNS[@]}"; do
     if append_gitignore_line "${GITIGNORE_FILE}" "${pattern}"; then
         GITIGNORE_UPDATED=1
     fi
@@ -166,4 +184,3 @@ echo "            ├── testing-and-validation.md"
 echo "            ├── laravel-modules.md"
 echo "            └── review-checklist.md"
 echo ""
-
