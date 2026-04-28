@@ -1,30 +1,32 @@
 # CLAUDE.md
 
-> Claude Code 每次对话自动加载，fullstack-harness skill 始终生效。
+> Claude Code 项目级完整规则入口。
+> 为避免依赖全局厚 skill，本文件承载完整项目规则；与 `AGENTS.md` 应保持同级完整。
 
-## 强制加载
+---
+## 行为纪律
 
-**每次对话必须加载 fullstack-harness skill 并遵守全部规则。**
-无论任务多简单，只要涉及本项目代码（Go 或 Vue），所有规则生效。
+1. **禁止编造**：不确定的 API、包名、组件 props 不写，问用户。
+2. **禁止猜测**：不说"应该支持"、"大概是"。
+3. **严格按结构输出**：只做用户要求的事，不扩展。
+4. **前后端不混**：后端任务不自动补前端，反之亦然。
+5. **多解陈列**：指令存在多种合理解释时，并列呈现给用户选择，不默默择一实现。
+6. **反推更简方案**：发现比用户原方案更简单的做法时，主动提出并说明权衡，不默默按原方案堆代码。
+7. **量化自检**：写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；单次使用的代码不写抽象 / 配置项 / 扩展点。
 
-## 项目信息
+## 技术栈
 
-- **后端**：Go 1.26 + Gin + GORM + gtkit — 代码在 `backend/`
-- **前端**：Vue 3 + Vite + TypeScript + Pinia — 代码在 `frontend/`
-- **JSON**：后端统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`
-- **规范文档**：`.harness/guides/`（唯一来源）
-- **错误记忆**：`.harness/error-journal.md`（每次任务前读取）
+**后端**：Go 1.26 + Gin + GORM + gtkit（代码在 `backend/`）
+**前端**：Vue 3 + Vite + TypeScript strict + Pinia + Axios（代码在 `frontend/`）
+**JSON**：后端统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
+依赖使用最新稳定版。
 
-## 行为底线
+## Logic 四步
 
-1. 禁止编造——不确定就问
-2. 禁止自由发挥——只做要求的事
-3. 禁止跳过检查——每次交付附合规摘要
-4. Logic 四步走完——理解 → 提取 → 组织 → 合规
-5. 前后端不混——后端任务不自动补前端，反之亦然
-6. 多解陈列——指令存在多种合理解释时，并列呈现给用户选择，不默默择一
-7. 反推更简方案——发现比用户原方案更简单的做法，主动提出并说明权衡，不默默按原方案堆代码
-8. 量化自检——写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；单次使用的代码不写抽象 / 配置项 / 扩展点
+1. **理解需求**：判断是后端、前端还是联调，有歧义提问
+2. **提取信息**：加载对应 Guide（见下表）
+3. **按结构组织**：后端按 handler→service→repo，前端按 views→composables→api
+4. **检查合规**：运行传感器 + 自审 + 交叉验证 + 合规摘要
 
 ## 外科式修改（Surgical Changes）
 
@@ -44,9 +46,10 @@
 
 | 模糊指令 | 可验证目标 |
 |---------|----------|
-| "加个校验" | 写非法输入测试（后端 table-driven / 前端组件测试）→ 让它通过 |
+| "加个校验" | 后端写 table-driven 测试 / 前端写组件测试 → 让它通过 |
 | "修这个 bug" | 写复现用例测试 → 让它通过 |
 | "重构 X" | 确认改前测试全绿 → 改后测试仍全绿 |
+| "联调 API" | 先定好前后端 DTO 契约 → 双侧测试对齐 |
 | "让它能跑" | 不可验证，退回用户澄清成功标准 |
 
 **多步任务先列计划：**
@@ -55,6 +58,92 @@
     2. [步骤] → verify: [可观察的检查]
 
 强目标让你独立闭环；弱目标会把你和用户都拖进反复澄清循环。
+
+## Guide 加载表
+
+| 任务 | 读哪个 Guide |
+|-----|-------------|
+| 后端 API | `.harness/guides/architecture.md` + `.harness/guides/api-conventions.md` |
+| 数据库 | `.harness/guides/db-patterns.md` |
+| 大模型 | `.harness/guides/llm-integration.md` |
+| 支付 | `.harness/guides/payment.md` |
+| Go 扩展包 | `.harness/guides/pkg-design.md` |
+| 前端页面/组件 | `.harness/guides/frontend-architecture.md` + `.harness/guides/frontend-coding.md` |
+| 前端 API 对接 | `.harness/guides/frontend-api.md` |
+| 前后端联调 | `.harness/guides/api-conventions.md` + `.harness/guides/frontend-api.md` |
+| 代码审查 | `.harness/guides/review-checklist.md` |
+
+## 后端分层
+
+```
+handler → service → repository
+```
+- handler 禁止 import gorm / repository
+- service 禁止 import gin
+- pkg/ 禁止 import internal/
+
+## 前端分层
+
+```
+views → composables → api → 后端
+```
+- views/components 禁止直接 import axios
+- components 只接收 props + emit，不调用 api/
+- 禁止 `any`，禁止 Options API，禁止硬编码后端 URL
+
+## 提交前检查
+
+```bash
+# 后端
+cd backend && golangci-lint run ./...
+cd backend && go vet ./...
+cd backend && go test -race -count=1 -timeout=5m ./...
+
+# 前端
+cd frontend && npx vue-tsc --noEmit
+cd frontend && npx eslint src/ --ext .vue,.ts,.tsx
+cd frontend && npx vite build
+```
+
+## 前后端类型同步
+
+后端 DTO 改了，前端 `frontend/src/api/types.ts` 必须同步：
+- Go struct json tag ↔ TS interface 字段名
+- Go 指针字段 ↔ TS 可选字段 `?`
+- Go oneof ↔ TS union type
+
+## 合规摘要
+
+每次交付附上：
+```
+## 合规检查摘要
+- [x] Go 1.26 / Vue 3 + TS strict
+- [x] 后端分层 + 前端分层
+- [x] 前后端类型同步
+- [x] 错误处理完整
+- [x] 无硬编码
+- [x] 测试覆盖
+- [x] 无编造内容
+```
+
+## 错误记忆
+
+`.harness/error-journal.md`——每次任务前读取，犯错时追加。
+
+优先执行项目内脚本：
+
+```bash
+bash .harness/scripts/read-error-journal.sh .
+bash .harness/scripts/append-error-journal.sh . user-correction fullstack "用户纠正了前后端入口文件边界"
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area fullstack -Summary "用户纠正了前后端入口文件边界"
+```
+
+用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
+用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
 
 ## 沟通与提交规范
 
@@ -89,7 +178,7 @@
 
 - 环境变量文件：`.env`、`.env.local`、`.env.production` 等
 - 密钥文件：`*.pem`、`*.key`、`id_rsa`、`secrets.*`、`credentials.*`
-- 带真实密钥的配置文件（`config.*.yml`、`application.properties` 含密钥版本等）
+- 带真实密钥的配置文件（`config.*.yml`、`application.properties` 含密钥版本等)
 - 云服务凭据：AWS / 阿里云 / 腾讯云 AccessKey、Service Account JSON
 - 系统 / IDE 产物：`.DS_Store`、`.idea/`、`.vscode/`（除非团队共享）
 - 构建 / 测试产物：`dist/`、`build/`、`coverage/`、`*.log`

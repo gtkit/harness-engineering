@@ -154,7 +154,27 @@ go test -race -count=1 -timeout=5m ./...
 ## 错误记忆
 
 如果项目中存在 `.harness/error-journal.md`，每次任务开始前先读取，避免重蹈覆辙。
-当用户纠正你的输出时，将错误追加到 `.harness/error-journal.md`，格式：
+
+优先执行项目内脚本，而不是手工复制模板：
+
+```bash
+bash .harness/scripts/read-error-journal.sh .
+bash .harness/scripts/append-error-journal.sh . user-correction auth "用户纠正了入口文件读取顺序"
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area auth -Summary "用户纠正了入口文件读取顺序"
+```
+
+以下场景必须立即追加条目，再继续修复：
+- 用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号
+- 用户纠正输出
+- 命令失败 / 测试失败
+- code review 发现缺陷
+- 修复后确认是回归问题
+
+如果脚本不存在，才按以下格式手工追加：
 
 ```markdown
 ## YYYY-MM-DD: [错误类别]

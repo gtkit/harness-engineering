@@ -100,6 +100,21 @@ go test -coverprofile=coverage.out ./...
 
 `.harness/error-journal.md`——犯错时追加，下次读取规避。
 
+优先执行项目内脚本：
+
+```bash
+bash .harness/scripts/read-error-journal.sh .
+bash .harness/scripts/append-error-journal.sh . user-correction pkg "用户指出包导出面设计不合理"
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area pkg -Summary "用户指出包导出面设计不合理"
+```
+
+用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
+用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
+
 ## 沟通与提交规范
 
 ### 沟通语言

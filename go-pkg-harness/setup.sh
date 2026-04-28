@@ -11,8 +11,11 @@ set -euo pipefail
 # ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HARNESS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_DIR="$(pwd)"
 FORCE_GUIDES="${HARNESS_FORCE_GUIDES:-0}"
+FORCE_PROJECT_FILES="${HARNESS_FORCE_PROJECT_FILES:-0}"
+ERROR_JOURNAL_RUNTIME_DIR="${HARNESS_ROOT}/scripts/error-journal"
 
 append_gitignore_line() {
     local file="$1"
@@ -40,6 +43,16 @@ if [ ! -d "${SCRIPT_DIR}/guides" ]; then
     exit 1
 fi
 
+if [ ! -d "${ERROR_JOURNAL_RUNTIME_DIR}" ]; then
+    echo "✗ 错误: 找不到 ${ERROR_JOURNAL_RUNTIME_DIR}"
+    exit 1
+fi
+
+if [ ! -f "${SCRIPT_DIR}/SKILL.codex.md" ]; then
+    echo "✗ 错误: 找不到 ${SCRIPT_DIR}/SKILL.codex.md"
+    exit 1
+fi
+
 # ==========================================================
 # Step 1: 全局 Skill
 # ==========================================================
@@ -59,17 +72,7 @@ echo "  ✓ ~/.claude/skills/go-pkg-harness/SKILL.md"
 CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
 CODEX_SKILL_DIR="${CODEX_HOME}/skills/go-pkg-harness"
 mkdir -p "${CODEX_SKILL_DIR}"
-cat > "${CODEX_SKILL_DIR}/SKILL.md" << 'EOF'
----
-name: go-pkg-harness
-description: Go 扩展包开发专用 Harness skill。包结构、Functional Options、GoDoc、Example 测试、Benchmark、泛型、API 兼容性。所有 Go 包/库开发任务都应触发。
----
-
-# Go Package Harness Skill
-
-完整规则在项目根目录 AGENTS.md。
-专项规范在 .harness/guides/。
-EOF
+cp "${SCRIPT_DIR}/SKILL.codex.md" "${CODEX_SKILL_DIR}/SKILL.md"
 echo "  ✓ ~/.codex/skills/go-pkg-harness/SKILL.md"
 
 echo ""
@@ -84,17 +87,25 @@ echo "--------------------------------------------"
 echo ""
 
 # CLAUDE.md
-if [ ! -f "${PROJECT_DIR}/CLAUDE.md" ]; then
+if [ "${FORCE_PROJECT_FILES}" = "1" ] || [ ! -f "${PROJECT_DIR}/CLAUDE.md" ]; then
     cp "${SCRIPT_DIR}/CLAUDE.md" "${PROJECT_DIR}/CLAUDE.md"
-    echo "  ✓ CLAUDE.md"
+    if [ "${FORCE_PROJECT_FILES}" = "1" ]; then
+        echo "  ✓ CLAUDE.md（已刷新）"
+    else
+        echo "  ✓ CLAUDE.md"
+    fi
 else
     echo "  ⊘ CLAUDE.md 已存在，跳过"
 fi
 
 # AGENTS.md
-if [ ! -f "${PROJECT_DIR}/AGENTS.md" ]; then
+if [ "${FORCE_PROJECT_FILES}" = "1" ] || [ ! -f "${PROJECT_DIR}/AGENTS.md" ]; then
     cp "${SCRIPT_DIR}/AGENTS.md" "${PROJECT_DIR}/AGENTS.md"
-    echo "  ✓ AGENTS.md"
+    if [ "${FORCE_PROJECT_FILES}" = "1" ]; then
+        echo "  ✓ AGENTS.md（已刷新）"
+    else
+        echo "  ✓ AGENTS.md"
+    fi
 else
     echo "  ⊘ AGENTS.md 已存在，跳过"
 fi
@@ -121,6 +132,25 @@ if [ "${FORCE_GUIDES}" = "1" ]; then
     echo "  ✓ .harness/guides/ — ${GUIDE_COUNT} 个规范文档（强制刷新 ${GUIDE_COPIED} 个）"
 else
     echo "  ✓ .harness/guides/ — ${GUIDE_COUNT} 个规范文档（新增 ${GUIDE_COPIED} 个，保留 ${GUIDE_PRESERVED} 个）"
+fi
+
+mkdir -p "${PROJECT_DIR}/.harness/scripts"
+RUNTIME_COPIED=0
+RUNTIME_PRESERVED=0
+for f in "${ERROR_JOURNAL_RUNTIME_DIR}/"*; do
+    filename="$(basename "$f")"
+    dest="${PROJECT_DIR}/.harness/scripts/${filename}"
+    if [ "${FORCE_PROJECT_FILES}" = "1" ] || [ ! -f "$dest" ]; then
+        cp "$f" "$dest"
+        RUNTIME_COPIED=$((RUNTIME_COPIED + 1))
+    else
+        RUNTIME_PRESERVED=$((RUNTIME_PRESERVED + 1))
+    fi
+done
+if [ "${FORCE_PROJECT_FILES}" = "1" ]; then
+    echo "  ✓ .harness/scripts/ — 已刷新 ${RUNTIME_COPIED} 个 runtime 脚本"
+else
+    echo "  ✓ .harness/scripts/ — 新增 ${RUNTIME_COPIED} 个，保留 ${RUNTIME_PRESERVED} 个"
 fi
 
 # error-journal
@@ -158,7 +188,10 @@ GITIGNORE_PATTERNS=(
     ".Ds_Store"
     ".DS_Store"
     "*.log"
-    ".harness/"
+    "findings.md"
+    "progress.md"
+    "task_plan.md"
+    ".harness/error-journal.md"
     ".claude/"
     ".codex/"
     ".agents/"
@@ -201,11 +234,16 @@ echo "  ├── CLAUDE.md"
 echo "  ├── AGENTS.md"
 echo "  └── .harness/"
 echo "      ├── error-journal.md"
-echo "      └── guides/"
+echo "      ├── guides/"
 echo "          ├── pkg-structure.md     包结构、接口、Options"
 echo "          ├── pkg-errors.md        错误体系"
 echo "          ├── pkg-testing.md       测试、Benchmark、Example"
 echo "          ├── pkg-docs.md          GoDoc、README、CHANGELOG"
 echo "          ├── pkg-generics.md      泛型应用"
 echo "          └── pkg-review.md        包级审查清单"
+echo "      └── scripts/"
+echo "          ├── read-error-journal.sh"
+echo "          ├── append-error-journal.sh"
+echo "          ├── read-error-journal.ps1"
+echo "          └── append-error-journal.ps1"
 echo ""

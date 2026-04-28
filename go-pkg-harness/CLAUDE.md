@@ -1,31 +1,32 @@
 # CLAUDE.md
 
-> Go 扩展包（第三方库）开发专用。Claude Code 每次对话自动加载。
+> Claude Code 项目级完整规则入口。
+> 为避免依赖全局厚 skill，本文件承载完整项目规则；与 `AGENTS.md` 应保持同级完整。
 
-## 强制加载
+---
+## 行为纪律
 
-**每次对话必须加载 go-pkg-harness skill 并遵守全部规则。**
+1. **禁止编造**：不确定的标准库 API、泛型语法不写，问用户。
+2. **禁止猜测**：不说"应该支持"、"大概是"。
+3. **严格按结构输出**：只写要求的功能，不自作主张加 feature。
+4. **库代码零容忍**：不留 TODO、不留 panic、不留未处理的 error。
+5. **多解陈列**：指令存在多种合理解释时，并列呈现给用户选择，不默默择一实现。
+6. **反推更简方案**：发现比用户原方案更简单的做法时，主动提出并说明权衡，不默默按原方案堆代码。
+7. **量化自检**：写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；库导出面积能小则小，单次使用的内部代码不写抽象 / 配置项 / 扩展点。
 
-## 项目性质
+## 技术栈
 
-这是一个 **Go 扩展包**（供其他项目引用的第三方库），不是业务服务。
-库代码标准比业务代码更高——你写的每一行都会被别人依赖。
-
-- **Go 1.26**，使用所有现代特性
-- **零外部依赖优先**，JSON 场景除外；必须引入第三方时优先用 `github.com/gtkit/*`
+- Go 1.26（使用所有现代特性：泛型、slices/maps/cmp、range-over-func、iterator）
+- 零外部依赖优先，能用标准库的绝不引入第三方；JSON 场景统一视为例外
+- **必须引入第三方时，优先使用 `github.com/gtkit/*`**
 - **JSON 必须用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`**
-- 规范文档在 `.harness/guides/`
-- 错误记忆在 `.harness/error-journal.md`
 
-## 行为底线
+## Logic 四步
 
-1. 禁止编造——不确定的标准库 API 不写
-2. 禁止自由发挥——只写要求的功能
-3. 禁止跳过检查——每次交付附合规摘要
-4. 库代码零容忍——不留 TODO、不留 panic、不留未处理的 error
-5. 多解陈列——指令存在多种合理解释时，并列呈现给用户选择，不默默择一
-6. 反推更简方案——发现比用户原方案更简单的做法，主动提出并说明权衡，不默默按原方案堆代码
-7. 量化自检——写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；库 API 对外暴露面能小则小，单次使用的内部代码不写抽象 / 配置项 / 扩展点
+1. **理解需求**：包解决什么问题？给谁用？核心 API？是否需要并发安全/泛型？
+2. **提取信息**：加载对应 Guide
+3. **按结构组织**：按 `pkg-structure.md` 的目录模板
+4. **检查合规**：传感器 + 自审 + 合规摘要
 
 ## 外科式修改（Surgical Changes）
 
@@ -34,7 +35,7 @@
 - **不顺手改**：相邻无关代码、注释、格式、命名、import 顺序一律不动
 - **不重构未坏的代码**：你偏好的写法不是改动理由，匹配既有风格
 - **只清自己的孤儿**：本次改动产生的未引用 import / 变量 / 函数必须清理；既有死代码发现了**提一下，别删**
-- **导出面保护**：改 bug 不新增导出符号；新增导出 API 必须是用户明确要求的功能
+- **导出面保护**：改 bug 不新增导出符号；新增导出 API 必须是用户明确要求的功能，且 MINOR 版本同步更新
 - **边界测试**：提交前对着 diff 逐行问"这一行为什么存在？"——答不上来就删
 
 ## 可验证目标（Goal-Driven Execution）
@@ -45,9 +46,10 @@
 
 | 模糊指令 | 可验证目标 |
 |---------|----------|
-| "加个校验" | 写非法输入表驱动测试 → 让它通过 |
+| "加个校验" | 写非法输入 table-driven 测试 → 让它通过 |
 | "修这个 bug" | 写复现用例测试 → 让它通过 |
 | "重构 X" | 确认改前测试全绿 → 改后测试仍全绿 + benchmark 不退化 |
+| "新增 API" | 先写 Example 测试定义用法 → 实现让它通过 |
 | "让它能跑" | 不可验证，退回用户澄清成功标准 |
 
 **多步任务先列计划：**
@@ -56,6 +58,64 @@
     2. [步骤] → verify: [可观察的检查]
 
 强目标让你独立闭环；弱目标会把你和用户都拖进反复澄清循环。
+
+## Guide 加载表
+
+| 场景 | 读哪个 Guide |
+|-----|-------------|
+| 包结构、接口、Options | `.harness/guides/pkg-structure.md` |
+| 错误设计 | `.harness/guides/pkg-errors.md` |
+| 测试、Benchmark、Example | `.harness/guides/pkg-testing.md` |
+| 文档、README、CHANGELOG | `.harness/guides/pkg-docs.md` |
+| 泛型 | `.harness/guides/pkg-generics.md` |
+| 代码审查 | `.harness/guides/pkg-review.md` |
+| 所有任务 | `pkg-structure.md` 始终生效 |
+
+## 提交前检查
+
+```bash
+go vet ./...
+golangci-lint run ./...
+go test -race -count=1 -timeout=5m ./...
+go test -bench=. -benchmem -count=3 ./...
+go test -coverprofile=coverage.out ./...
+```
+
+## 合规摘要
+
+每次交付附上：
+```
+## 合规检查摘要
+- [x] Go 1.26 现代特性
+- [x] 零/最小外部依赖
+- [x] Functional Options + 合理默认值
+- [x] 导出 API 全部有 GoDoc
+- [x] Example 测试（可验证）
+- [x] 测试覆盖 ≥ 80%
+- [x] Benchmark（ReportAllocs）
+- [x] 错误体系完整
+- [x] 并发安全标注
+- [x] 无编造内容
+```
+
+## 错误记忆
+
+`.harness/error-journal.md`——犯错时追加，下次读取规避。
+
+优先执行项目内脚本：
+
+```bash
+bash .harness/scripts/read-error-journal.sh .
+bash .harness/scripts/append-error-journal.sh . user-correction pkg "用户指出包导出面设计不合理"
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area pkg -Summary "用户指出包导出面设计不合理"
+```
+
+用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
+用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
 
 ## 沟通与提交规范
 

@@ -174,7 +174,7 @@ function Ensure-GitIgnoreRules {
         $updated = $true
     }
 
-    foreach ($rule in @(".harness/error-journal.md", ".idea/", ".DS_Store")) {
+    foreach ($rule in @(".harness/error-journal.md", ".idea/", ".DS_Store", "findings.md", "progress.md", "task_plan.md")) {
         if (Add-GitIgnoreRule -FilePath $gitignorePath -Rule $rule) {
             $updated = $true
         }

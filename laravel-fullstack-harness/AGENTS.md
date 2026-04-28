@@ -14,8 +14,8 @@
 
 ## 技术栈
 
-**后端**：Laravel / PHP，代码在 `backend/`  
-**前端**：Vue 3 + Vite + TypeScript，代码在 `frontend/`  
+**后端**：Laravel / PHP，代码在 `backend/`
+**前端**：Vue 3 + Vite + TypeScript，代码在 `frontend/`
 **可选结构**：后端可支持 `nwidart/laravel-modules`
 
 ## Logic 四步
@@ -125,6 +125,21 @@ cd frontend && npm run build
 ## 错误记忆
 
 `.harness/error-journal.md` —— 每次任务前读取，犯错时追加。
+
+优先执行项目内脚本：
+
+```bash
+bash .harness/scripts/read-error-journal.sh .
+bash .harness/scripts/append-error-journal.sh . user-correction fullstack "用户指出联调契约与页面实现不一致"
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area fullstack -Summary "用户指出联调契约与页面实现不一致"
+```
+
+用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
+用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
 
 ## 沟通与提交规范
 

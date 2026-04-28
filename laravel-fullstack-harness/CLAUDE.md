@@ -1,29 +1,31 @@
 # CLAUDE.md
 
-> Claude Code 每次对话自动加载，确保 laravel-fullstack-harness skill 始终生效。
+> Claude Code 项目级完整规则入口。
+> 为避免依赖全局厚 skill，本文件承载完整项目规则；与 `AGENTS.md` 应保持同级完整。
 
-## 强制加载
+---
+## 行为纪律
 
-**每次对话开始时，必须加载 laravel-fullstack-harness skill 并遵守其全部规则。**
+1. **禁止编造**：不确定的 Laravel / PHP / Vue / Vite / TypeScript API、命令、配置项不写。
+2. **禁止猜测**：版本、目录结构、构建方式必须以项目事实为准。
+3. **严格按结构输出**：只做用户要求的事，不跨前后端乱扩展。
+4. **前后端不混**：后端任务不自动补前端，前端任务不自动补后端。
+5. **多解陈列**：指令存在多种合理解释时，并列呈现给用户选择，不默默择一实现。
+6. **反推更简方案**：发现比用户原方案更简单的做法时，主动提出并说明权衡，不默默按原方案堆代码。
+7. **量化自检**：写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；单次使用的代码不写抽象 / 配置项 / 扩展点。
 
-## 项目信息
+## 技术栈
 
-- **后端**：Laravel / PHP，在 `backend/`
-- **前端**：Vue 3 + Vite + TypeScript，在 `frontend/`
-- **可选结构**：后端可支持 `nwidart/laravel-modules`
-- **强约束**：Queue、Scheduler、Event、Notification、API 契约同步
-- **规范文档**：`.harness/guides/`
-- **错误记忆**：`.harness/error-journal.md`
+**后端**：Laravel / PHP，代码在 `backend/`
+**前端**：Vue 3 + Vite + TypeScript，代码在 `frontend/`
+**可选结构**：后端可支持 `nwidart/laravel-modules`
 
-## 行为底线
+## Logic 四步
 
-1. 禁止编造——不确定的 API、命令、配置项不写
-2. 禁止自由发挥——只做用户要求的事
-3. 前后端不混——按 `backend/` 和 `frontend/` 分工
-4. 禁止跳过验证——交付前必须给出验证结果
-5. 多解陈列——指令存在多种合理解释时，并列呈现给用户选择，不默默择一
-6. 反推更简方案——发现比用户原方案更简单的做法，主动提出并说明权衡，不默默按原方案堆代码
-7. 量化自检——写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；单次使用的代码不写抽象 / 配置项 / 扩展点
+1. **理解需求**：判断是后端、前端还是联调
+2. **提取信息**：读取对应 guide，确认项目版本和目录事实
+3. **按结构组织**：后端保持 Laravel 分层，前端保持 views → composables → api
+4. **检查合规**：执行验证命令、自审、交叉验证、输出合规摘要
 
 ## 外科式修改（Surgical Changes）
 
@@ -47,6 +49,7 @@
 | "加个校验" | 后端写 FormRequest + 非法输入测试；前端写组件测试 → 让它通过 |
 | "修这个 bug" | 写 Feature/Unit 测试复现 → 让它通过 |
 | "重构 X" | 确认改前测试全绿（`php artisan test` / `pnpm test`）→ 改后仍全绿 |
+| "联调接口" | 先定好 DTO 契约 → 后端 FeatureTest + 前端 mock 请求断言对齐 |
 | "让它能跑" | 不可验证，退回用户澄清成功标准 |
 
 **多步任务先列计划：**
@@ -55,6 +58,90 @@
     2. [步骤] → verify: [可观察的检查]
 
 强目标让你独立闭环；弱目标会把你和用户都拖进反复澄清循环。
+
+## Guide 加载表
+
+| 任务 | 读哪个 Guide |
+| --- | --- |
+| 后端结构 / 分层 | `.harness/guides/architecture.md` |
+| 后端 HTTP / API | `.harness/guides/http-and-api.md` |
+| 后端数据层 | `.harness/guides/data-and-eloquent.md` |
+| Queue / Scheduler / Event | `.harness/guides/queues-events-scheduling.md` |
+| Notification / Mail | `.harness/guides/notifications-and-mail.md` |
+| 后端测试 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 检测到 `Modules/` 或 `nwidart/laravel-modules` | `.harness/guides/laravel-modules.md` |
+| 前端结构 | `.harness/guides/frontend-architecture.md` |
+| 前端 API 契约 | `.harness/guides/frontend-api.md` |
+| 前端编码 | `.harness/guides/frontend-coding.md` |
+| 代码审查 | `.harness/guides/review-checklist.md` |
+
+## 后端约束
+
+- 后端代码只在 `backend/`
+- Controller / Form Request / Resource / Service / Repository / Job / Listener / Notification 分层明确
+- Queue / Scheduler / Event / Notification 默认纳入强约束
+
+## 前端约束
+
+- 前端代码只在 `frontend/`
+- `views -> composables -> api -> backend`
+- 禁止 `any`
+- 禁止组件直接写 axios
+- 后端 API 契约变化时，前端类型必须同步
+
+## 提交前检查
+
+后端：
+
+```bash
+cd backend && php artisan about
+cd backend && php artisan test
+cd backend && php artisan route:list
+```
+
+前端：
+
+```bash
+cd frontend && npx vue-tsc --noEmit
+cd frontend && npx eslint src/ --ext .vue,.ts,.tsx
+cd frontend && npm run build
+```
+
+## 前后端契约同步
+
+- Laravel Resource / 错误码 / 分页结构变更时，前端 API 类型同步
+- 后端 DTO / Resource 变更时，检查 `frontend/src/api/` 与类型定义
+
+## 合规检查摘要
+
+```text
+## 合规检查摘要
+- [x] 后端在 backend/，前端在 frontend/
+- [x] Laravel / Vue 版本按项目事实处理
+- [x] Queue / Scheduler / Event / Notification 已检查
+- [x] 前后端 API 契约已对齐
+- [x] 验证命令已执行或明确说明缺失条件
+- [x] 无编造内容
+```
+
+## 错误记忆
+
+`.harness/error-journal.md` —— 每次任务前读取，犯错时追加。
+
+优先执行项目内脚本：
+
+```bash
+bash .harness/scripts/read-error-journal.sh .
+bash .harness/scripts/append-error-journal.sh . user-correction fullstack "用户指出联调契约与页面实现不一致"
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area fullstack -Summary "用户指出联调契约与页面实现不一致"
+```
+
+用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
+用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
 
 ## 沟通与提交规范
 

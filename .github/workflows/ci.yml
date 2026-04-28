@@ -20,6 +20,9 @@ jobs:
       - name: Validate shell scripts
         run: bash -n go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh
 
+      - name: Validate CLAUDE sync
+        run: bash scripts/sync-claude-from-agents.sh --check
+
       - name: Run smoke test
         run: bash tests/setup_smoke_test.sh
 

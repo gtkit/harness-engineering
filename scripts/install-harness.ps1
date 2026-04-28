@@ -56,22 +56,26 @@ function Invoke-HarnessSetup {
         [string]$ScriptDir,
         [string]$ModuleName,
         [string]$DisplayName,
-        [string]$CodexSkillContent
+        [string]$CodexSkillPath
     )
 
     $projectDir = (Get-Location).Path
     $forceGuides = if ($env:HARNESS_FORCE_GUIDES) { $env:HARNESS_FORCE_GUIDES } else { "0" }
+    $forceProjectFiles = if ($env:HARNESS_FORCE_PROJECT_FILES) { $env:HARNESS_FORCE_PROJECT_FILES } else { "0" }
     $homeDir = Get-HarnessHomeDir
     $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $homeDir ".codex" }
 
     $guidesDir = Join-Path $ScriptDir "guides"
+    $runtimeScriptsDir = Join-Path (Split-Path -Parent $ScriptDir) "scripts\error-journal"
     $skillPath = Join-Path $ScriptDir "SKILL.md"
     $claudePath = Join-Path $ScriptDir "CLAUDE.md"
     $agentsPath = Join-Path $ScriptDir "AGENTS.md"
     $errorJournalTemplatePath = Join-Path $guidesDir "error-journal-template.md"
 
     Assert-HarnessPathExists -Path $guidesDir -Message "Missing guides directory: $guidesDir"
+    Assert-HarnessPathExists -Path $runtimeScriptsDir -Message "Missing runtime scripts directory: $runtimeScriptsDir"
     Assert-HarnessPathExists -Path $skillPath -Message "Missing SKILL.md: $skillPath"
+    Assert-HarnessPathExists -Path $CodexSkillPath -Message "Missing Codex skill template: $CodexSkillPath"
     Assert-HarnessPathExists -Path $claudePath -Message "Missing CLAUDE.md: $claudePath"
     Assert-HarnessPathExists -Path $agentsPath -Message "Missing AGENTS.md: $agentsPath"
     Assert-HarnessPathExists -Path $errorJournalTemplatePath -Message "Missing error-journal-template.md: $errorJournalTemplatePath"
@@ -97,7 +101,7 @@ function Invoke-HarnessSetup {
 
     $codexSkillDir = Join-Path $codexHome "skills\$ModuleName"
     New-Item -ItemType Directory -Path $codexSkillDir -Force | Out-Null
-    Set-Utf8NoBomContent -Path (Join-Path $codexSkillDir "SKILL.md") -Value $CodexSkillContent
+    Set-Utf8NoBomContent -Path (Join-Path $codexSkillDir "SKILL.md") -Value (Get-Content -LiteralPath $CodexSkillPath -Raw)
     Write-Host "  OK $codexSkillDir\SKILL.md"
     Write-Host ""
 
@@ -107,18 +111,28 @@ function Invoke-HarnessSetup {
     Write-Host ""
 
     $projectClaudePath = Join-Path $projectDir "CLAUDE.md"
-    if (-not (Test-Path -LiteralPath $projectClaudePath)) {
+    if ($forceProjectFiles -eq "1" -or -not (Test-Path -LiteralPath $projectClaudePath)) {
         Copy-Item -LiteralPath $claudePath -Destination $projectClaudePath
-        Write-Host "  OK CLAUDE.md"
+        if ($forceProjectFiles -eq "1") {
+            Write-Host "  OK CLAUDE.md (refreshed)"
+        }
+        else {
+            Write-Host "  OK CLAUDE.md"
+        }
     }
     else {
         Write-Host "  SKIP CLAUDE.md already exists"
     }
 
     $projectAgentsPath = Join-Path $projectDir "AGENTS.md"
-    if (-not (Test-Path -LiteralPath $projectAgentsPath)) {
+    if ($forceProjectFiles -eq "1" -or -not (Test-Path -LiteralPath $projectAgentsPath)) {
         Copy-Item -LiteralPath $agentsPath -Destination $projectAgentsPath
-        Write-Host "  OK AGENTS.md"
+        if ($forceProjectFiles -eq "1") {
+            Write-Host "  OK AGENTS.md (refreshed)"
+        }
+        else {
+            Write-Host "  OK AGENTS.md"
+        }
     }
     else {
         Write-Host "  SKIP AGENTS.md already exists"
@@ -154,6 +168,28 @@ function Invoke-HarnessSetup {
         Write-Host "  OK .harness/guides/ - $guideCount guides (added $guideCopied, preserved $guidePreserved)"
     }
 
+    $projectScriptsDir = Join-Path $projectHarnessDir "scripts"
+    New-Item -ItemType Directory -Path $projectScriptsDir -Force | Out-Null
+    $runtimeCopied = 0
+    $runtimePreserved = 0
+    $runtimeFiles = Get-ChildItem -LiteralPath $runtimeScriptsDir -File
+    foreach ($runtimeFile in $runtimeFiles) {
+        $destination = Join-Path $projectScriptsDir $runtimeFile.Name
+        if ($forceProjectFiles -eq "1" -or -not (Test-Path -LiteralPath $destination)) {
+            Copy-Item -LiteralPath $runtimeFile.FullName -Destination $destination -Force
+            $runtimeCopied++
+        }
+        else {
+            $runtimePreserved++
+        }
+    }
+    if ($forceProjectFiles -eq "1") {
+        Write-Host "  OK .harness/scripts/ - refreshed $runtimeCopied runtime scripts"
+    }
+    else {
+        Write-Host "  OK .harness/scripts/ - added $runtimeCopied, preserved $runtimePreserved"
+    }
+
     $projectErrorJournalPath = Join-Path $projectHarnessDir "error-journal.md"
     if (-not (Test-Path -LiteralPath $projectErrorJournalPath)) {
         Copy-Item -LiteralPath $errorJournalTemplatePath -Destination $projectErrorJournalPath
@@ -186,7 +222,7 @@ function Invoke-HarnessSetup {
         $gitignoreUpdated = $true
     }
 
-    foreach ($pattern in @(".harness/error-journal.md", ".idea/", ".DS_Store")) {
+    foreach ($pattern in @(".harness/error-journal.md", ".idea/", ".DS_Store", "findings.md", "progress.md", "task_plan.md")) {
         if (Add-UniqueLine -Path $gitignorePath -Line $pattern) {
             $gitignoreUpdated = $true
         }

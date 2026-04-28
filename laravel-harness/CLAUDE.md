@@ -1,28 +1,32 @@
 # CLAUDE.md
 
-> Claude Code 每次对话自动加载，确保 laravel-harness skill 始终生效。
+> Claude Code 项目级完整规则入口。
+> 为避免依赖全局厚 skill，本文件承载完整项目规则；与 `AGENTS.md` 应保持同级完整。
 
-## 强制加载
+---
+## 行为纪律
 
-**每次对话开始时，必须加载 laravel-harness skill 并遵守其全部规则。**
+1. **禁止编造**：不确定的 Laravel / PHP API、artisan 命令、配置项、第三方包能力不写。
+2. **禁止猜测**：不说“应该支持”“大概如此”，版本和项目结构都必须以仓库事实为准。
+3. **严格按结构输出**：只做用户要求的事，不追加无关功能或重构。
+4. **不扩展无关内容**：只处理 Laravel、PHP、HTTP、Eloquent、Queue、Event、Scheduler、Notification、Testing 相关内容。
+5. **多解陈列**：指令存在多种合理解释时，并列呈现给用户选择，不默默择一实现。
+6. **反推更简方案**：发现比用户原方案更简单的做法（Eloquent 够用就别上仓储、一个 Job 搞定就别加 Service），主动提出并说明权衡。
+7. **量化自检**：写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；单次使用的代码不写抽象 / 配置项 / 扩展点。
 
-## 项目信息
+## 技术栈
 
-- **后端**：Laravel / PHP 项目，版本优先跟随项目已有 `composer.json` / `composer.lock`
-- **可选结构**：支持 `nwidart/laravel-modules`
-- **强约束**：Queue、Scheduler、Event、Notification 默认纳入检查
-- **规范文档**：`.harness/guides/`
-- **错误记忆**：`.harness/error-journal.md`
+- Laravel / PHP 版本优先跟随项目已有 `composer.json` / `composer.lock`
+- 如果项目未体现明确版本，默认按当前稳定版 Laravel + PHP 理解，但必须标明这是默认基线
+- 可选支持 `nwidart/laravel-modules`
+- Queue / Scheduler / Event / Notification 默认纳入强约束
 
-## 行为底线
+## Logic 四步
 
-1. 禁止编造——不确定的 Laravel API、配置、命令不写
-2. 禁止自由发挥——只做用户要求的事
-3. 禁止跳过验证——交付前必须给出验证结果
-4. 任务前读取错误日志——避免重复犯错
-5. 多解陈列——指令存在多种合理解释时，并列呈现给用户选择，不默默择一
-6. 反推更简方案——发现比用户原方案更简单的做法（Eloquent 能写完就别上仓储、一个 Job 够用就别加 Service），主动提出并说明权衡
-7. 量化自检——写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；单次使用的代码不写抽象 / 配置项 / 扩展点
+1. **理解需求**：判断是 HTTP、数据层、队列、事件、定时任务、通知、测试还是模块化问题
+2. **提取信息**：识别项目版本、现有目录结构、受影响模块、验证范围
+3. **按结构组织**：Controller / Form Request / Resource / Service / Repository / Job / Listener / Notification 各司其职
+4. **检查合规**：运行验证命令、自审、交叉验证、输出合规摘要
 
 ## 外科式修改（Surgical Changes）
 
@@ -30,7 +34,7 @@
 
 - **不顺手改**：相邻无关代码、注释、格式、命名、use 顺序一律不动
 - **不重构未坏的代码**：你偏好的写法（如把 Facade 改依赖注入）不是改动理由，匹配既有风格
-- **只清自己的孤儿**：本次改动产生的未引用 use / 变量 / 方法 / 路由 / 迁移必须清理；既有死代码发现了**提一下，别删**
+- **只清自己的孤儿**：本次改动产生的未引用 use / 变量 / 方法 / 路由必须清理；既有死代码发现了**提一下，别删**
 - **Migration / Seeder 零回溯**：已合并到主干的 migration 不可修改，需要调整时新建一份
 - **边界测试**：提交前对着 diff 逐行问"这一行为什么存在？"——答不上来就删
 
@@ -42,10 +46,10 @@
 
 | 模糊指令 | 可验证目标 |
 |---------|----------|
-| "加个校验" | 写 FormRequest / 非法输入测试 → 让它通过 |
+| "加个校验" | 写 FormRequest + 非法输入 Feature 测试 → 让它通过 |
 | "修这个 bug" | 写 Feature/Unit 测试复现 → 让它通过 |
 | "重构 X" | 确认改前 `php artisan test` 全绿 → 改后仍全绿 |
-| "加个 Job" | 写 Job 单测 + dispatch 断言 → 让它通过 |
+| "加个 Job" | 写 Job 单测 + `Bus::fake()` dispatch 断言 → 让它通过 |
 | "让它能跑" | 不可验证，退回用户澄清成功标准 |
 
 **多步任务先列计划：**
@@ -54,6 +58,99 @@
     2. [步骤] → verify: [可观察的检查]
 
 强目标让你独立闭环；弱目标会把你和用户都拖进反复澄清循环。
+
+## Guide 加载表
+
+| 任务 | 读哪个 Guide |
+| --- | --- |
+| 结构设计 / 分层 / 目录边界 | `.harness/guides/architecture.md` |
+| Controller / Form Request / Resource / API | `.harness/guides/http-and-api.md` |
+| Eloquent / Repository / 事务 / 迁移 | `.harness/guides/data-and-eloquent.md` |
+| Queue / Scheduler / Event / Listener | `.harness/guides/queues-events-scheduling.md` |
+| Notification / Mail / Channel | `.harness/guides/notifications-and-mail.md` |
+| 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 检测到 `Modules/` 或 `nwidart/laravel-modules` | `.harness/guides/laravel-modules.md` |
+| 代码审查 | `.harness/guides/review-checklist.md` |
+
+## 默认分层
+
+```text
+Controller / Form Request / Resource
+        ↓
+Action / Service / Domain
+        ↓
+Repository / Query Object / Eloquent
+```
+
+补充约束：
+
+- Controller 只做参数接收、授权、调用、返回
+- Form Request 承担输入校验与授权入口
+- API Resource 负责输出序列化
+- Job 只承接异步边界，不承接隐式事务编排
+- Listener 保持轻量，跨边界逻辑优先下沉到 Service
+- Notification / Mail 独立建类，避免内联模板和文案
+
+## 提交前检查
+
+优先使用项目已有统一入口：
+
+```bash
+composer test
+composer pint --test
+./vendor/bin/phpstan analyse
+./vendor/bin/psalm
+```
+
+如果项目没有统一入口，至少执行：
+
+```bash
+php artisan about
+php artisan test
+php artisan route:list
+```
+
+## 必查风险
+
+- Queue Job 是否幂等
+- 定时任务是否可重复执行且无副作用失控
+- 事件 / 监听器是否存在隐式递归或隐藏 IO
+- Notification / Mail 是否泄漏敏感信息
+- Eloquent 是否有 N+1、事务缺失、锁粒度错误
+- 模块化项目是否存在跨 `Modules/` 乱依赖
+
+## 合规检查摘要
+
+每次交付附上：
+
+```text
+## 合规检查摘要
+- [x] Laravel / PHP 版本按项目事实处理
+- [x] Controller / Service / Data 边界明确
+- [x] Queue / Scheduler / Event / Notification 已纳入检查
+- [x] Modules 可选规则已按需加载
+- [x] 验证命令已执行或明确说明缺失条件
+- [x] 无编造内容
+```
+
+## 错误记忆
+
+`.harness/error-journal.md` —— 每次任务前读取，犯错时追加。
+
+优先执行项目内脚本：
+
+```bash
+bash .harness/scripts/read-error-journal.sh .
+bash .harness/scripts/append-error-journal.sh . user-correction laravel "用户指出控制器职责下沉不完整"
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
+powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area laravel -Summary "用户指出控制器职责下沉不完整"
+```
+
+用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
+用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
 
 ## 沟通与提交规范
 

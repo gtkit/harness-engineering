@@ -28,6 +28,18 @@ function Assert-FileContains {
     }
 }
 
+function Assert-FileNotContains {
+    param(
+        [string]$Path,
+        [string]$Unexpected
+    )
+
+    $content = Get-Content -LiteralPath $Path -Raw
+    if ($content.Contains($Unexpected)) {
+        Fail "Expected file $Path to not contain: $Unexpected"
+    }
+}
+
 function Assert-LineExists {
     param(
         [string]$Path,
@@ -44,7 +56,8 @@ function Invoke-SetupPs1 {
     param(
         [string]$HarnessDir,
         [string]$ProjectDir,
-        [string]$SandboxHome
+        [string]$SandboxHome,
+        [switch]$ForceProjectFiles
     )
 
     Push-Location $ProjectDir
@@ -52,6 +65,7 @@ function Invoke-SetupPs1 {
         $env:HOME = $SandboxHome
         $env:USERPROFILE = $SandboxHome
         $env:CODEX_HOME = Join-Path $SandboxHome ".codex"
+        $env:HARNESS_FORCE_PROJECT_FILES = if ($ForceProjectFiles) { "1" } else { "0" }
         $scriptPath = Join-Path (Join-Path $RootDir $HarnessDir) "setup.ps1"
         & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath | Out-Null
         if ($LASTEXITCODE -ne 0) {
@@ -114,11 +128,20 @@ try {
         Assert-PathExists (Join-Path $projectDir "CLAUDE.md")
         Assert-PathExists (Join-Path $projectDir "AGENTS.md")
         Assert-PathExists (Join-Path $projectDir ".harness\error-journal.md")
+        Assert-PathExists (Join-Path $projectDir ".harness\scripts\read-error-journal.ps1")
+        Assert-PathExists (Join-Path $projectDir ".harness\scripts\append-error-journal.ps1")
         Assert-PathExists (Join-Path $homeDir ".claude\skills\$module\SKILL.md")
         Assert-PathExists (Join-Path $homeDir ".codex\skills\$module\SKILL.md")
+        Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "CLAUDE.md"
+        Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "AGENTS.md"
+        Assert-FileContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "AGENTS.md"
+        Assert-FileNotContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "CLAUDE.md"
         Assert-LineExists (Join-Path $projectDir ".gitignore") ".harness/error-journal.md"
         Assert-LineExists (Join-Path $projectDir ".gitignore") ".idea/"
         Assert-LineExists (Join-Path $projectDir ".gitignore") ".DS_Store"
+        Assert-LineExists (Join-Path $projectDir ".gitignore") "findings.md"
+        Assert-LineExists (Join-Path $projectDir ".gitignore") "progress.md"
+        Assert-LineExists (Join-Path $projectDir ".gitignore") "task_plan.md"
     }
 
     $preserveHomeDir = Join-Path $tmpDir "preserve-home"
@@ -132,6 +155,21 @@ try {
     Set-Content -LiteralPath $architecturePath -Value "LOCAL CHANGE"
     Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $preserveProjectDir -SandboxHome $preserveHomeDir
     Assert-FileContains $architecturePath "LOCAL CHANGE"
+
+    Set-Content -LiteralPath (Join-Path $preserveProjectDir "CLAUDE.md") -Value "LOCAL CLAUDE"
+    Set-Content -LiteralPath (Join-Path $preserveProjectDir "AGENTS.md") -Value "LOCAL AGENTS"
+    Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $preserveProjectDir -SandboxHome $preserveHomeDir -ForceProjectFiles
+    Assert-FileContains (Join-Path $preserveProjectDir "CLAUDE.md") "## 分层架构（不可逾越）"
+    Assert-FileContains (Join-Path $preserveProjectDir "AGENTS.md") "## 分层架构（不可逾越）"
+    Assert-FileNotContains (Join-Path $preserveProjectDir "CLAUDE.md") "LOCAL CLAUDE"
+    Assert-FileNotContains (Join-Path $preserveProjectDir "AGENTS.md") "LOCAL AGENTS"
+
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $preserveProjectDir ".harness\scripts\append-error-journal.ps1") `
+        -RepoRoot $preserveProjectDir `
+        -EventType "user-correction" `
+        -Area "windows-smoke" `
+        -Summary "windows smoke summary" | Out-Null
+    Assert-FileContains (Join-Path $preserveProjectDir ".harness\error-journal.md") "windows smoke summary"
 
     foreach ($module in $modules) {
         $batchProjectDir = Join-Path $tmpDir ($module + "-batch-project")
