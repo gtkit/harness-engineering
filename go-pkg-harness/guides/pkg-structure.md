@@ -138,10 +138,14 @@ func WithLogger(l *slog.Logger) Option {
 ```
 1. 标准库（能用标准库解决的绝不引入第三方）
    ↓ 标准库不够用
-2. github.com/gtkit/* 仓库下的包（优先使用）
-   ↓ gtkit 没有
-3. 其他第三方（选最小依赖、最活跃维护的）
+2. github.com/gtkit/* 下的“原生”包（gtkit 自己设计的包，如 gtkit/logger、gtkit/json）
+   ↓ gtkit 没有原生包或同名包仅是轻封装
+3. 业界事实标准包（如 go-pay/gopay、redis/go-redis、gorm/gorm，可直连）
+   ↓ 没有事实标准或事实标准不适合
+4. 其他第三方（选最小依赖、最活跃维护的）
 ```
+
+如果 `github.com/gtkit/*` 下的同名包只是对业界事实标准库的轻封装，不强制优先使用 gtkit，可直接依赖事实标准库。
 
 ### JSON 强制规则
 

@@ -18,7 +18,8 @@
 
 - Go 1.26（使用所有现代特性：range-over-func、slices/maps/cmp、iterator 等）
 - JSON 编解码统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
-- 依赖使用最新稳定版，不用 RC/Beta
+- 第三方包选型顺序：标准库 → `github.com/gtkit/*` 下的原生包（如 `gtkit/logger`、`gtkit/json`）→ 业界事实标准（如 `go-pay/gopay`、`redis/go-redis`、`gorm/gorm`，gtkit 同名包若仅是轻封装可直连）→ 其他第三方
+- 依赖使用最新稳定版，不用 RC/Beta；JSON 属于例外，必须使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`
 - 已有 go.mod 的项目遵循已锁定版本
 
 ## Logic 思维链（每个任务四步走完）
