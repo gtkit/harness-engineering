@@ -32,7 +32,7 @@ function Add-UniqueLine {
 
     if (Test-Path -LiteralPath $Path) {
         $lines = Get-Content -LiteralPath $Path
-        if ($lines -contains $Line) {
+        if ($lines -ccontains $Line) {
             return $false
         }
     }
@@ -222,7 +222,27 @@ function Invoke-HarnessSetup {
         $gitignoreUpdated = $true
     }
 
-    foreach ($pattern in @(".harness/error-journal.md", ".idea/", ".DS_Store", "findings.md", "progress.md", "task_plan.md")) {
+    $patterns = @(
+        ".openspec-auto-backup/",
+        ".openspec-auto/",
+        ".idea/",
+        ".vscode/",
+        ".Ds_Store",
+        ".DS_Store",
+        "*.log",
+        "findings.md",
+        "progress.md",
+        "task_plan.md",
+        ".harness/error-journal.md",
+        ".claude/",
+        ".codex/",
+        ".agents/",
+        "openspec/",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "tools/"
+    )
+    foreach ($pattern in $patterns) {
         if (Add-UniqueLine -Path $gitignorePath -Line $pattern) {
             $gitignoreUpdated = $true
         }

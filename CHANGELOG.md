@@ -21,6 +21,9 @@
 - 下线独立的 C++ Linux AI harness（原 `C++/` 目录），同步移除 `tests/cpp_package_smoke_test.sh`、CI 工作流中对应 smoke 步骤及分支保护文档中的引用。
 
 ### Fixed
+- ⚠ **Windows 安装器 .gitignore 基线严重缺失**：`scripts/install-harness.ps1` 在 Step 3 只写入 6 条 `.gitignore` 规则（`.harness/error-journal.md`/`.idea/`/`.DS_Store`/`findings.md`/`progress.md`/`task_plan.md`），而 `setup.sh` 写入 18 条；缺失的 12 条里包括 `.claude/`、`.codex/`、`.agents/`、`AGENTS.md`、`CLAUDE.md`、`openspec/`、`*.log`、`.openspec-auto*/` 等敏感基线 —— Windows 用户装完后这些 agent 运行时产物**没被自动忽略**，可能误提交聊天历史、缓存的 token、本地工具产物。修复后 ps1 与 sh 完全对齐写入相同 18 条。
+- 修正 `Add-UniqueLine` 大小写比较：之前用 PowerShell 默认大小写不敏感的 `-contains`，导致 `.Ds_Store` 已存在时 `.DS_Store` 被跳过；改用 `-ccontains` 与 `setup.sh` 的 `grep -Fxq` 行为对齐。
+- `tests/setup_windows_smoke_test.ps1` 同步扩展 `.gitignore` baseline 检查到 18 条（与 ubuntu smoke 对齐），并补 `AGENTS.md` / `CLAUDE.md` 不含"清理杂物"等过时文案的 `Assert-FileNotContains` 检查，闭合 Windows 端覆盖缺口。
 
 ## [1.1.1] - 2026-05-08
 

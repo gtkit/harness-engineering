@@ -136,12 +136,34 @@ try {
         Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "AGENTS.md"
         Assert-FileContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "AGENTS.md"
         Assert-FileNotContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "CLAUDE.md"
-        Assert-LineExists (Join-Path $projectDir ".gitignore") ".harness/error-journal.md"
-        Assert-LineExists (Join-Path $projectDir ".gitignore") ".idea/"
-        Assert-LineExists (Join-Path $projectDir ".gitignore") ".DS_Store"
-        Assert-LineExists (Join-Path $projectDir ".gitignore") "findings.md"
-        Assert-LineExists (Join-Path $projectDir ".gitignore") "progress.md"
-        Assert-LineExists (Join-Path $projectDir ".gitignore") "task_plan.md"
+        $gitignoreBaseline = @(
+            ".openspec-auto-backup/",
+            ".openspec-auto/",
+            ".idea/",
+            ".vscode/",
+            ".Ds_Store",
+            ".DS_Store",
+            "*.log",
+            "findings.md",
+            "progress.md",
+            "task_plan.md",
+            ".harness/error-journal.md",
+            ".claude/",
+            ".codex/",
+            ".agents/",
+            "openspec/",
+            "AGENTS.md",
+            "CLAUDE.md",
+            "tools/"
+        )
+        foreach ($line in $gitignoreBaseline) {
+            Assert-LineExists (Join-Path $projectDir ".gitignore") $line
+        }
+
+        Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "清理杂物"
+        Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "必须删除并保持工作区干净"
+        Assert-FileNotContains (Join-Path $projectDir "CLAUDE.md") "清理杂物"
+        Assert-FileNotContains (Join-Path $projectDir "CLAUDE.md") "必须删除并保持工作区干净"
     }
 
     $preserveHomeDir = Join-Path $tmpDir "preserve-home"
