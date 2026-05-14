@@ -54,9 +54,9 @@ jobs:
           Write-Host "PSScriptAnalyzer passed: 5 setup.ps1 files, 0 issues at Warning/Error"
 
       - name: Run Windows setup smoke test
-        shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File tests/setup_windows_smoke_test.ps1
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tests/setup_windows_smoke_test.ps1
 
       - name: Run error-journal PS test
-        shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File tests/error_journal_test.ps1
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tests/error_journal_test.ps1
