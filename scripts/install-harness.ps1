@@ -63,13 +63,22 @@ function Write-HarnessVersion {
     $sourceCommit = "unknown"
     $sourceTag = $null
     if (Get-Command git -ErrorAction SilentlyContinue) {
-        $commitOutput = & git -C $repoRoot rev-parse --short=12 HEAD 2>$null
-        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($commitOutput)) {
-            $sourceCommit = $commitOutput.Trim()
-        }
-        $tagOutput = & git -C $repoRoot describe --tags --abbrev=0 2>$null
-        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($tagOutput)) {
-            $sourceTag = $tagOutput.Trim()
+        # PS 7.3+ 在 $PSNativeCommandUseErrorActionPreference=true + ErrorActionPreference=Stop 下,
+        # native command (如 git) 非零 exit 会触发 ErrorRecord 中断脚本.shallow clone 上
+        # `git describe --tags` 无 tag 时 fatal/exit 128, 不应让 setup 挂.临时降级 EAP, 用 LASTEXITCODE 判定.
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = 'SilentlyContinue'
+        try {
+            $commitOutput = & git -C $repoRoot rev-parse --short=12 HEAD 2>$null
+            if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($commitOutput)) {
+                $sourceCommit = $commitOutput.Trim()
+            }
+            $tagOutput = & git -C $repoRoot describe --tags --abbrev=0 2>$null
+            if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($tagOutput)) {
+                $sourceTag = $tagOutput.Trim()
+            }
+        } finally {
+            $ErrorActionPreference = $prevEAP
         }
     }
     $installedAt = Get-Date -Format "yyyy-MM-ddTHH:mm:sszzz"
