@@ -42,6 +42,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: PSScriptAnalyzer (setup.ps1)
+        shell: powershell
+        run: |
+          $files = @('go-harness/setup.ps1','fullstack-harness/setup.ps1','go-pkg-harness/setup.ps1','laravel-harness/setup.ps1','laravel-fullstack-harness/setup.ps1')
+          $issues = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Severity Warning,Error }
+          if ($issues) {
+            $issues | Format-Table RuleName,Severity,ScriptName,Line,Message -AutoSize
+            exit 1
+          }
+          Write-Host "PSScriptAnalyzer passed: 5 setup.ps1 files, 0 issues at Warning/Error"
+
       - name: Run Windows setup smoke test
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File tests/setup_windows_smoke_test.ps1

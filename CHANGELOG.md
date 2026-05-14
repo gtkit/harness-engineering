@@ -11,6 +11,8 @@
 - 引入 `tests/error_journal_test.ps1`，与 bash 版对称覆盖 `scripts/error-journal/*.ps1` 的同 7 个契约，并在 `smoke-windows` job 中执行，闭合 PowerShell 端单测缺口。
 - CI 工作流新增 `shellcheck -S warning` 静态检查步骤，覆盖 5 套 `setup.sh`、`scripts/` 与 `tests/` 下全部 bash 脚本，提前抓出 `bash -n` 漏掉的常见隐患。
 - CI 工作流新增 `Run error-journal test` 步骤，把上述独立单测纳入主干门禁。
+- CI 工作流新增 `PSScriptAnalyzer` 静态检查步骤，对 5 套 `setup.ps1` 做 Warning/Error 级别审计（当前实测全部 0 issues）。
+- 入库 `docs/github-branch-protection.md` 与 3 份 `docs/superpowers/{plans,specs}/*.md` 设计/实施留痕，README 加 "贡献本仓库（修改 harness 模板）" 一节，列出本地 7 步门禁命令（与 CI 对齐）。
 
 ### Changed
 - 同步顶层全局规则 2026-05-09 决策：`gtkit/go-pay` v1.3.0 通过 `paymgr` 提供跨渠道统一抽象，不属于轻封装。`go-harness`、`fullstack-harness`、`go-pkg-harness` 的入口规则与 `pkg-structure.md` 改为：将 `gtkit/go-pay` 列入 gtkit 原生包推荐，事实标准例子去除 `go-pay/gopay`、改用 `redis/go-redis` / `gorm/gorm` / `gin-gonic/gin`。

@@ -594,3 +594,49 @@ cd /d .\your-laravel-fullstack-project
 ```
 
 Windows 下同样支持先设置 `HARNESS_FORCE_GUIDES=1`，再执行任一脚本。
+
+---
+
+## 贡献本仓库（修改 harness 模板）
+
+如果你要改 `setup.sh` / `setup.ps1`、`guides/*.md`、`CLAUDE.md` / `AGENTS.md`、或 `scripts/`，提交前先在本地跑这套门禁，与 CI 保持一致：
+
+```bash
+# 1. CLAUDE.md / AGENTS.md 同步检查（修改 AGENTS.md 后必跑）
+bash scripts/sync-claude-from-agents.sh --check
+
+# 2. setup.sh 语法 + 行为冒烟测试（5 套）
+bash tests/setup_smoke_test.sh
+
+# 3. error-journal 脚本契约单测
+bash tests/error_journal_test.sh
+
+# 4. Laravel 包结构冒烟
+bash tests/laravel_package_smoke_test.sh
+```
+
+可选静态检查：
+
+```bash
+# 5. shellcheck（GitHub Ubuntu runner 自带，本地 macOS 可用 Docker）
+docker run --rm -v "$PWD:/work" -w /work koalaman/shellcheck-alpine:v0.10.0 \
+  shellcheck -S warning go-harness/setup.sh fullstack-harness/setup.sh \
+    go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh \
+    scripts/error-journal/*.sh scripts/sync-claude-from-agents.sh tests/*.sh
+```
+
+PowerShell 端门禁需要 Windows 环境或 Docker pwsh：
+
+```bash
+# 6. PSScriptAnalyzer（CI 用，本地可选）
+docker run --rm -v "$PWD:/work" -w /work mcr.microsoft.com/powershell:7.4-ubuntu-22.04 \
+  pwsh -NoProfile -Command "Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck | Out-Null; \
+    @('go-harness/setup.ps1','fullstack-harness/setup.ps1','go-pkg-harness/setup.ps1','laravel-harness/setup.ps1','laravel-fullstack-harness/setup.ps1') \
+    | ForEach-Object { Invoke-ScriptAnalyzer -Path \$_ -Severity Warning,Error }"
+
+# 7. error-journal PS 脚本契约单测
+docker run --rm -v "$PWD:/work" -w /work mcr.microsoft.com/powershell:7.4-ubuntu-22.04 \
+  pwsh -NoProfile -ExecutionPolicy Bypass -File tests/error_journal_test.ps1
+```
+
+提交规范：见 [Git 提交建议](#git-提交建议)；CHANGELOG `[Unreleased]` 区段必须同步更新（见 `CHANGELOG.md`）。
