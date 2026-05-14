@@ -10,6 +10,9 @@
 
 ### Changed
 
+### Removed
+- 下线独立的 C++ Linux AI harness（原 `C++/` 目录），同步移除 `tests/cpp_package_smoke_test.sh`、CI 工作流中对应 smoke 步骤及分支保护文档中的引用。
+
 ### Fixed
 
 ## [1.1.1] - 2026-05-08

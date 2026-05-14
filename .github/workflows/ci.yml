@@ -26,9 +26,6 @@ jobs:
       - name: Run smoke test
         run: bash tests/setup_smoke_test.sh
 
-      - name: Run C++ package smoke test
-        run: bash tests/cpp_package_smoke_test.sh
-
       - name: Run Laravel package smoke test
         run: bash tests/laravel_package_smoke_test.sh
 
