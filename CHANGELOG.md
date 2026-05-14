@@ -13,6 +13,7 @@
 - CI 工作流新增 `Run error-journal test` 步骤，把上述独立单测纳入主干门禁。
 - CI 工作流新增 `PSScriptAnalyzer` 静态检查步骤，对 5 套 `setup.ps1` 做 Warning/Error 级别审计（当前实测全部 0 issues）。
 - 入库 `docs/github-branch-protection.md` 与 3 份 `docs/superpowers/{plans,specs}/*.md` 设计/实施留痕，README 加 "贡献本仓库（修改 harness 模板）" 一节，列出本地 7 步门禁命令（与 CI 对齐）。
+- `setup.sh` / `setup.ps1` 新增 Step 5：在 `.harness/VERSION` 写入安装指纹（`harness` / `source-commit`（12 位 SHA）/ 可选 `source-tag` / `installed-at` / `installer`）；该文件已加入项目 `.gitignore`，不入库，仅供本地排查"成员间 .harness/ 差异来源"。`tests/setup_smoke_test.sh` 与 `tests/setup_windows_smoke_test.ps1` 同步加 `assert_version_file` 检查；README "日常使用" 章节新增 "查看 harness 版本" 一节。
 
 ### Changed
 - 同步顶层全局规则 2026-05-09 决策：`gtkit/go-pay` v1.3.0 通过 `paymgr` 提供跨渠道统一抽象，不属于轻封装。`go-harness`、`fullstack-harness`、`go-pkg-harness` 的入口规则与 `pkg-structure.md` 改为：将 `gtkit/go-pay` 列入 gtkit 原生包推荐，事实标准例子去除 `go-pay/gopay`、改用 `redis/go-redis` / `gorm/gorm` / `gin-gonic/gin`。

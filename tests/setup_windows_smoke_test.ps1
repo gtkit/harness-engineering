@@ -154,7 +154,8 @@ try {
             "openspec/",
             "AGENTS.md",
             "CLAUDE.md",
-            "tools/"
+            "tools/",
+            ".harness/VERSION"
         )
         foreach ($line in $gitignoreBaseline) {
             Assert-LineExists (Join-Path $projectDir ".gitignore") $line
@@ -164,6 +165,13 @@ try {
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "必须删除并保持工作区干净"
         Assert-FileNotContains (Join-Path $projectDir "CLAUDE.md") "清理杂物"
         Assert-FileNotContains (Join-Path $projectDir "CLAUDE.md") "必须删除并保持工作区干净"
+
+        $versionPath = Join-Path $projectDir ".harness/VERSION"
+        Assert-PathExists $versionPath
+        Assert-FileContains $versionPath "harness: $module"
+        Assert-FileContains $versionPath "source-commit:"
+        Assert-FileContains $versionPath "installed-at:"
+        Assert-FileContains $versionPath "installer: setup.ps1"
     }
 
     $preserveHomeDir = Join-Path $tmpDir "preserve-home"

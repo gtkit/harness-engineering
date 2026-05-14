@@ -440,6 +440,21 @@ cat .harness/error-journal.md
 bash .harness/scripts/append-error-journal.sh . user-correction auth "用户纠正了入口文件边界"
 ```
 
+### 查看 harness 版本
+
+每次跑 `setup.sh` / `setup.ps1` 都会在项目下写入 `.harness/VERSION`，记录这次安装的 harness 包名、源仓库 commit、安装时间：
+
+```bash
+cat .harness/VERSION
+# harness: go-harness
+# source-commit: a3f4b9c2e8d1
+# source-tag: 1.1.1
+# installed-at: 2026-05-14T17:30:42+0800
+# installer: setup.sh
+```
+
+排查"为什么我和同事的 `.harness/guides/` 不一样"时先看这个文件——commit / 安装时间不同就是差异原因。该文件已自动加到项目 `.gitignore`，不入库。
+
 ### 在新项目中使用
 
 ```bash

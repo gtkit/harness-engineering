@@ -51,6 +51,43 @@ function Set-Utf8NoBomContent {
     [System.IO.File]::WriteAllText($Path, $Value, $utf8NoBom)
 }
 
+function Write-HarnessVersion {
+    param(
+        [string]$ProjectDir,
+        [string]$ModuleName,
+        [string]$ScriptDir
+    )
+
+    $versionPath = Join-Path $ProjectDir ".harness/VERSION"
+    $repoRoot = Split-Path -Parent $ScriptDir
+    $sourceCommit = "unknown"
+    $sourceTag = $null
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        $commitOutput = & git -C $repoRoot rev-parse --short=12 HEAD 2>$null
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($commitOutput)) {
+            $sourceCommit = $commitOutput.Trim()
+        }
+        $tagOutput = & git -C $repoRoot describe --tags --abbrev=0 2>$null
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($tagOutput)) {
+            $sourceTag = $tagOutput.Trim()
+        }
+    }
+    $installedAt = Get-Date -Format "yyyy-MM-ddTHH:mm:sszzz"
+
+    $lines = @(
+        "harness: $ModuleName",
+        "source-commit: $sourceCommit"
+    )
+    if (-not [string]::IsNullOrEmpty($sourceTag)) {
+        $lines += "source-tag: $sourceTag"
+    }
+    $lines += "installed-at: $installedAt"
+    $lines += "installer: setup.ps1"
+
+    Set-Utf8NoBomContent -Path $versionPath -Value (($lines -join "`n") + "`n")
+    Write-Host "  OK wrote .harness/VERSION (commit: $sourceCommit)"
+}
+
 function Invoke-HarnessSetup {
     param(
         [string]$ScriptDir,
@@ -240,7 +277,8 @@ function Invoke-HarnessSetup {
         "openspec/",
         "AGENTS.md",
         "CLAUDE.md",
-        "tools/"
+        "tools/",
+        ".harness/VERSION"
     )
     foreach ($pattern in $patterns) {
         if (Add-UniqueLine -Path $gitignorePath -Line $pattern) {
@@ -254,6 +292,13 @@ function Invoke-HarnessSetup {
     else {
         Write-Host "  SKIP .gitignore already contains harness rules"
     }
+    Write-Host ""
+
+    Write-Host "--------------------------------------------"
+    Write-Host "[Step 5] Write .harness/VERSION"
+    Write-Host "--------------------------------------------"
+    Write-Host ""
+    Write-HarnessVersion -ProjectDir $projectDir -ModuleName $ModuleName -ScriptDir $ScriptDir
     Write-Host ""
 
     Write-Host "============================================"

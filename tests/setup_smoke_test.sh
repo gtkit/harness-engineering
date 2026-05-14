@@ -90,9 +90,22 @@ assert_gitignore_baseline() {
         "openspec/" \
         "AGENTS.md" \
         "CLAUDE.md" \
-        "tools/"; do
+        "tools/" \
+        ".harness/VERSION"; do
         assert_line_exists "$file" "$line"
     done
+}
+
+assert_version_file() {
+    local project_dir="$1"
+    local harness_name="$2"
+    local file="${project_dir}/.harness/VERSION"
+
+    test -f "$file" || fail "missing .harness/VERSION in ${project_dir}"
+    assert_file_contains "$file" "harness: ${harness_name}"
+    assert_file_contains "$file" "source-commit:"
+    assert_file_contains "$file" "installed-at:"
+    assert_file_contains "$file" "installer: setup.sh"
 }
 
 assert_generated_docs_do_not_require_cleanup() {
@@ -143,6 +156,7 @@ assert_generated_docs_do_not_require_cleanup "${go_project}"
 assert_global_claude_skill "${go_home}/.claude/skills/go-harness/SKILL.md"
 assert_global_codex_skill "${go_home}/.codex/skills/go-harness/SKILL.md"
 assert_error_journal_runtime "${go_project}"
+assert_version_file "${go_project}" "go-harness"
 
     printf 'LOCAL CHANGE\n' > "${go_project}/.harness/guides/architecture.md"
     run_setup "go-harness" "$go_project" "$go_home"
@@ -174,6 +188,7 @@ for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-full
     assert_global_codex_skill "${home_dir}/.codex/skills/${harness_dir}/SKILL.md"
     test -f "${project_dir}/.harness/scripts/read-error-journal.sh" || fail "${harness_dir} should install read-error-journal.sh"
     test -f "${project_dir}/.harness/scripts/append-error-journal.sh" || fail "${harness_dir} should install append-error-journal.sh"
+    assert_version_file "${project_dir}" "${harness_dir}"
 done
 
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "github.com/gtkit/json"

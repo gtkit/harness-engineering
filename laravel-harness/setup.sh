@@ -172,6 +172,7 @@ GITIGNORE_PATTERNS=(
     "AGENTS.md"
     "CLAUDE.md"
     "tools/"
+    ".harness/VERSION"
 )
 
 GITIGNORE_UPDATED=0
@@ -193,6 +194,28 @@ else
 fi
 
 echo ""
+echo "--------------------------------------------"
+echo "[Step 5] 写入 .harness/VERSION"
+echo "--------------------------------------------"
+echo ""
+
+VERSION_FILE="${PROJECT_DIR}/.harness/VERSION"
+HARNESS_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SOURCE_COMMIT="$(git -C "${HARNESS_REPO_ROOT}" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+SOURCE_TAG="$(git -C "${HARNESS_REPO_ROOT}" describe --tags --abbrev=0 2>/dev/null || true)"
+INSTALLED_AT="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+{
+    printf 'harness: %s\n' "$(basename "${SCRIPT_DIR}")"
+    printf 'source-commit: %s\n' "${SOURCE_COMMIT}"
+    if [ -n "${SOURCE_TAG:-}" ]; then
+        printf 'source-tag: %s\n' "${SOURCE_TAG}"
+    fi
+    printf 'installed-at: %s\n' "${INSTALLED_AT}"
+    printf 'installer: setup.sh\n'
+} > "${VERSION_FILE}"
+echo "  ✓ 已写入 .harness/VERSION (commit: ${SOURCE_COMMIT})"
+echo ""
+
 echo "============================================"
 echo "  安装完成"
 echo "============================================"
