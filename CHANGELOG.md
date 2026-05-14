@@ -33,6 +33,8 @@
 - ⚠ **Windows 安装器 .gitignore 基线严重缺失**：`scripts/install-harness.ps1` 在 Step 3 只写入 6 条 `.gitignore` 规则（`.harness/error-journal.md`/`.idea/`/`.DS_Store`/`findings.md`/`progress.md`/`task_plan.md`），而 `setup.sh` 写入 18 条；缺失的 12 条里包括 `.claude/`、`.codex/`、`.agents/`、`AGENTS.md`、`CLAUDE.md`、`openspec/`、`*.log`、`.openspec-auto*/` 等敏感基线 —— Windows 用户装完后这些 agent 运行时产物**没被自动忽略**，可能误提交聊天历史、缓存的 token、本地工具产物。修复后 ps1 与 sh 完全对齐写入相同 18 条。
 - 修正 `Add-UniqueLine` 大小写比较：之前用 PowerShell 默认大小写不敏感的 `-contains`，导致 `.Ds_Store` 已存在时 `.DS_Store` 被跳过；改用 `-ccontains` 与 `setup.sh` 的 `grep -Fxq` 行为对齐。
 - `tests/setup_windows_smoke_test.ps1` 同步扩展 `.gitignore` baseline 检查到 18 条（与 ubuntu smoke 对齐），并补 `AGENTS.md` / `CLAUDE.md` 不含"清理杂物"等过时文案的 `Assert-FileNotContains` 检查，闭合 Windows 端覆盖缺口。
+- 修复 GitHub Actions windows-latest 长期未通过的根因：`tests/setup_windows_smoke_test.ps1` 含 UTF-8 中文断言（`清理杂物` / `分层架构` 等），而 PS 5.1 默认用 Windows-1252 读脚本导致 parser 抛 `TerminatorExpectedAtEndOfString`。CI `smoke-windows` job 改用 `pwsh`（PowerShell 7+，默认 UTF-8）替代 `powershell`（PS 5.1）执行测试脚本；终端用户实际安装链路 (`setup.ps1` / `install-harness.ps1` / `error-journal/*.ps1`) 已全部无中文，PS 5.1 用户继续兼容。
+- 修复 `Write-HarnessVersion` 在 PowerShell 7.3+ 上的 native command 错误传播：`$PSNativeCommandUseErrorActionPreference=true` + `$ErrorActionPreference=Stop` 下，shallow clone 无 tag 时 `git describe --tags --abbrev=0` 输出 `fatal: No names found` exit 128 会抛 RemoteException 中断 setup（`2>$null` 只静音 stderr，不阻止 ErrorAction 传播）；修复后用 `try/finally` 临时降级 EAP 为 `SilentlyContinue`，`LASTEXITCODE` 检查仍兜底。
 
 ## [1.1.1] - 2026-05-08
 
