@@ -138,14 +138,16 @@ func WithLogger(l *slog.Logger) Option {
 ```
 1. 标准库（能用标准库解决的绝不引入第三方）
    ↓ 标准库不够用
-2. github.com/gtkit/* 下的“原生”包（gtkit 自己设计的包，如 gtkit/logger、gtkit/json）
+2. github.com/gtkit/* 下的“原生”包（gtkit 自己设计的包，如 gtkit/logger、gtkit/json、gtkit/go-pay）
    ↓ gtkit 没有原生包或同名包仅是轻封装
-3. 业界事实标准包（如 go-pay/gopay、redis/go-redis、gorm/gorm，可直连）
+3. 业界事实标准包（如 redis/go-redis、gorm/gorm、gin-gonic/gin，可直连）
    ↓ 没有事实标准或事实标准不适合
 4. 其他第三方（选最小依赖、最活跃维护的）
 ```
 
 如果 `github.com/gtkit/*` 下的同名包只是对业界事实标准库的轻封装，不强制优先使用 gtkit，可直接依赖事实标准库。
+
+⚠ **`gtkit/go-pay` 不是轻封装**：v1.3.0 起通过 `paymgr` 包对外提供跨渠道统一抽象（`UnifiedOrder` / `QueryOrder` / `CloseOrder` / `Refund` / `ParseNotify` 等 8 个统一 API、`ChannelError` 结构化错误、`RefundStatus` 跨渠道状态映射），属"对上游有真正增量价值"的增强。**支付场景应优先使用 `gtkit/go-pay`**，不要直连 `go-pay/gopay`。
 
 ### JSON 强制规则
 

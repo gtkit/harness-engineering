@@ -16,7 +16,7 @@
 
 - Go 1.26（使用所有现代特性：泛型、slices/maps/cmp、range-over-func、iterator）
 - 零外部依赖优先，能用标准库的绝不引入第三方；JSON 场景统一视为例外
-- **第三方包选型顺序**：标准库 → `github.com/gtkit/*` 下的原生包（如 `gtkit/logger`、`gtkit/json`）→ 业界事实标准（如 `go-pay/gopay`、`redis/go-redis`、`gorm/gorm`，gtkit 同名包若仅是轻封装可直连）→ 其他第三方
+- **第三方包选型顺序**：标准库 → `github.com/gtkit/*` 下的原生包（如 `gtkit/logger`、`gtkit/json`、`gtkit/go-pay`，其中 `gtkit/go-pay` 通过 `paymgr` 提供跨渠道统一抽象，非轻封装）→ 业界事实标准（如 `redis/go-redis`、`gorm/gorm`、`gin-gonic/gin`，gtkit 下无原生包或同名包仅是轻封装时可直连）→ 其他第三方
 - **JSON 必须用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`**
 
 ## Logic 四步
