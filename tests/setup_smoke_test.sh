@@ -108,6 +108,27 @@ assert_version_file() {
     assert_file_contains "$file" "installer: setup.sh"
 }
 
+assert_harness_commands() {
+    local project_dir="$1"
+    local commands_dir="${project_dir}/.claude/commands/harness"
+
+    for file in \
+        doctor.md \
+        init-openspec.md \
+        research.md \
+        plan.md \
+        implement.md \
+        review.md; do
+        test -f "${commands_dir}/${file}" || fail "missing harness command ${file} in ${project_dir}"
+    done
+
+    assert_file_contains "${commands_dir}/doctor.md" "Harness Doctor"
+    assert_file_contains "${commands_dir}/research.md" "constraint set"
+    assert_file_contains "${commands_dir}/plan.md" "zero-decision"
+    assert_file_contains "${commands_dir}/implement.md" "approved plan"
+    assert_file_contains "${commands_dir}/review.md" "质量"
+}
+
 assert_generated_docs_do_not_require_cleanup() {
     local project_dir="$1"
 
@@ -157,6 +178,7 @@ assert_global_claude_skill "${go_home}/.claude/skills/go-harness/SKILL.md"
 assert_global_codex_skill "${go_home}/.codex/skills/go-harness/SKILL.md"
 assert_error_journal_runtime "${go_project}"
 assert_version_file "${go_project}" "go-harness"
+assert_harness_commands "${go_project}"
 
     printf 'LOCAL CHANGE\n' > "${go_project}/.harness/guides/architecture.md"
     run_setup "go-harness" "$go_project" "$go_home"
@@ -166,11 +188,17 @@ assert_version_file "${go_project}" "go-harness"
     run_setup "go-harness" "$go_project" "$go_home"
     assert_file_contains "${go_project}/.harness/scripts/read-error-journal.sh" "LOCAL SCRIPT"
 
+    printf 'LOCAL COMMAND\n' > "${go_project}/.claude/commands/harness/doctor.md"
+    run_setup "go-harness" "$go_project" "$go_home"
+    assert_file_contains "${go_project}/.claude/commands/harness/doctor.md" "LOCAL COMMAND"
+
     printf 'LOCAL CLAUDE\n' > "${go_project}/CLAUDE.md"
     printf 'LOCAL AGENTS\n' > "${go_project}/AGENTS.md"
     run_setup "go-harness" "$go_project" "$go_home" "1"
     assert_file_not_contains "${go_project}/CLAUDE.md" "LOCAL CLAUDE"
     assert_file_not_contains "${go_project}/AGENTS.md" "LOCAL AGENTS"
+    assert_file_not_contains "${go_project}/.claude/commands/harness/doctor.md" "LOCAL COMMAND"
+    assert_file_contains "${go_project}/.claude/commands/harness/doctor.md" "Harness Doctor"
     assert_file_contains "${go_project}/CLAUDE.md" "## 分层架构（不可逾越）"
     assert_file_contains "${go_project}/AGENTS.md" "## 分层架构（不可逾越）"
     assert_file_not_contains "${go_project}/.harness/scripts/read-error-journal.sh" "LOCAL SCRIPT"
@@ -186,9 +214,12 @@ for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-full
     assert_generated_docs_do_not_require_cleanup "${project_dir}"
     assert_global_claude_skill "${home_dir}/.claude/skills/${harness_dir}/SKILL.md"
     assert_global_codex_skill "${home_dir}/.codex/skills/${harness_dir}/SKILL.md"
+    assert_file_contains "${project_dir}/AGENTS.md" "Codex 命令化工作流兼容入口"
+    assert_file_contains "${project_dir}/AGENTS.md" "harness research: <需求>"
     test -f "${project_dir}/.harness/scripts/read-error-journal.sh" || fail "${harness_dir} should install read-error-journal.sh"
     test -f "${project_dir}/.harness/scripts/append-error-journal.sh" || fail "${harness_dir} should install append-error-journal.sh"
     assert_version_file "${project_dir}" "${harness_dir}"
+    assert_harness_commands "${project_dir}"
 done
 
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "github.com/gtkit/json"
@@ -201,5 +232,11 @@ assert_file_not_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" "web/src/api/
 assert_file_contains "${ROOT_DIR}/go-harness/SKILL.md" "CLAUDE.md"
 assert_file_contains "${ROOT_DIR}/go-harness/SKILL.md" "AGENTS.md"
 assert_file_not_contains "${ROOT_DIR}/go-harness/SKILL.codex.md" "CLAUDE.md"
+assert_file_contains "${ROOT_DIR}/README.md" "### Claude Code 怎么用"
+assert_file_contains "${ROOT_DIR}/README.md" "### Codex 怎么用"
+assert_file_contains "${ROOT_DIR}/README.md" "harness research: 你的需求描述"
+assert_file_contains "${ROOT_DIR}/README.md" "docs/harness-command-workflow.md"
+assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "## 命令对照"
+assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "doctor -> research -> plan -> implement -> review"
 
 printf 'setup smoke test passed\n'

@@ -19,6 +19,7 @@ PROJECT_DIR="$(pwd)"
 FORCE_GUIDES="${HARNESS_FORCE_GUIDES:-0}"
 FORCE_PROJECT_FILES="${HARNESS_FORCE_PROJECT_FILES:-0}"
 ERROR_JOURNAL_RUNTIME_DIR="${HARNESS_ROOT}/scripts/error-journal"
+COMMAND_INSTALLER="${HARNESS_ROOT}/scripts/install-harness-commands.sh"
 
 append_gitignore_line() {
     local file="$1"
@@ -52,6 +53,14 @@ if [ ! -d "${ERROR_JOURNAL_RUNTIME_DIR}" ]; then
     echo "✗ 错误: 找不到 ${ERROR_JOURNAL_RUNTIME_DIR}"
     exit 1
 fi
+
+if [ ! -f "${COMMAND_INSTALLER}" ]; then
+    echo "✗ 错误: 找不到 ${COMMAND_INSTALLER}"
+    exit 1
+fi
+
+# shellcheck source=../scripts/install-harness-commands.sh
+. "${COMMAND_INSTALLER}"
 
 if [ ! -f "${SCRIPT_DIR}/SKILL.codex.md" ]; then
     echo "✗ 错误: 找不到 ${SCRIPT_DIR}/SKILL.codex.md"
@@ -172,11 +181,24 @@ fi
 echo ""
 
 # ==========================================================
-# Step 3: .gitignore
+# Step 3: Claude Code Commands
 # ==========================================================
 
 echo "--------------------------------------------"
-echo "[Step 3] 更新 .gitignore"
+echo "[Step 3] 安装 Claude Code Commands"
+echo "--------------------------------------------"
+echo ""
+
+install_harness_commands "${HARNESS_ROOT}" "${PROJECT_DIR}" "${FORCE_PROJECT_FILES}"
+
+echo ""
+
+# ==========================================================
+# Step 4: .gitignore
+# ==========================================================
+
+echo "--------------------------------------------"
+echo "[Step 4] 更新 .gitignore"
 echo "--------------------------------------------"
 echo ""
 

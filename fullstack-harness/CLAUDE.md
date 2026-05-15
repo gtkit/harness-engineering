@@ -29,6 +29,27 @@
 3. **按结构组织**：后端按 handler→service→repo，前端按 views→composables→api
 4. **检查合规**：运行传感器 + 自审 + 交叉验证 + 合规摘要
 
+## Codex 命令化工作流兼容入口
+
+Claude Code 可以直接使用 `/harness:*` slash commands；Codex 不会自动注册 `.claude/commands/`。当用户在 Codex 中使用以下自然语言别名前缀时，必须把它当作同名 harness command 处理：
+
+| Codex 输入前缀 | 对应流程 |
+|---------------|----------|
+| `harness doctor` / `harness doctor: <focus>` | 诊断 harness、OpenSpec、命令模板和可选 MCP 状态 |
+| `harness init-openspec` | 初始化或验证 OpenSpec；安装全局工具前必须先确认 |
+| `harness research: <需求>` | 只做需求研究，输出约束集、风险、开放问题和可验证成功标准，不写代码 |
+| `harness plan` / `harness plan: <proposal_id>` | 基于已批准约束集生成零决策计划，不写代码 |
+| `harness implement` / `harness implement: <proposal_id>` | 只按已批准计划分阶段实现并验证 |
+| `harness review` / `harness review: <scope>` | 按 harness 质量门禁审查当前 diff |
+
+执行规则：
+
+1. 如果 `.claude/commands/harness/<name>.md` 存在，先读取对应模板并严格按模板执行。
+2. 如果命令模板不存在，仍按上表的流程意图执行，但必须说明缺少模板文件。
+3. 不把 `harness ...` 当作 shell 命令执行；它是 Codex 的自然语言工作流别名。
+4. 简单小改动不强制走完整 RPI；复杂、高风险、跨模块任务优先使用 `research → plan → implement → review`。
+5. `research` 和 `plan` 阶段不得修改代码；`implement` 必须基于用户已批准的计划。
+
 ## 外科式修改（Surgical Changes）
 
 每一行 diff 必须能追溯到用户的本次请求。
@@ -38,6 +59,21 @@
 - **只清自己的孤儿**：本次改动产生的未引用 import / 变量 / 函数 / composable / store 字段必须清理；既有死代码发现了**提一下，别删**
 - **前后端边界**：改后端时不顺手动 `frontend/`，改前端时不顺手动 `backend/`，即使看起来相关
 - **边界测试**：提交前对着 diff 逐行问"这一行为什么存在？"——答不上来就删
+
+## 代码质量门禁
+
+每次实现、修复、重构后必须做质量自检；不通过就继续调整，不把低质量代码交付给用户。
+
+- **复杂度阈值**：单函数/方法过长、嵌套过深、参数过多、单文件过大时必须拆分或说明理由
+- **隐式副作用禁令**：构造函数、`init`、middleware、import 阶段不得偷偷起 goroutine、写库、发请求或做复杂流程
+- **TODO 纪律**：不留无主 `TODO` / `FIXME`；要么删除，要么绑定 issue / 负责人 / 处理期限
+- **变更单一职责**：一次改动尽量只解决一类问题，功能、重构、格式修正不要混在一起
+- **减少冗余**：重复逻辑超过 2 次必须提取；重复结构相似但业务含义不同的，优先保持清晰，不为复用而复用
+- **代码复用**：优先复用已有 helper、service、repository、composable、api client、组件和工具函数；新增抽象必须至少解决真实重复或隔离复杂度
+- **架构清晰**：代码必须放在职责匹配的层；禁止为了方便把业务逻辑塞进 handler、repository、Vue component、template 或 api client
+- **分层合理**：上层只编排，下层只封装细节；跨层调用、循环依赖、UI 直连后端、业务层依赖 Web 框架均视为违规
+- **健壮稳定**：错误路径、空值、边界输入、超时、取消、资源释放、并发安全、外部依赖失败必须有明确处理
+- **简单优先**：能用清晰直写解决的问题，不提前设计扩展点、配置项、接口或复杂抽象
 
 ## 可验证目标（Goal-Driven Execution）
 
@@ -123,6 +159,7 @@ cd frontend && npx vite build
 - [x] 前后端类型同步
 - [x] 错误处理完整
 - [x] 无硬编码
+- [x] 代码质量门禁：无明显冗余，复用合理，职责清晰，健壮性已检查
 - [x] 测试覆盖
 - [x] 无编造内容
 ```

@@ -29,6 +29,25 @@ github.com/yourorg/pkgname/
 - **实现按功能拆**：`encode.go`、`decode.go`、`validate.go`
 - **内部细节用 `internal/`**：调用方不应该知道的实现放这里
 
+## 职责边界
+
+- 导出 API 只表达稳定契约，不暴露临时实现细节
+- 内部实现放在非导出类型、非导出函数或 `internal/` 中
+- Option 只表达调用方真正需要控制的行为，不把内部调优参数外露
+- 错误类型和错误变量保持最小集合，能支持调用方判断即可
+- 测试 helper、fixture、benchmark 辅助逻辑只服务测试，不反向污染生产 API
+
+## 抽象准入
+
+只有满足以下任一条件才新增接口、Option、helper、internal 子包或导出类型：
+
+- 已出现 2 处以上真实重复，且抽象后语义更清晰
+- 某段逻辑复杂到需要隔离测试
+- 需要隔离外部依赖、编码格式、存储实现或并发策略
+- 新增导出 API 是用户明确要求，且符合 SemVer 与 GoDoc 要求
+
+不满足准入条件时优先保持小而直接的实现；库代码尤其禁止为单次使用扩大导出面积。
+
 ## 接口设计
 
 ```go
@@ -119,6 +138,13 @@ func WithLogger(l *slog.Logger) Option {
 - 新增能力用新接口/方法，不改老的
 - 废弃的用 `// Deprecated: use XXX instead.` 标记
 - 破坏性变更 → 升大版本（v1 → v2，module path 加 `/v2`）
+- 破坏性变更必须在 README / CHANGELOG 写清迁移路径
+
+## 可观测性
+
+- 导出 API 返回的错误要能帮助调用方定位失败阶段
+- 可判断错误应提供 sentinel error 或自定义错误类型
+- 错误包装不能丢失根因，也不能暴露无关内部依赖细节
 
 ## context.Context
 

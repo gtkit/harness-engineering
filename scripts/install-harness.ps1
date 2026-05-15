@@ -113,6 +113,7 @@ function Invoke-HarnessSetup {
 
     $guidesDir = Join-Path $ScriptDir "guides"
     $runtimeScriptsDir = Join-Path (Split-Path -Parent $ScriptDir) "scripts\error-journal"
+    $commandsDir = Join-Path (Split-Path -Parent $ScriptDir) "commands\harness"
     $skillPath = Join-Path $ScriptDir "SKILL.md"
     $claudePath = Join-Path $ScriptDir "CLAUDE.md"
     $agentsPath = Join-Path $ScriptDir "AGENTS.md"
@@ -120,6 +121,7 @@ function Invoke-HarnessSetup {
 
     Assert-HarnessPathExists -Path $guidesDir -Message "Missing guides directory: $guidesDir"
     Assert-HarnessPathExists -Path $runtimeScriptsDir -Message "Missing runtime scripts directory: $runtimeScriptsDir"
+    Assert-HarnessPathExists -Path $commandsDir -Message "Missing harness commands directory: $commandsDir"
     Assert-HarnessPathExists -Path $skillPath -Message "Missing SKILL.md: $skillPath"
     Assert-HarnessPathExists -Path $CodexSkillPath -Message "Missing Codex skill template: $CodexSkillPath"
     Assert-HarnessPathExists -Path $claudePath -Message "Missing CLAUDE.md: $claudePath"
@@ -247,7 +249,38 @@ function Invoke-HarnessSetup {
     Write-Host ""
 
     Write-Host "--------------------------------------------"
-    Write-Host "[Step 3] Update .gitignore"
+    Write-Host "[Step 3] Install Claude Code commands"
+    Write-Host "--------------------------------------------"
+    Write-Host ""
+
+    $projectCommandsDir = Join-Path $projectDir ".claude\commands\harness"
+    New-Item -ItemType Directory -Path $projectCommandsDir -Force | Out-Null
+    $commandCopied = 0
+    $commandPreserved = 0
+    $commandFiles = Get-ChildItem -LiteralPath $commandsDir -File -Filter *.md
+    if ($commandFiles.Count -eq 0) {
+        throw "No harness command templates found in $commandsDir"
+    }
+    foreach ($commandFile in $commandFiles) {
+        $destination = Join-Path $projectCommandsDir $commandFile.Name
+        if ($forceProjectFiles -eq "1" -or -not (Test-Path -LiteralPath $destination)) {
+            Copy-Item -LiteralPath $commandFile.FullName -Destination $destination -Force
+            $commandCopied++
+        }
+        else {
+            $commandPreserved++
+        }
+    }
+    if ($forceProjectFiles -eq "1") {
+        Write-Host "  OK .claude/commands/harness/ - refreshed $commandCopied commands"
+    }
+    else {
+        Write-Host "  OK .claude/commands/harness/ - added $commandCopied, preserved $commandPreserved"
+    }
+    Write-Host ""
+
+    Write-Host "--------------------------------------------"
+    Write-Host "[Step 4] Update .gitignore"
     Write-Host "--------------------------------------------"
     Write-Host ""
 

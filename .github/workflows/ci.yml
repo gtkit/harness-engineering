@@ -18,10 +18,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate shell scripts
-        run: bash -n go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh
+        run: bash -n go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh scripts/install-harness-commands.sh
 
       - name: Shellcheck (severity=warning)
-        run: shellcheck -S warning go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh scripts/error-journal/*.sh scripts/sync-claude-from-agents.sh tests/setup_smoke_test.sh tests/laravel_package_smoke_test.sh tests/error_journal_test.sh
+        run: shellcheck -S warning go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh scripts/install-harness-commands.sh scripts/error-journal/*.sh scripts/sync-claude-from-agents.sh tests/setup_smoke_test.sh tests/laravel_package_smoke_test.sh tests/error_journal_test.sh
 
       - name: Validate CLAUDE sync
         run: bash scripts/sync-claude-from-agents.sh --check

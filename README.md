@@ -20,6 +20,17 @@
 
 五套互相独立，按项目类型选用一套即可。
 
+安装后还会在项目内安装一组可选的 Claude Code slash commands。普通小改动可以不用；复杂、高风险、跨模块任务可以用它把工作拆成可恢复的 Research → Plan → Implementation 流程：
+
+| 命令 | 功能 |
+|-----|------|
+| `/harness:doctor` | 检查 harness、OpenSpec、命令和可选 MCP 工具状态 |
+| `/harness:init-openspec` | 初始化或验证 OpenSpec |
+| `/harness:research` | 将需求转成约束集和可验证成功标准 |
+| `/harness:plan` | 生成零决策执行计划和 PBT / 不变量检查点 |
+| `/harness:implement` | 按批准计划分阶段实现并验证 |
+| `/harness:review` | 按 harness 质量门禁审查当前变更 |
+
 ---
 
 ## 目录结构
@@ -27,6 +38,13 @@
 ```
 harness-engineering/
 ├── README.md                ← 你正在读的文件
+├── commands/harness/        ← Claude Code slash commands
+│   ├── doctor.md
+│   ├── init-openspec.md
+│   ├── research.md
+│   ├── plan.md
+│   ├── implement.md
+│   └── review.md
 │
 ├── go-harness/              ← 纯 Go 后端业务服务
 │   ├── setup.sh
@@ -137,17 +155,20 @@ mv harness-engineering ~/tools/harness-engineering
 
 ### 第二步：根据项目类型运行对应脚本
 
-每个项目只需要运行一次。脚本会做三件事：
+每个项目只需要运行一次。脚本会做四件事：
 
 1. **全局 Skill** 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`（只装一次，所有项目共享）
 2. **项目文件** 安装到当前项目目录（每个项目各一份，完整规则在这里）
-3. **`.gitignore` 规则** 自动创建/补齐（错误记忆、计划文件、`.idea/`、`.DS_Store`）
+3. **Claude Code Commands** 安装到项目 `.claude/commands/harness/`
+4. **`.gitignore` 规则** 自动创建/补齐（错误记忆、计划文件、`.idea/`、`.DS_Store`）
 
 其中：
 
 - Claude Code 全局 skill 是轻量入口，优先把运行时引到项目根目录 `CLAUDE.md`
 - Codex 全局 skill 是轻量入口，把运行时引到项目根目录 `AGENTS.md`
 - 详细专项规范统一放在 `.harness/guides/`
+- Claude Code slash commands 统一放在 `.claude/commands/harness/`
+- Codex 通过 `AGENTS.md` 中的 `harness ...` 自然语言别名走同一套流程
 
 ---
 
@@ -169,6 +190,9 @@ bash ~/tools/harness-engineering/go-harness/setup.sh
 your-backend-project/
 ├── CLAUDE.md                  ← Claude Code 每次对话自动读取
 ├── AGENTS.md                  ← Codex 每次任务自动读取
+├── .claude/
+│   └── commands/
+│       └── harness/           ← /harness:* 命令
 └── .harness/
     ├── error-journal.md       ← AI 错误记忆文件
     ├── guides/                ← 7 个规范文档
@@ -206,6 +230,9 @@ bash ~/tools/harness-engineering/fullstack-harness/setup.sh
 your-fullstack-project/
 ├── CLAUDE.md
 ├── AGENTS.md
+├── .claude/
+│   └── commands/
+│       └── harness/
 └── .harness/
     ├── error-journal.md
     ├── guides/                ← 10 个规范文档（后端 7 + 前端 3）
@@ -233,6 +260,9 @@ bash ~/tools/harness-engineering/go-pkg-harness/setup.sh
 your-go-package/
 ├── CLAUDE.md
 ├── AGENTS.md
+├── .claude/
+│   └── commands/
+│       └── harness/
 └── .harness/
     ├── error-journal.md
     └── guides/                ← 6 个规范文档
@@ -264,6 +294,9 @@ bash ~/tools/harness-engineering/laravel-harness/setup.sh
 your-laravel-project/
 ├── CLAUDE.md
 ├── AGENTS.md
+├── .claude/
+│   └── commands/
+│       └── harness/
 └── .harness/
     ├── error-journal.md
     └── guides/
@@ -297,6 +330,9 @@ bash ~/tools/harness-engineering/laravel-fullstack-harness/setup.sh
 your-laravel-fullstack-project/
 ├── CLAUDE.md
 ├── AGENTS.md
+├── .claude/
+│   └── commands/
+│       └── harness/
 └── .harness/
     ├── error-journal.md
     └── guides/
@@ -346,6 +382,169 @@ your-laravel-fullstack-project/
 ```
 
 全局 Skill 只是触发入口，实际规范内容在每个项目的 `CLAUDE.md`、`AGENTS.md` 和 `.harness/guides/` 下。
+
+---
+
+## 可选命令化 RPI 工作流
+
+这不是强制流程引擎，而是一组轻量命令模板。普通小改动可以直接让 AI 按 harness 规则完成；复杂、高风险、跨模块需求建议走命令化流程，让上下文只专注一件事。
+
+速查表和典型场景示例见 [Harness Command Workflow 速查](./docs/harness-command-workflow.md)。
+
+### Claude Code 怎么用
+
+Claude Code 会读取项目里的 `.claude/commands/harness/*.md`，所以可以直接输入 slash command：
+
+```text
+/harness:doctor
+```
+
+```text
+/harness:research
+你的需求描述...
+```
+
+```text
+/harness:plan
+```
+
+```text
+/harness:implement
+```
+
+```text
+/harness:review
+```
+
+### Codex 怎么用
+
+Codex 不会把 `.claude/commands/` 自动注册成 slash command；它通过 `AGENTS.md` 里的兼容入口识别自然语言别名：
+
+```text
+harness doctor
+```
+
+```text
+harness research: 你的需求描述...
+```
+
+```text
+harness plan
+```
+
+```text
+harness implement
+```
+
+```text
+harness review
+```
+
+执行时 Codex 会先读取对应的 `.claude/commands/harness/<name>.md` 模板；如果模板不存在，会按 `AGENTS.md` 中定义的流程意图执行并提示缺少模板文件。不要把 `harness ...` 当作 shell 命令，它是给 Codex 的自然语言工作流别名。
+
+### 命令说明
+
+### 1. 诊断环境
+
+```text
+/harness:doctor
+```
+
+检查项目是否已安装 harness、OpenSpec 是否可用、`.claude/commands/harness/` 是否齐全，以及可选 MCP 工具是否可用。
+
+Codex 等价写法：
+
+```text
+harness doctor
+```
+
+### 2. 初始化 OpenSpec（可选）
+
+```text
+/harness:init-openspec
+```
+
+用于需要 proposal / spec / task 管理的复杂需求。命令会先检查 `openspec`，缺失时询问是否安装，不会静默覆盖现有 OpenSpec 文件。
+
+Codex 等价写法：
+
+```text
+harness init-openspec
+```
+
+### 3. Research：需求转约束集
+
+```text
+/harness:research
+你的需求描述...
+```
+
+输出不是普通调研总结，而是：
+
+- hard constraints
+- soft constraints
+- dependencies
+- risks
+- open questions
+- verifiable success criteria
+
+这一步只消除不确定性，不写实现代码。
+
+Codex 等价写法：
+
+```text
+harness research: 你的需求描述...
+```
+
+### 4. Plan：生成零决策计划
+
+```text
+/harness:plan
+```
+
+把已批准的约束集变成实现阶段可机械执行的计划，包含：
+
+- files to change
+- sequential tasks
+- verification per task
+- rollback / migration notes
+- PBT / invariant / boundary condition / falsification strategy
+
+计划未获批准前不进入实现。
+
+Codex 等价写法：
+
+```text
+harness plan
+```
+
+### 5. Implement：分阶段实现
+
+```text
+/harness:implement
+```
+
+按批准计划选择最小可验证任务执行。每完成一个阶段都要跑对应验证；如果上下文变大，会停在 checkpoint，给出下一次恢复方式。
+
+Codex 等价写法：
+
+```text
+harness implement
+```
+
+### 6. Review：交付前审查
+
+```text
+/harness:review
+```
+
+按 `.harness/guides/review-checklist.md` 或包级 review guide 检查当前 diff，覆盖 correctness、安全、性能、分层、代码质量门禁、可观测性、兼容性与迁移、测试缺口。
+
+Codex 等价写法：
+
+```text
+harness review
+```
 
 ---
 
@@ -488,6 +687,8 @@ AGENTS.md
 .harness/guides/*.md
 .harness/scripts/*
 ```
+
+`.claude/commands/harness/*.md` 是 Claude Code 命令文件，setup 默认会把 `.claude/` 加到 `.gitignore`，避免把个人 Claude 配置整体入库。若团队希望共享这些命令，可以只取消忽略 `.claude/commands/harness/`，不要提交其他 `.claude/` 运行状态文件。
 
 以下文件**不要提交**（本地开发用）：
 

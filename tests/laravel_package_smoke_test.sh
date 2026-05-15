@@ -81,6 +81,11 @@ assert_file_contains "${laravel_fullstack_pkg}/guides/frontend-api.md" "Laravel 
 assert_file_contains "${readme_file}" "laravel-harness"
 assert_file_contains "${readme_file}" "laravel-fullstack-harness"
 assert_file_contains "${readme_file}" "Laravel"
+assert_file_contains "${readme_file}" "/harness:doctor"
+assert_file_contains "${readme_file}" "### Codex 怎么用"
+assert_file_contains "${readme_file}" "harness research: 你的需求描述"
+assert_file_contains "${readme_file}" "docs/harness-command-workflow.md"
+assert_file_contains "${readme_file}" "commands/harness"
 assert_file_contains "${ci_file}" "bash tests/laravel_package_smoke_test.sh"
 
 tmpdir="$(mktemp -d /tmp/laravel-harness-smoke-XXXXXX)"
@@ -103,10 +108,13 @@ assert_file_exists "${laravel_project}/AGENTS.md"
 assert_file_exists "${laravel_project}/.harness/guides/laravel-modules.md"
 assert_file_exists "${laravel_project}/.harness/scripts/read-error-journal.sh"
 assert_file_exists "${laravel_project}/.harness/scripts/append-error-journal.sh"
+assert_file_exists "${laravel_project}/.claude/commands/harness/doctor.md"
+assert_file_contains "${laravel_project}/.claude/commands/harness/doctor.md" "Harness Doctor"
 
 printf 'LOCAL LARAVEL GUIDE\n' > "${laravel_project}/.harness/guides/http-and-api.md"
 run_setup "laravel-harness" "$laravel_project" "$laravel_home"
 assert_file_contains "${laravel_project}/.harness/guides/http-and-api.md" "LOCAL LARAVEL GUIDE"
+assert_file_contains "${laravel_project}/.claude/commands/harness/doctor.md" "Harness Doctor"
 
 laravel_fullstack_home="${tmpdir}/laravel-fullstack-home"
 laravel_fullstack_project="${tmpdir}/laravel-fullstack-project"
@@ -125,5 +133,7 @@ assert_file_exists "${laravel_fullstack_project}/.harness/guides/frontend-archit
 assert_file_exists "${laravel_fullstack_project}/.harness/guides/frontend-coding.md"
 assert_file_exists "${laravel_fullstack_project}/.harness/scripts/read-error-journal.sh"
 assert_file_exists "${laravel_fullstack_project}/.harness/scripts/append-error-journal.sh"
+assert_file_exists "${laravel_fullstack_project}/.claude/commands/harness/doctor.md"
+assert_file_contains "${laravel_fullstack_project}/.claude/commands/harness/doctor.md" "Harness Doctor"
 
 printf 'Laravel package smoke test passed\n'

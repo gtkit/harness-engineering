@@ -12,6 +12,19 @@
 
 ### Fixed
 
+## [1.3.0] - 2026-05-15
+
+### Added
+- 新增 `commands/harness/` Claude Code slash commands：`doctor`、`init-openspec`、`research`、`plan`、`implement`、`review`，用于可选的复杂任务 RPI 编排。
+- 五套 harness 的安装脚本会把命令模板安装到项目 `.claude/commands/harness/`，并在默认模式保留用户本地已修改命令；`HARNESS_FORCE_PROJECT_FILES=1` 可强制刷新。
+- 新增 Codex 命令化工作流兼容入口：在 `AGENTS.md` 中识别 `harness doctor`、`harness research: ...`、`harness plan`、`harness implement`、`harness review`、`harness init-openspec` 自然语言别名，并优先读取同名命令模板。
+- 新增 `docs/harness-command-workflow.md`，提供 Claude Code / Codex 命令速查、典型场景和推荐路径。
+
+### Changed
+- README 增加可选命令化 RPI 工作流说明，分别说明 Claude Code 使用 `/harness:*`，Codex 使用 `harness ...` 自然语言别名。
+- 五套 harness 的 `AGENTS.md` / `CLAUDE.md` 和相关 guide 增加强代码质量要求，覆盖减少冗余、代码复用、架构清晰、分层合理、健壮稳定和简单优先。
+- CI、Bash smoke、Windows smoke、Laravel smoke 覆盖命令模板安装、保留/强制刷新行为、Codex 兼容入口和速查文档。
+
 ## [1.2.0] - 2026-05-14
 
 ### Added

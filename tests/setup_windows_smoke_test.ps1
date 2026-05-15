@@ -52,6 +52,33 @@ function Assert-LineExists {
     }
 }
 
+function Assert-HarnessCommands {
+    param([string]$ProjectDir)
+
+    $commandsDir = Join-Path $ProjectDir ".claude\commands\harness"
+
+    Assert-PathExists (Join-Path $commandsDir "doctor.md")
+    Assert-PathExists (Join-Path $commandsDir "init-openspec.md")
+    Assert-PathExists (Join-Path $commandsDir "research.md")
+    Assert-PathExists (Join-Path $commandsDir "plan.md")
+    Assert-PathExists (Join-Path $commandsDir "implement.md")
+    Assert-PathExists (Join-Path $commandsDir "review.md")
+    Assert-FileContains (Join-Path $commandsDir "doctor.md") "Harness Doctor"
+    Assert-FileContains (Join-Path $commandsDir "research.md") "constraint set"
+    Assert-FileContains (Join-Path $commandsDir "plan.md") "zero-decision"
+    Assert-FileContains (Join-Path $commandsDir "implement.md") "approved plan"
+    Assert-FileContains (Join-Path $commandsDir "review.md") "质量"
+}
+
+function Assert-CodexWorkflowAliases {
+    param([string]$ProjectDir)
+
+    $agentsPath = Join-Path $ProjectDir "AGENTS.md"
+    Assert-FileContains $agentsPath "Codex 命令化工作流兼容入口"
+    Assert-FileContains $agentsPath "harness research: <需求>"
+    Assert-FileContains $agentsPath "不把 `harness ...` 当作 shell 命令执行"
+}
+
 function Invoke-SetupPs1 {
     param(
         [string]$HarnessDir,
@@ -130,6 +157,8 @@ try {
         Assert-PathExists (Join-Path $projectDir ".harness\error-journal.md")
         Assert-PathExists (Join-Path $projectDir ".harness\scripts\read-error-journal.ps1")
         Assert-PathExists (Join-Path $projectDir ".harness\scripts\append-error-journal.ps1")
+        Assert-HarnessCommands $projectDir
+        Assert-CodexWorkflowAliases $projectDir
         Assert-PathExists (Join-Path $homeDir ".claude\skills\$module\SKILL.md")
         Assert-PathExists (Join-Path $homeDir ".codex\skills\$module\SKILL.md")
         Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "CLAUDE.md"
@@ -186,6 +215,11 @@ try {
     Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $preserveProjectDir -SandboxHome $preserveHomeDir
     Assert-FileContains $architecturePath "LOCAL CHANGE"
 
+    $doctorCommandPath = Join-Path $preserveProjectDir ".claude\commands\harness\doctor.md"
+    Set-Content -LiteralPath $doctorCommandPath -Value "LOCAL COMMAND"
+    Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $preserveProjectDir -SandboxHome $preserveHomeDir
+    Assert-FileContains $doctorCommandPath "LOCAL COMMAND"
+
     Set-Content -LiteralPath (Join-Path $preserveProjectDir "CLAUDE.md") -Value "LOCAL CLAUDE"
     Set-Content -LiteralPath (Join-Path $preserveProjectDir "AGENTS.md") -Value "LOCAL AGENTS"
     Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $preserveProjectDir -SandboxHome $preserveHomeDir -ForceProjectFiles
@@ -193,6 +227,8 @@ try {
     Assert-FileContains (Join-Path $preserveProjectDir "AGENTS.md") "## 分层架构（不可逾越）"
     Assert-FileNotContains (Join-Path $preserveProjectDir "CLAUDE.md") "LOCAL CLAUDE"
     Assert-FileNotContains (Join-Path $preserveProjectDir "AGENTS.md") "LOCAL AGENTS"
+    Assert-FileContains $doctorCommandPath "Harness Doctor"
+    Assert-FileNotContains $doctorCommandPath "LOCAL COMMAND"
 
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $preserveProjectDir ".harness\scripts\append-error-journal.ps1") `
         -RepoRoot $preserveProjectDir `
@@ -210,6 +246,8 @@ try {
         Invoke-SetupBat -HarnessDir $module -ProjectDir $batchProjectDir -SandboxHome $batchHomeDir
         Assert-PathExists (Join-Path $batchProjectDir "CLAUDE.md")
         Assert-PathExists (Join-Path $batchProjectDir "AGENTS.md")
+        Assert-HarnessCommands $batchProjectDir
+        Assert-CodexWorkflowAliases $batchProjectDir
     }
 }
 finally {
