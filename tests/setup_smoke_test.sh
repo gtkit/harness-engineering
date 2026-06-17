@@ -83,17 +83,19 @@ assert_gitignore_baseline() {
         "progress.md" \
         "task_plan.md" \
         "# Harness: 本地工具与 Agent 运行产物" \
-        ".harness/error-journal.md" \
+        ".harness/" \
         ".claude/" \
         ".codex/" \
         ".agents/" \
         "openspec/" \
         "AGENTS.md" \
         "CLAUDE.md" \
-        "tools/" \
-        ".harness/VERSION"; do
+        "tools/"; do
         assert_line_exists "$file" "$line"
     done
+    # 整目录忽略后，旧的细粒度规则不应再单独出现
+    assert_file_not_contains "$file" ".harness/error-journal.md"
+    assert_file_not_contains "$file" ".harness/VERSION"
 }
 
 assert_version_file() {

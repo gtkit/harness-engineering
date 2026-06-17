@@ -176,19 +176,20 @@ try {
             "findings.md",
             "progress.md",
             "task_plan.md",
-            ".harness/error-journal.md",
+            ".harness/",
             ".claude/",
             ".codex/",
             ".agents/",
             "openspec/",
             "AGENTS.md",
             "CLAUDE.md",
-            "tools/",
-            ".harness/VERSION"
+            "tools/"
         )
         foreach ($line in $gitignoreBaseline) {
             Assert-LineExists (Join-Path $projectDir ".gitignore") $line
         }
+        Assert-FileNotContains (Join-Path $projectDir ".gitignore") ".harness/error-journal.md"
+        Assert-FileNotContains (Join-Path $projectDir ".gitignore") ".harness/VERSION"
 
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "清理杂物"
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "必须删除并保持工作区干净"

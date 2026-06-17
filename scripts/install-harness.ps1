@@ -301,6 +301,8 @@ function Invoke-HarnessSetup {
         $gitignoreUpdated = $true
     }
 
+    # .gitignore 单一源头：与 scripts/install-harness.sh 保持一致。
+    # 整个 .harness/ 目录均为 setup 可再生的本地产物，不入库。
     $patterns = @(
         ".openspec-auto-backup/",
         ".openspec-auto/",
@@ -312,15 +314,14 @@ function Invoke-HarnessSetup {
         "findings.md",
         "progress.md",
         "task_plan.md",
-        ".harness/error-journal.md",
+        ".harness/",
         ".claude/",
         ".codex/",
         ".agents/",
         "openspec/",
         "AGENTS.md",
         "CLAUDE.md",
-        "tools/",
-        ".harness/VERSION"
+        "tools/"
     )
     foreach ($pattern in $patterns) {
         if (Add-UniqueLine -Path $gitignorePath -Line $pattern) {
