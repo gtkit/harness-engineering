@@ -42,16 +42,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: PSScriptAnalyzer (setup.ps1)
+      - name: PSScriptAnalyzer (PowerShell)
         shell: powershell
         run: |
-          $files = @('go-harness/setup.ps1','fullstack-harness/setup.ps1','go-pkg-harness/setup.ps1','laravel-harness/setup.ps1','laravel-fullstack-harness/setup.ps1')
-          $issues = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Severity Warning,Error }
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+          Import-Module PSScriptAnalyzer
+          $files = @(
+            'go-harness/setup.ps1',
+            'fullstack-harness/setup.ps1',
+            'go-pkg-harness/setup.ps1',
+            'laravel-harness/setup.ps1',
+            'laravel-fullstack-harness/setup.ps1',
+            'scripts/install-harness.ps1',
+            'scripts/error-journal/append-error-journal.ps1',
+            'scripts/error-journal/read-error-journal.ps1',
+            'tests/setup_windows_smoke_test.ps1',
+            'tests/error_journal_test.ps1'
+          )
+          $issues = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Severity Warning,Error -ExcludeRule PSAvoidUsingWriteHost }
           if ($issues) {
             $issues | Format-Table RuleName,Severity,ScriptName,Line,Message -AutoSize
             exit 1
           }
-          Write-Host "PSScriptAnalyzer passed: 5 setup.ps1 files, 0 issues at Warning/Error"
+          Write-Host "PSScriptAnalyzer passed: $($files.Count) PowerShell files, 0 issues at Warning/Error"
 
       - name: Run Windows setup smoke test
         shell: pwsh

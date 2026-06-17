@@ -7,10 +7,15 @@
 ## [Unreleased]
 
 ### Added
+- 为 `go-harness` 与 `fullstack-harness` 新增 `guides/testing-and-validation.md`，补齐 Go 后端业务服务缺失的测试、回归、race、API 契约和全栈联调验证专项 guide；入口加载表、README 和 smoke 测试同步纳入。
+- 为 `go-harness` 与 `fullstack-harness` 新增 `guides/workers-and-scheduling.md`，补齐 Go 后端后台 goroutine、队列消费者、定时任务、outbox、幂等、优雅关闭和可观测性专项约束。
+- 为 `go-pkg-harness` 新增 `guides/pkg-release-and-supply-chain.md`，补齐 Go 扩展包发布、SemVer/tag、v2+ module path、依赖治理、`govulncheck`、license 和安全发布专项约束。
 
 ### Changed
+- CI 的 Windows PowerShell 静态检查改为按需安装并导入 `PSScriptAnalyzer`，扫描范围从 5 个 `setup.ps1` 薄包装扩展到共享安装器、error-journal PowerShell 脚本和 PowerShell 测试脚本；README 本地门禁命令同步补齐 Windows setup smoke。
 
 ### Fixed
+- 统一 PowerShell 安装器写入的 `.gitignore` Harness 注释标题，与 Bash 安装器保持一致；Windows smoke 测试新增该标题断言，防止跨平台生成结果再次漂移。
 
 ## [1.4.0] - 2026-06-17
 

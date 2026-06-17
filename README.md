@@ -57,7 +57,9 @@ harness-engineering/
 │       ├── db-patterns.md
 │       ├── llm-integration.md
 │       ├── payment.md
+│       ├── workers-and-scheduling.md
 │       ├── pkg-design.md
+│       ├── testing-and-validation.md
 │       ├── review-checklist.md
 │       └── error-journal-template.md
 │
@@ -72,7 +74,9 @@ harness-engineering/
 │       ├── db-patterns.md
 │       ├── llm-integration.md
 │       ├── payment.md
+│       ├── workers-and-scheduling.md
 │       ├── pkg-design.md
+│       ├── testing-and-validation.md
 │       ├── frontend-architecture.md
 │       ├── frontend-api.md
 │       ├── frontend-coding.md
@@ -90,6 +94,7 @@ harness-engineering/
         ├── pkg-testing.md
         ├── pkg-docs.md
         ├── pkg-generics.md
+        ├── pkg-release-and-supply-chain.md
         ├── pkg-review.md
         └── error-journal-template.md
 │
@@ -195,13 +200,15 @@ your-backend-project/
 │       └── harness/           ← /harness:* 命令
 └── .harness/
     ├── error-journal.md       ← AI 错误记忆文件
-    ├── guides/                ← 7 个规范文档
+    ├── guides/                ← 9 个规范文档
     │   ├── architecture.md         分层架构、依赖方向
     │   ├── api-conventions.md      统一响应格式、错误码
     │   ├── db-patterns.md          GORM、Repository、事务
     │   ├── llm-integration.md      大模型对接（SSE、重试降级）
     │   ├── payment.md              支付（幂等、验签、对账）
+    │   ├── workers-and-scheduling.md Worker、队列、定时任务
     │   ├── pkg-design.md           扩展包设计
+    │   ├── testing-and-validation.md 测试、回归、验证
     │   └── review-checklist.md     12 维度审查清单
     └── scripts/               ← error-journal 读写脚本
         ├── read-error-journal.sh
@@ -235,9 +242,24 @@ your-fullstack-project/
 │       └── harness/
 └── .harness/
     ├── error-journal.md
-    ├── guides/                ← 10 个规范文档（后端 7 + 前端 3）
+    ├── guides/                ← 12 个规范文档（后端 9 + 前端 3）
+    │   ├── architecture.md
+    │   ├── api-conventions.md
+    │   ├── db-patterns.md
+    │   ├── llm-integration.md
+    │   ├── payment.md
+    │   ├── workers-and-scheduling.md
+    │   ├── pkg-design.md
+    │   ├── testing-and-validation.md
+    │   ├── frontend-architecture.md
+    │   ├── frontend-api.md
+    │   ├── frontend-coding.md
+    │   └── review-checklist.md
     └── scripts/               ← error-journal 读写脚本
-        └── review-checklist.md      全栈 16 维度审查清单
+        ├── read-error-journal.sh
+        ├── append-error-journal.sh
+        ├── read-error-journal.ps1
+        └── append-error-journal.ps1
 ```
 
 ---
@@ -265,12 +287,13 @@ your-go-package/
 │       └── harness/
 └── .harness/
     ├── error-journal.md
-    └── guides/                ← 6 个规范文档
+    └── guides/                ← 7 个规范文档
         ├── pkg-structure.md        包结构、接口、Functional Options
         ├── pkg-errors.md           三层错误体系
         ├── pkg-testing.md          测试、Benchmark、Example、Fuzz
         ├── pkg-docs.md             GoDoc、README、CHANGELOG
         ├── pkg-generics.md         泛型应用
+        ├── pkg-release-and-supply-chain.md 发布、依赖、供应链安全
         └── pkg-review.md           包级 9 维度审查清单
 ```
 
@@ -856,10 +879,16 @@ PowerShell 端门禁需要 Windows 环境或 Docker pwsh：
 # 6. PSScriptAnalyzer（CI 用，本地可选）
 docker run --rm -v "$PWD:/work" -w /work mcr.microsoft.com/powershell:7.4-ubuntu-22.04 \
   pwsh -NoProfile -Command "Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck | Out-Null; \
-    @('go-harness/setup.ps1','fullstack-harness/setup.ps1','go-pkg-harness/setup.ps1','laravel-harness/setup.ps1','laravel-fullstack-harness/setup.ps1') \
-    | ForEach-Object { Invoke-ScriptAnalyzer -Path \$_ -Severity Warning,Error }"
+    @('go-harness/setup.ps1','fullstack-harness/setup.ps1','go-pkg-harness/setup.ps1','laravel-harness/setup.ps1','laravel-fullstack-harness/setup.ps1', \
+      'scripts/install-harness.ps1','scripts/error-journal/append-error-journal.ps1','scripts/error-journal/read-error-journal.ps1', \
+      'tests/setup_windows_smoke_test.ps1','tests/error_journal_test.ps1') \
+    | ForEach-Object { Invoke-ScriptAnalyzer -Path \$_ -Severity Warning,Error -ExcludeRule PSAvoidUsingWriteHost }"
 
-# 7. error-journal PS 脚本契约单测
+# 7. Windows setup 冒烟测试
+docker run --rm -v "$PWD:/work" -w /work mcr.microsoft.com/powershell:7.4-ubuntu-22.04 \
+  pwsh -NoProfile -ExecutionPolicy Bypass -File tests/setup_windows_smoke_test.ps1
+
+# 8. error-journal PS 脚本契约单测
 docker run --rm -v "$PWD:/work" -w /work mcr.microsoft.com/powershell:7.4-ubuntu-22.04 \
   pwsh -NoProfile -ExecutionPolicy Bypass -File tests/error_journal_test.ps1
 ```

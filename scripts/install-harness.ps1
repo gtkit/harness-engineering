@@ -30,14 +30,20 @@ function Add-UniqueLine {
         [string]$Line
     )
 
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     if (Test-Path -LiteralPath $Path) {
-        $lines = Get-Content -LiteralPath $Path
+        $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+        $lines = $content -split "\r?\n"
         if ($lines -ccontains $Line) {
             return $false
         }
+
+        if ($content.Length -gt 0 -and -not $content.EndsWith("`n")) {
+            [System.IO.File]::AppendAllText($Path, [Environment]::NewLine, $utf8NoBom)
+        }
     }
 
-    Add-Content -LiteralPath $Path -Value $Line
+    [System.IO.File]::AppendAllText($Path, $Line + [Environment]::NewLine, $utf8NoBom)
     return $true
 }
 
@@ -49,6 +55,15 @@ function Set-Utf8NoBomContent {
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText($Path, $Value, $utf8NoBom)
+}
+
+function Get-HarnessGitignoreHeader {
+    $codePoints = @(
+        0x672C, 0x5730, 0x5DE5, 0x5177, 0x4E0E, 0x0020,
+        0x0041, 0x0067, 0x0065, 0x006E, 0x0074, 0x0020,
+        0x8FD0, 0x884C, 0x4EA7, 0x7269
+    )
+    return "# Harness: " + (($codePoints | ForEach-Object { [char]$_ }) -join '')
 }
 
 function Write-HarnessVersion {
@@ -297,7 +312,8 @@ function Invoke-HarnessSetup {
     if (Add-UniqueLine -Path $gitignorePath -Line "") {
         $gitignoreUpdated = $true
     }
-    if (Add-UniqueLine -Path $gitignorePath -Line "# Harness: local agent runtime artifacts") {
+    $gitignoreHeader = Get-HarnessGitignoreHeader
+    if (Add-UniqueLine -Path $gitignorePath -Line $gitignoreHeader) {
         $gitignoreUpdated = $true
     }
 

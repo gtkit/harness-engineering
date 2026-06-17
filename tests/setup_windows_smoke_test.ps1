@@ -70,6 +70,49 @@ function Assert-HarnessCommands {
     Assert-FileContains (Join-Path $commandsDir "review.md") "质量"
 }
 
+function Assert-GuideFileExists {
+    param(
+        [string]$ProjectDir,
+        [string]$FileName
+    )
+
+    Assert-PathExists (Join-Path $ProjectDir ".harness\guides\$FileName")
+}
+
+function Assert-AllGuidesAreReferenced {
+    param([string]$HarnessDir)
+
+    $agentsPath = Join-Path (Join-Path $RootDir $HarnessDir) "AGENTS.md"
+    $guidesDir = Join-Path (Join-Path $RootDir $HarnessDir) "guides"
+
+    Get-ChildItem -LiteralPath $guidesDir -File -Filter *.md | ForEach-Object {
+        if ($_.Name -eq "error-journal-template.md") {
+            return
+        }
+
+        Assert-FileContains $agentsPath $_.Name
+    }
+}
+
+function Assert-InstalledGuidesMatchSource {
+    param(
+        [string]$HarnessDir,
+        [string]$ProjectDir
+    )
+
+    $guidesDir = Join-Path (Join-Path $RootDir $HarnessDir) "guides"
+    $agentsPath = Join-Path $ProjectDir "AGENTS.md"
+
+    Get-ChildItem -LiteralPath $guidesDir -File -Filter *.md | ForEach-Object {
+        if ($_.Name -eq "error-journal-template.md") {
+            return
+        }
+
+        Assert-GuideFileExists $ProjectDir $_.Name
+        Assert-FileContains $agentsPath $_.Name
+    }
+}
+
 function Assert-CodexWorkflowAliases {
     param([string]$ProjectDir)
 
@@ -138,6 +181,7 @@ $modules = @(
 foreach ($module in $modules) {
     Assert-PathExists (Join-Path (Join-Path $RootDir $module) "setup.ps1")
     Assert-PathExists (Join-Path (Join-Path $RootDir $module) "setup.bat")
+    Assert-AllGuidesAreReferenced $module
 }
 
 $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("harness-windows-smoke-" + [System.Guid]::NewGuid().ToString("N"))
@@ -159,6 +203,13 @@ try {
         Assert-PathExists (Join-Path $projectDir ".harness\scripts\append-error-journal.ps1")
         Assert-HarnessCommands $projectDir
         Assert-CodexWorkflowAliases $projectDir
+        Assert-InstalledGuidesMatchSource -HarnessDir $module -ProjectDir $projectDir
+        if ($module -eq "go-harness" -or $module -eq "fullstack-harness") {
+            Assert-GuideFileExists $projectDir "testing-and-validation.md"
+            Assert-GuideFileExists $projectDir "workers-and-scheduling.md"
+            Assert-FileContains (Join-Path $projectDir "AGENTS.md") ".harness/guides/testing-and-validation.md"
+            Assert-FileContains (Join-Path $projectDir "AGENTS.md") ".harness/guides/workers-and-scheduling.md"
+        }
         Assert-PathExists (Join-Path $homeDir ".claude\skills\$module\SKILL.md")
         Assert-PathExists (Join-Path $homeDir ".codex\skills\$module\SKILL.md")
         Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "CLAUDE.md"
@@ -166,6 +217,7 @@ try {
         Assert-FileContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "AGENTS.md"
         Assert-FileNotContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "CLAUDE.md"
         $gitignoreBaseline = @(
+            "# Harness: 本地工具与 Agent 运行产物",
             ".openspec-auto-backup/",
             ".openspec-auto/",
             ".idea/",
@@ -249,6 +301,11 @@ try {
         Assert-PathExists (Join-Path $batchProjectDir "AGENTS.md")
         Assert-HarnessCommands $batchProjectDir
         Assert-CodexWorkflowAliases $batchProjectDir
+        Assert-InstalledGuidesMatchSource -HarnessDir $module -ProjectDir $batchProjectDir
+        if ($module -eq "go-harness" -or $module -eq "fullstack-harness") {
+            Assert-GuideFileExists $batchProjectDir "testing-and-validation.md"
+            Assert-GuideFileExists $batchProjectDir "workers-and-scheduling.md"
+        }
     }
 }
 finally {

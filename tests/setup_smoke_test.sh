@@ -131,6 +131,13 @@ assert_harness_commands() {
     assert_file_contains "${commands_dir}/review.md" "质量"
 }
 
+assert_guide_file_exists() {
+    local project_dir="$1"
+    local file="$2"
+
+    test -f "${project_dir}/.harness/guides/${file}" || fail "missing guide ${file} in ${project_dir}"
+}
+
 assert_generated_docs_do_not_require_cleanup() {
     local project_dir="$1"
 
@@ -138,6 +145,33 @@ assert_generated_docs_do_not_require_cleanup() {
     assert_file_not_contains "${project_dir}/AGENTS.md" "必须删除并保持工作区干净"
     assert_file_not_contains "${project_dir}/CLAUDE.md" "清理杂物"
     assert_file_not_contains "${project_dir}/CLAUDE.md" "必须删除"
+}
+
+assert_all_guides_are_referenced() {
+    local harness_dir="$1"
+    local agents_file="${ROOT_DIR}/${harness_dir}/AGENTS.md"
+    local guide
+    local guide_name
+
+    for guide in "${ROOT_DIR}/${harness_dir}/guides/"*.md; do
+        guide_name="$(basename "$guide")"
+        [ "$guide_name" = "error-journal-template.md" ] && continue
+        assert_file_contains "$agents_file" "$guide_name"
+    done
+}
+
+assert_installed_guides_match_source() {
+    local harness_dir="$1"
+    local project_dir="$2"
+    local guide
+    local guide_name
+
+    for guide in "${ROOT_DIR}/${harness_dir}/guides/"*.md; do
+        guide_name="$(basename "$guide")"
+        [ "$guide_name" = "error-journal-template.md" ] && continue
+        assert_guide_file_exists "$project_dir" "$guide_name"
+        assert_file_contains "${project_dir}/AGENTS.md" "$guide_name"
+    done
 }
 
 run_setup() {
@@ -165,6 +199,10 @@ assert_file_contains "${workflow_file}" "bash -n go-harness/setup.sh fullstack-h
 assert_file_contains "${workflow_file}" "bash scripts/sync-claude-from-agents.sh --check"
 assert_file_contains "${workflow_file}" "bash tests/setup_smoke_test.sh"
 
+for harness_dir in go-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
+    assert_all_guides_are_referenced "${harness_dir}"
+done
+
 tmpdir="$(mktemp -d /tmp/harness-smoke-XXXXXX)"
 trap 'rm -rf "$tmpdir"' EXIT
 
@@ -181,6 +219,7 @@ assert_global_codex_skill "${go_home}/.codex/skills/go-harness/SKILL.md"
 assert_error_journal_runtime "${go_project}"
 assert_version_file "${go_project}" "go-harness"
 assert_harness_commands "${go_project}"
+assert_installed_guides_match_source "go-harness" "${go_project}"
 
     printf 'LOCAL CHANGE\n' > "${go_project}/.harness/guides/architecture.md"
     run_setup "go-harness" "$go_project" "$go_home"
@@ -218,6 +257,7 @@ for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-full
     assert_global_codex_skill "${home_dir}/.codex/skills/${harness_dir}/SKILL.md"
     assert_file_contains "${project_dir}/AGENTS.md" "Codex 命令化工作流兼容入口"
     assert_file_contains "${project_dir}/AGENTS.md" "harness research: <需求>"
+    assert_installed_guides_match_source "${harness_dir}" "${project_dir}"
     test -f "${project_dir}/.harness/scripts/read-error-journal.sh" || fail "${harness_dir} should install read-error-journal.sh"
     test -f "${project_dir}/.harness/scripts/append-error-journal.sh" || fail "${harness_dir} should install append-error-journal.sh"
     assert_version_file "${project_dir}" "${harness_dir}"
@@ -226,10 +266,17 @@ done
 
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "github.com/gtkit/json"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "禁止 \`encoding/json\`"
+assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" ".harness/guides/pkg-release-and-supply-chain.md"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/SKILL.codex.md" "AGENTS.md"
+assert_file_contains "${ROOT_DIR}/go-harness/AGENTS.md" ".harness/guides/testing-and-validation.md"
+assert_file_contains "${ROOT_DIR}/go-harness/AGENTS.md" ".harness/guides/workers-and-scheduling.md"
+assert_file_contains "${ROOT_DIR}/go-harness/CLAUDE.md" ".harness/guides/testing-and-validation.md"
+assert_file_contains "${ROOT_DIR}/go-harness/CLAUDE.md" ".harness/guides/workers-and-scheduling.md"
 
 assert_file_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" "backend/"
 assert_file_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" "frontend/"
+assert_file_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" ".harness/guides/testing-and-validation.md"
+assert_file_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" ".harness/guides/workers-and-scheduling.md"
 assert_file_not_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" "web/src/api/types.ts"
 assert_file_contains "${ROOT_DIR}/go-harness/SKILL.md" "CLAUDE.md"
 assert_file_contains "${ROOT_DIR}/go-harness/SKILL.md" "AGENTS.md"
