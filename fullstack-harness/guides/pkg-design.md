@@ -13,7 +13,7 @@
 ## 包结构
 
 ```
-github.com/yourorg/pkgname/
+github.com/gtkit/pkgname/
 ├── pkgname.go           # 核心类型和接口定义
 ├── options.go           # Functional Options
 ├── errors.go            # 包级错误定义
@@ -26,6 +26,8 @@ github.com/yourorg/pkgname/
 ```
 
 ## Functional Options 模板
+
+> 可复用扩展包用标准库 `log/slog`（零依赖，不绑定业务日志栈）；这与业务服务统一用 `gtkit/logger` 是刻意区分，见 architecture.md「日志库」。
 
 ```go
 type Option func(*config)

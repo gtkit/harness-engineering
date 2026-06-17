@@ -9,6 +9,8 @@
 | Benchmark | `benchmark_test.go` | 性能关键路径必须有 |
 | Fuzz 测试 | `fuzz_test.go` | 解析类/编解码类函数推荐加 |
 
+> 覆盖率优先级：**导出 API + 错误路径**必须覆盖，优先于凑数字；80% 是底线不是目标。单元测试默认加 `t.Parallel()`；涉及定时/并发逻辑可用 `testing/synctest`（Go 1.25+）。
+
 ## 单元测试（table-driven）
 
 ```go
@@ -82,7 +84,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/yourorg/pkgname"
+    "github.com/gtkit/pkgname"
 )
 
 func ExampleNew() {
@@ -175,6 +177,32 @@ func FuzzDecode(f *testing.F) {
             t.Fatalf("round-trip mismatch")
         }
     })
+}
+```
+
+**Fuzz 落地：**
+- 失败语料由 `go test` 自动落到 `testdata/fuzz/`，**必须入库**作为回归用例
+- CI 跑短时 fuzz（如 `-fuzztime=30s`）做回归，长时模糊单独跑
+
+## 并发安全测试（声明线程安全的类型必备）
+
+凡是文档声明 concurrent-safe 的类型，必须有多 goroutine 并发调用 + `-race` 的测试，否则"线程安全"是空话。
+
+```go
+func TestClient_ConcurrentEncode(t *testing.T) {
+    client := New()
+    const goroutines = 50
+    var wg sync.WaitGroup
+    wg.Add(goroutines)
+    for range goroutines {
+        go func() {
+            defer wg.Done()
+            if _, err := client.Encode(context.Background(), "x"); err != nil {
+                t.Errorf("concurrent encode: %v", err)
+            }
+        }()
+    }
+    wg.Wait() // 配合 go test -race 暴露数据竞争
 }
 ```
 

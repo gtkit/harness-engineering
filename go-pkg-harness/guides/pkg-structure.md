@@ -3,7 +3,7 @@
 ## 目录结构
 
 ```
-github.com/yourorg/pkgname/
+github.com/gtkit/pkgname/
 ├── doc.go               # 包级文档（Package pkgname ...）
 ├── pkgname.go           # 核心类型 + 接口 + 构造函数
 ├── options.go           # Functional Options
@@ -120,6 +120,7 @@ func WithLogger(l *slog.Logger) Option {
 - 所有可选参数用 Option，必选参数放构造函数签名
 - Option 函数内做防御性校验（nil 检查、负数检查）
 - 必须有合理的默认值，使用者不传任何 Option 也能正常工作
+- 校验失败需要上报（而非静默忽略非法值）时，改用 `type Option func(*config) error`，`New(...) (*Client, error)` 返回错误
 
 ## 命名规范
 
@@ -136,8 +137,8 @@ func WithLogger(l *slog.Logger) Option {
 
 - 导出的类型、函数、方法签名一旦发布（v1.0.0+），不随意修改
 - 新增能力用新接口/方法，不改老的
-- 废弃的用 `// Deprecated: use XXX instead.` 标记
-- 破坏性变更 → 升大版本（v1 → v2，module path 加 `/v2`）
+- **废弃流程**：`// Deprecated: use XXX instead.` 标记 + 注释指向替代 API；至少保留一个 MINOR 周期；只能在下一个 MAJOR 删除
+- **破坏性变更 → 升大版本**。v2+ 不只是改 import：`go.mod` 的 module path 必须带 `/v2`，并通过**仓库子目录 `v2/`** 或**独立 major 分支**提供该版本（Go Module 硬要求），否则下游 `go get` 取不到
 - 破坏性变更必须在 README / CHANGELOG 写清迁移路径
 
 ## 可观测性
@@ -151,6 +152,7 @@ func WithLogger(l *slog.Logger) Option {
 - 所有可能耗时的操作：第一个参数 `ctx context.Context`
 - 尊重 ctx 的 cancel 和 deadline
 - 内部不创建 `context.Background()`，用调用方传入的
+- **不要把 `context` 存进 struct 字段**，按调用逐次作首参传入
 - 纯计算型函数（无 IO、无网络）不需要 ctx
 
 ## 并发安全

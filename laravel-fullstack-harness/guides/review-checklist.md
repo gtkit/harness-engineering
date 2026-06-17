@@ -3,9 +3,10 @@
 ## 1. 后端
 
 - [ ] Controller 是否轻量
-- [ ] Form Request / Resource 是否职责明确
-- [ ] Eloquent 是否存在 N+1、事务缺失、锁错误
-- [ ] Queue / Scheduler / Event / Notification 是否已检查
+- [ ] Form Request / Resource 是否职责明确；对象级授权是否用 Policy / Gate 覆盖
+- [ ] Eloquent 是否存在 N+1、事务缺失、锁错误；并发写是否加锁，是否有 mass assignment / 原始 SQL 注入风险
+- [ ] 错误响应是否符合统一契约 + 状态码映射（前后端错误结构一致）
+- [ ] Queue / Scheduler / Event / Notification 是否已检查（Job 失败处理、Scheduler 防重叠、同步/异步 Listener 边界）
 - [ ] 无无意义重复代码；重复逻辑已提取或说明保留原因
 - [ ] 优先复用已有 Form Request / Resource / Service / Action / Repository / Policy / Job / helper
 - [ ] 新增 Service / Action / Repository / trait / 事件有明确收益，不是为单次使用提前设计
@@ -14,9 +15,14 @@
 ## 2. 前端
 
 - [ ] 是否遵守 views → composables → api
-- [ ] 是否存在 `any`
+- [ ] 是否存在 `any`；tsconfig 是否开 strict
 - [ ] 是否存在组件直接请求后端
 - [ ] 构建、类型检查、eslint 是否覆盖
+- [ ] 异步数据视图显式处理 loading / error / empty 三态，错误态可重试
+- [ ] 表单做客户端校验，后端 422 字段级错误映射回对应表单项
+- [ ] 覆盖旧请求的场景用 AbortController 取消在途请求、防竞态
+- [ ] 受保护路由在 router.beforeEach 统一校验登录态/权限
+- [ ] 基本可访问性：表单控件关联 label、图标按钮有 aria-label
 - [ ] 优先复用已有 composable / store / api client / 组件 / helper
 - [ ] 新增通用组件、composable、store 有明确复用或隔离复杂度收益
 - [ ] 页面、组件、composable、api 层职责单一，没有混合展示、流程、请求逻辑

@@ -5,13 +5,16 @@
 ## 1. HTTP
 
 - [ ] Controller 是否保持轻量
-- [ ] Form Request 是否承担校验 / 授权
-- [ ] Resource 是否统一返回结构
+- [ ] Form Request 是否承担校验，`authorize()` 是否只做粗粒度准入
+- [ ] 对象级授权是否用 Policy / Gate 覆盖（而非散落在 Service）
+- [ ] Resource 是否统一返回结构；错误响应是否符合统一契约 + 状态码映射（422/401/403/404/500）
+- [ ] 无状态 API 鉴权与 CSRF 配置是否正确；对外接口是否有 `throttle` 限流
 
 ## 2. Data / Eloquent
 
 - [ ] 是否存在 N+1 风险
-- [ ] 是否缺事务
+- [ ] 是否缺事务；并发写是否用了 `lockForUpdate` / 乐观锁，事务内是否避免吞异常与远程调用
+- [ ] 是否存在 mass assignment 风险（`$fillable`/`$guarded`）、原始 SQL 是否参数绑定
 - [ ] 是否把复杂业务写进 Model
 
 ## 2.1 代码质量

@@ -130,3 +130,15 @@ export class ApiError extends Error {
   }
 }
 ```
+
+## 请求取消与竞态
+
+- 搜索、分页、路由切换等会发起新请求覆盖旧请求的场景，必须用 `AbortController` 取消在途请求，丢弃过期响应，避免回填竞态
+- 组件卸载（`onUnmounted`）时取消未完成请求
+- 被取消的请求（`axios.isCancel` / `CanceledError`）不当作错误提示
+
+```typescript
+const controller = new AbortController()
+const res = await client.get('/api/v1/users', { params, signal: controller.signal })
+// 参数变化或卸载时：controller.abort()
+```

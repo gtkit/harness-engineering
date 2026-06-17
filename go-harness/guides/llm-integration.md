@@ -1,5 +1,7 @@
 # 大模型对接规范 Guide
 
+> 本文示例中的 `json` 一律指 `github.com/gtkit/json`（或 `/v2`），**禁止 `encoding/json`**。请求/响应体、SSE chunk 的编解码都走 gtkit/json。
+
 ## 架构模式
 
 LLM 调用属于"外部服务"，封装在独立包中：

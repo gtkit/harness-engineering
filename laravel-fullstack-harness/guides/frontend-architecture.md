@@ -1,35 +1,65 @@
 # 前端架构规范 Guide
 
+## 技术栈
+
+- Vue 3（Composition API + `<script setup>`，禁止 Options API）
+- Vite（最新稳定版）
+- TypeScript（严格模式）
+- Vue Router
+- Pinia（状态管理）
+- Axios（HTTP 请求）
+
 ## 目录结构
 
-```text
+```
 frontend/
 ├── index.html
-├── package.json
 ├── vite.config.ts
 ├── tsconfig.json
-└── src/
-    ├── views/
-    ├── components/
-    ├── composables/
-    ├── api/
-    ├── stores/
-    ├── router/
-    ├── types/
-    └── utils/
+├── package.json
+├── src/
+│   ├── main.ts                  # 入口
+│   ├── App.vue
+│   ├── router/                  # 路由
+│   │   └── index.ts
+│   ├── views/                   # 页面级组件（对应路由）
+│   ├── components/              # 可复用 UI 组件
+│   │   ├── common/              # 通用组件（Button、Modal、Table）
+│   │   └── business/            # 业务组件
+│   ├── composables/             # 组合式函数（useXxx）
+│   ├── api/                     # 接口请求层（对应 Laravel 后端）
+│   │   ├── client.ts            # Axios 实例 + 拦截器
+│   │   ├── types.ts             # 接口请求/响应类型
+│   │   └── user.ts              # 对应 UserController
+│   ├── stores/                  # Pinia stores
+│   ├── types/                   # 全局类型定义
+│   │   ├── api.d.ts             # 后端统一响应/分页/错误类型
+│   │   └── env.d.ts             # 环境变量类型
+│   ├── utils/                   # 工具函数
+│   ├── styles/                  # 全局样式
+│   └── assets/                  # 静态资源
+└── env/
+    ├── .env.development
+    └── .env.production
 ```
 
 ## 分层规则
 
-```text
-views -> composables -> api -> backend
+```
+views（页面组件，调用 composables 和 stores）
+   ↓
+composables（业务逻辑复用，调用 api 和 stores）
+   ↓
+api（HTTP 请求层，封装 Axios 调用）
+   ↓
+Laravel 后端 API
 ```
 
-- views 不直接写 axios
-- components 不直接请求后端
-- composables 负责复用交互逻辑
-- api 层负责与 Laravel 后端接口对接
-- 环境变量统一走 `VITE_` 前缀
+**禁止：**
+- views 中直接调用 Axios，必须通过 `api/` 层
+- components 中调用 `api/`，组件只接收 props 和 emit 事件
+- stores 中直接操作 DOM
+- 任何位置硬编码后端 URL，必须走环境变量
 
 ## 职责边界
 
@@ -51,14 +81,94 @@ views -> composables -> api -> backend
 
 不满足准入条件时优先在当前页面内保持清晰实现，不为单次使用提前抽象。
 
-## 与后端协作
+## 路由与鉴权
 
-- 前端字段命名与后端 Resource 契约保持一致
-- 分页结构、错误码、状态字段不能随意自创
+- 受保护路由统一在 `router.beforeEach` 校验登录态 / 权限，未授权重定向登录页并带回跳地址（`redirect` query）
+- 路由元信息声明权限要求（`meta: { requiresAuth: true, roles: [...] }`），守卫据此判断，不在每个组件里各写各的
+- 登录态来源单一（如 auth store / token），守卫和 api 层 401 处理共用同一套，避免双重跳转
+
+## 与后端的类型对齐（Laravel）
+
+Laravel 后端的响应结构在前端的类型定义。注意 Laravel 的标准分页字段是 `current_page` / `last_page` / `per_page` / `total`，与 Go 后端不同：
+
+```typescript
+// frontend/src/types/api.d.ts
+// 单资源（API Resource 包一层 data）
+interface ApiResource<T = unknown> {
+  data: T
+}
+
+// Laravel 标准分页（ResourceCollection / paginate()）
+interface PagedResource<T = unknown> {
+  data: T[]
+  meta: {
+    current_page: number
+    last_page: number
+    per_page: number
+    total: number
+  }
+  links?: { first: string; last: string; prev: string | null; next: string | null }
+}
+
+// 统一错误体（422 校验错误的 errors 按字段）
+interface ApiErrorBody {
+  message: string
+  errors?: Record<string, string[]>
+}
+```
+
+每个 Laravel Controller 在 `frontend/src/api/` 下有对应文件，请求和响应类型必须与后端 Resource / 分页结构保持同步。
 
 ## 可观测性与兼容性
 
-- API 错误映射要保留后端错误码、message 和必要上下文，便于定位问题
+- API 错误映射要保留后端 HTTP 状态码、`message` 和必要上下文，便于定位问题
 - 关键交互失败要有明确用户反馈，不吞掉异常
-- 后端 Resource / 错误码 / 分页结构变更时，前端类型、mock、错误处理必须同步
+- 后端 Resource / 错误结构 / 分页结构变更时，前端类型、mock、错误处理必须同步
 - 破坏性契约变更要说明兼容策略，必要时同时兼容新旧字段
+
+## Composition API 规范
+
+```vue
+<script setup lang="ts">
+// 1. import 顺序：vue → vue-router → pinia → 第三方 → 项目内
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { getUserList } from '@/api/user'
+import type { User } from '@/api/types'
+
+// 2. props 和 emits 用 defineProps / defineEmits 声明类型
+const props = defineProps<{
+  title: string
+  count?: number
+}>()
+
+const emit = defineEmits<{
+  confirm: [id: number]
+  cancel: []
+}>()
+
+// 3. 响应式状态
+const loading = ref(false)
+const users = ref<User[]>([])
+
+// 4. 计算属性
+const isEmpty = computed(() => users.value.length === 0)
+
+// 5. 方法
+async function fetchUsers() {
+  loading.value = true
+  try {
+    const res = await getUserList()
+    users.value = res.data.data
+  } finally {
+    loading.value = false
+  }
+}
+
+// 6. 生命周期
+onMounted(() => {
+  fetchUsers()
+})
+</script>
+```

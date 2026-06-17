@@ -2,7 +2,7 @@
 
 ## 验证入口
 
-优先使用项目已有脚本：
+优先使用项目已有脚本（以下命令名以项目 `composer.json` 实际定义为准，`composer pint`/`composer test` 需项目已配置对应脚本）：
 
 ```bash
 composer test
@@ -24,6 +24,12 @@ php artisan route:list
 - Unit：纯逻辑、值对象、简单服务
 - Feature：HTTP、授权、验证、资源返回
 - Integration：事务、队列、事件、通知、数据库交互
+
+## 测试数据与框架
+
+- 测试数据一律用 **Model Factory**（`User::factory()->create()`），禁止手工 `insert` 或硬塞数组
+- 需操作数据库的测试用 `RefreshDatabase` trait（迁移 + 事务回滚）；只读 / 不改库的可省
+- Pest 与 PHPUnit **跟随项目现有写法**，不在同一项目混用两种风格
 
 ## Laravel Fake
 

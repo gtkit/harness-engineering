@@ -32,14 +32,23 @@ func (e *ValidationError) Error() string {
 
 type RateLimitError struct {
     RetryAfter time.Duration
+    cause      error // 可选：包内层根因
 }
 
 func (e *RateLimitError) Error() string {
     return fmt.Sprintf("pkgname: rate limited, retry after %s", e.RetryAfter)
 }
+
+// 自定义错误类型若包了内层错误，必须实现 Unwrap，让 errors.Is/As 能穿透。
+func (e *RateLimitError) Unwrap() error { return e.cause }
+
+// 想让自定义类型同时被某个 sentinel 命中，实现 Is：
+func (e *RateLimitError) Is(target error) bool { return target == ErrRateLimited }
 ```
 
-调用方用 `errors.As(err, &valErr)` 获取详情。
+- 调用方用 `errors.As(err, &valErr)` 获取详情字段。
+- 自定义错误类型一旦包内层错误（`cause`），**必须实现 `Unwrap() error`**，否则 `errors.Is`/`errors.As` 无法穿透到根因。
+- 需要自定义类型关联到 sentinel 时，实现 `Is(target error) bool`。
 
 ### 第三层：Error Wrapping（保留调用链）
 

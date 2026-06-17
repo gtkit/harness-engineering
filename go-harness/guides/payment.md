@@ -21,9 +21,18 @@ internal/
     sign.go          # 签名与验签
 ```
 
+## 渠道接入（固定技术栈）
+
+支付渠道（微信 / 支付宝 / 银联等）的对接**统一走 `github.com/gtkit/go-pay` 的 `paymgr`**——它通过 `paymgr` 提供跨渠道的统一抽象（非轻封装），是项目既定选型。
+
+- **禁止**自建各渠道 SDK 的封装层，或绕过 `paymgr` 直接依赖各渠道官方 SDK。
+- 下面的 `PaymentGateway` 是**业务侧 port**：只表达业务需要的支付能力，底层实现适配到 `paymgr`。业务层不直接耦合渠道细节，测试时注入 mock。
+- `paymgr` 的初始化、渠道配置、调用签名以其当前版本文档为准，不在本 guide 固化（避免写出过时 API）。
+
 ## 核心接口
 
 ```go
+// PaymentGateway 是业务侧 port，底层实现适配到 gtkit/go-pay 的 paymgr。
 type PaymentGateway interface {
     // CreateOrder 创建支付订单，返回支付参数（如支付URL、prepay_id等）
     CreateOrder(ctx context.Context, req *CreateOrderReq) (*CreateOrderResp, error)

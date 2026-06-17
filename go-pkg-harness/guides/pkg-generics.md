@@ -16,7 +16,8 @@
 ## 类型约束
 
 ```go
-// 用标准库的 constraints（Go 1.26 用 cmp 包）
+// 标准库只提供 cmp.Ordered（可比较大小的有序类型）；
+// 没有内置的"数值"约束，数值类约束需自定义（或用 golang.org/x/exp/constraints）。
 import "cmp"
 
 // 自定义约束
@@ -109,7 +110,9 @@ slices.SortFunc(items, func(a, b Item) int {
 })
 
 // ✓ map 操作
-keys := maps.Keys(m)
+// 注意：Go 1.23+ 的 maps.Keys 返回 iter.Seq（range-over-func），不是切片。
+// 需要切片时用 slices.Collect 收集。
+keys := slices.Collect(maps.Keys(m))
 maps.DeleteFunc(m, func(k string, v int) bool { return v == 0 })
 ```
 

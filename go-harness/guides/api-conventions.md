@@ -71,6 +71,40 @@ func (h *XxxHandler) Create(c *gin.Context) {
 | 4001-4099 | 外部服务错误 | 4001 LLM 服务不可用, 4002 支付网关超时 |
 | 5001-5099 | 系统内部错误 | 5001 数据库错误, 5002 缓存错误 |
 
+## 错误体系（apperror）与 ErrorHandler
+
+错误码表要落地，必须有统一的业务错误类型，handler 里 `c.Error(err)` 才能被 `ErrorHandler` 中间件映射成上面的响应格式。
+
+```go
+// internal/apperror（或 pkg/apperror）
+type Error struct {
+    BizCode    int    // 对应错误码表，如 3001
+    HTTPStatus int    // 映射的 HTTP 状态码，如 400
+    Message    string // 面向客户端的安全文案（不泄漏内部细节）
+    cause      error  // 内部根因，仅用于日志，不返回客户端
+}
+
+func (e *Error) Error() string { return e.Message }
+func (e *Error) Unwrap() error { return e.cause }
+
+// 预定义 sentinel + 构造器
+var ErrNotFound = &Error{BizCode: 3404, HTTPStatus: 404, Message: "资源不存在"}
+func Wrap(bizCode, httpStatus int, msg string, cause error) *Error { /* ... */ }
+```
+
+- service 层返回 `apperror.Error`（或包装 sentinel），handler 只 `c.Error(err)` 不自行映射。
+- `ErrorHandler` 中间件：`errors.As(err, &ae)` 命中 `*apperror.Error` 时按 `BizCode/HTTPStatus/Message` 输出；未命中（未知错误）统一记 5001 + HTTP 500，**只记日志不暴露内部信息**。
+- 客户端文案与内部根因分离：`Message` 给用户，`cause` 进日志。
+
+## 鉴权与限流
+
+错误码 1001-1003 和 review-checklist 的"走 auth 中间件""有限流"要有落地约定，否则 AI 会自行编造。
+
+- **鉴权中间件**：解析并校验 token（JWT 或项目既有方案）后，把身份写入 `context`，用**统一的 context key**（如 `type ctxKey int; const userIDKey ctxKey = iota`，避免裸字符串 key）。下游通过 helper（如 `auth.UserID(ctx)`）读取，禁止各层各取各的。
+  - 校验失败返回 1001（未认证）/ 1002（token 过期）/ 1003（权限不足），对应 HTTP 401/401/403。
+- **限流**：单机用标准库 `golang.org/x/time/rate`；分布式按用户/IP 维度用 `redis/go-redis` 实现滑动窗口或令牌桶。限流命中返回 429。
+- 鉴权、限流中间件只加在**业务路由组**，不污染健康检查 / 回调等公开端点。
+
 ## 路由命名
 
 - RESTful 风格：`GET /api/v1/users/:id`

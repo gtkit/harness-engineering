@@ -88,6 +88,38 @@ func NewUserService(ur UserRepository, cr CacheRepository, l *zap.Logger) *UserS
 - 外部依赖失败要保留可追踪信息，必要时打 trace / request id
 - 关键路径日志应可区分业务失败、依赖失败、参数错误和系统异常
 
+### 日志库（选一种，禁止混用）
+
+- 业务服务统一选用**一个**日志库，优先 `gtkit/logger`（gtkit 原生首选）；若项目已直连 `zap` 作为既定选型，沿用即可，但**同一项目只用一种**，不要 zap / slog / gtkit/logger 混搭。
+- 本系列 guide 示例中的 `zap.String` / `zap.Error` 等仅演示**结构化日志**的字段写法，落地时按项目选定的库 API 调整。
+- 注意：**可复用的扩展包**（`pkg/` 或独立库）应使用标准库 `log/slog`（零依赖、不绑定业务日志栈），这与业务服务用 gtkit/logger 是刻意区分，不算混用。
+
+## 优雅关闭（生产必备）
+
+服务必须能响应 `SIGINT`/`SIGTERM` 后平滑退出，否则滚动发布会丢请求、LLM 流式和支付补偿任务会被硬切。
+
+```go
+ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+defer stop()
+
+srv := &http.Server{Addr: addr, Handler: router}
+go func() {
+    if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+        logger.Error("server error", ...)
+    }
+}()
+
+<-ctx.Done()                       // 收到信号
+shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+defer cancel()
+_ = srv.Shutdown(shutdownCtx)      // 停止接收新请求，等在途请求完成
+// 随后按顺序收尾：等后台 goroutine、关闭 DB / Redis 连接池、flush 日志
+```
+
+- 关闭顺序：停 HTTP → 等在途请求 → 停后台 worker / 消费者 → 关连接池 → flush 日志。
+- 后台 goroutine（消费队列、定时任务）必须监听同一退出信号并能被 `context` 取消。
+- 关闭超时要有上界，超时后强制退出，避免卡死。
+
 ## 兼容性与迁移
 
 - 公开 API、DTO、配置项或默认行为变更时，必须说明兼容策略

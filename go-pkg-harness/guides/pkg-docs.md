@@ -52,7 +52,7 @@ func (c *Client) Sign(ctx context.Context, payload, key []byte) ([]byte, error) 
 
 ## 安装
 
-go get github.com/yourorg/pkgname
+go get github.com/gtkit/pkgname
 
 ## 快速上手
 
@@ -83,34 +83,41 @@ MIT / Apache-2.0
 
 ## CHANGELOG.md
 
+遵循 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/) + [Semantic Versioning](https://semver.org/)，与 AGENTS.md / CLAUDE.md 的 CHANGELOG 规范一致：六类区段 **Added / Changed / Deprecated / Removed / Fixed / Security**，维护 `[Unreleased]`，发版时剪切到带日期的版本区段。
+
 ```markdown
 # Changelog
 
-遵循 [Semantic Versioning](https://semver.org/)。
-
 ## [Unreleased]
+
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+
+## [2.0.0] - 2026-05-10
+
+> ⚠ 破坏性变更：`Encode` 签名调整，迁移见 README。module path 升至 `/v2`。
+
+### Changed
+- `Encode` 改为接收 `context.Context`（#51）
+
+### Removed
+- 删除已废弃的 `EncodeLegacy`
 
 ## [1.2.0] - 2026-04-13
 
 ### Added
 - 新增 `WithConcurrency` option
 
-### Changed
-- `Encode` 方法性能提升 30%
-
 ### Fixed
 - 修复并发场景下的 data race (#42)
-
-## [1.1.0] - 2026-03-20
-
-### Added
-- 新增 Ed25519 算法支持
-
-## [1.0.0] - 2026-03-01
-
-### Added
-- 初始发布：HMAC-SHA256、RSA 签名与验签
 ```
+
+- 破坏性变更在版本区段顶部用 **⚠ 破坏性变更** 标注，与 tag message 的 `BREAKING CHANGE:` 对齐。
+- `Deprecated` 区段记录本版本新标记废弃的 API，指向替代项。
 
 ### 版本规则
 
