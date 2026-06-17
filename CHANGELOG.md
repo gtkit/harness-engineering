@@ -12,6 +12,27 @@
 
 ### Fixed
 
+## [1.4.0] - 2026-06-17
+
+> ⚠ 行为变更：setup 生成的 `.gitignore` 改为整目录忽略 `.harness/`（详见 Changed）。老项目重跑 setup 会追加 `.harness/` 规则；若此前依赖把 `.harness/guides/` 入库共享，请改用模板回流或在 `.gitignore` 中 `!.harness/guides/` 取消忽略。
+
+### Added
+- 新增 `docs/harness-and-loop-architecture.md`，澄清 harness（规则层）与 Loop 架构 6 模块的能力边界：harness 原生拥有「递归目标迭代纪律 + Skill 意图固化 + Memory 错误记忆」3 块，调度 / worktree 隔离 / MCP / 子 Agent 派发归运行时，并说明为保持跨工具中立刻意不实现后者。README 增链接。
+- 五套 harness 的入口规则（`AGENTS.md` / `CLAUDE.md`）在「可验证目标（Goal-Driven Execution）」下新增「迭代与停止纪律（Verify–Correct Loop）」一节：显式约束 agent 的迭代闭环——先观察再改、改完跑相关全量防回归、同一问题自纠 3 轮为上界后停手并向用户汇报、进展为正才继续（震荡视同卡住）、修复后确认非回归并按错误记忆追加。补齐此前只隐含在 RPI / error-journal 中、缺乏停止条件与升级策略的 loop 工程缺口；零新增文件，活在已自动加载的入口文档内。
+
+### Changed
+- 全面修订五套 harness 的 `.harness/guides/` 规范文档（基于跨领域评审）：
+  - **Go 后端**：`payment.md` 明确支付渠道统一走 `gtkit/go-pay` 的 `paymgr`（`PaymentGateway` 改为业务侧 port），消除与固定技术栈冲突；`llm-integration.md` 标明 `json` 指 `gtkit/json`、禁 `encoding/json`；`architecture.md` 增「日志库（选一种禁混用）」与「优雅关闭」；`api-conventions.md` 增「错误体系（apperror）与 ErrorHandler」「鉴权与限流」。
+  - **Go 扩展包**：`pkg-generics.md` 修正"标准库 constraints"误述与 `maps.Keys`（1.23+ 返回 iterator，改 `slices.Collect`）；`pkg-structure.md` 增 v2+ module path / `v2/` 子目录落地、ctx 不入 struct、可返回 error 的 Option、废弃流程；`pkg-errors.md` 增自定义错误 `Unwrap`/`Is`；`pkg-testing.md` 增并发安全竞态测试与覆盖优先级；`pkg-docs.md` CHANGELOG 对齐 Keep-a-Changelog 六类。
+  - **Laravel**：`queues-events-scheduling.md` 增 `withoutOverlapping`/`onOneServer`、Job `failed()`/`$maxExceptions`/`retryUntil`、同步 vs `ShouldQueue` 监听器边界；`data-and-eloquent.md` 增锁（`lockForUpdate`/乐观锁/死锁重试）、mass assignment / 原始 SQL 绑定、`preventLazyLoading`/`cursor`；`http-and-api.md` 增统一错误响应契约+状态码映射、Policy/Gate 授权、CSRF/限流/签名 URL；`testing-and-validation.md` 增 Factory/`RefreshDatabase`/Pest；`notifications-and-mail.md` 增防重发与脱敏；`laravel-modules.md` 增可检测的跨模块依赖硬规则。
+  - **前端**：`laravel-fullstack-harness` 三份前端 guide 从约 111 行补齐到与 `fullstack-harness` 相当（约 465 行），整段移植与后端无关的纯前端规范（Axios 封装/拦截器、`ApiError`、tsconfig strict、props/emits、composable、命名、env.d.ts、样式），API 契约层改写为 Laravel Resource / 标准分页（`current_page`/`last_page`）/ `422 errors`；两套全栈前端同时补齐路由守卫鉴权、请求取消防竞态、loading/error/empty 三态、表单校验、性能与可访问性。
+  - **review-checklist**：修复 `fullstack` 版前端段标题重号（8/9 重复→顺延 10-18）；`laravel-harness` 版补齐锁/授权/安全勾选项；各版同步新增上述能力的自查项。
+
+- 重构 bash 安装链路：5 套 `setup.sh` 从各自约 300 行的近重复脚本收敛为薄包装，统一调用新增的共享库 `scripts/install-harness.sh`（`install_harness`），与早已重构的 PowerShell 端 `Invoke-HarnessSetup` 对齐。`.gitignore` 模式串、安装流程、`.harness/VERSION` 写入等收敛到单一源头，消除 sh / ps1 多处复制导致的漂移风险（参见 1.2.0 的 Windows `.gitignore` 漏写事故根因）。CI 的 `bash -n` 与 shellcheck 清单同步纳入新共享库。
+- setup 生成的 `.gitignore` 改为整目录忽略 `.harness/`，取代原先的细粒度 `.harness/error-journal.md` 与 `.harness/VERSION` 两条；`sh` / `ps1` 两端模式串保持一致。配套更新三套 smoke 测试基线与 README「Git 提交建议」章节：明确所有 harness 产物（`.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`）默认不入库、由 setup 再生，并给出团队共享定制规则的两条路径。
+
+### Fixed
+
 ## [1.3.0] - 2026-05-15
 
 ### Added

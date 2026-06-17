@@ -160,7 +160,7 @@ mv harness-engineering ~/tools/harness-engineering
 1. **全局 Skill** 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`（只装一次，所有项目共享）
 2. **项目文件** 安装到当前项目目录（每个项目各一份，完整规则在这里）
 3. **Claude Code Commands** 安装到项目 `.claude/commands/harness/`
-4. **`.gitignore` 规则** 自动创建/补齐（错误记忆、计划文件、`.idea/`、`.DS_Store`）
+4. **`.gitignore` 规则** 自动创建/补齐（整个 `.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、计划文件、`.idea/`、`.DS_Store` 等本地产物，默认不入库）
 
 其中：
 
@@ -390,6 +390,8 @@ your-laravel-fullstack-project/
 这不是强制流程引擎，而是一组轻量命令模板。普通小改动可以直接让 AI 按 harness 规则完成；复杂、高风险、跨模块需求建议走命令化流程，让上下文只专注一件事。
 
 速查表和典型场景示例见 [Harness Command Workflow 速查](./docs/harness-command-workflow.md)。
+
+想搞清楚 harness 与 Loop 架构（自动化调度 / worktree 隔离 / Skill / MCP / 子 Agent / 记忆）的能力边界——哪些归 harness、哪些归运行时——见 [harness 与 Loop 架构的关系](./docs/harness-and-loop-architecture.md)。
 
 ### Claude Code 怎么用
 
@@ -652,7 +654,7 @@ cat .harness/VERSION
 # installer: setup.sh
 ```
 
-排查"为什么我和同事的 `.harness/guides/` 不一样"时先看这个文件——commit / 安装时间不同就是差异原因。该文件已自动加到项目 `.gitignore`，不入库。
+排查"为什么我和同事的 `.harness/guides/` 不一样"时先看这个文件——commit / 安装时间不同就是差异原因。整个 `.harness/` 目录已自动加到项目 `.gitignore`，不入库（含本文件）。
 
 ### 在新项目中使用
 
@@ -679,27 +681,34 @@ HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.
 
 ## Git 提交建议
 
-以下文件**建议提交到 Git**（团队共享规范）：
+默认策略：**所有 harness 产物都不入库，由每个成员各自运行 `setup.sh` / `setup.ps1` 再生**。setup 会把以下条目写进项目 `.gitignore`：
 
 ```
+.harness/      # 入口规则、guides、运行时脚本、error-journal、VERSION 整目录
 CLAUDE.md
 AGENTS.md
-.harness/guides/*.md
-.harness/scripts/*
-```
-
-`.claude/commands/harness/*.md` 是 Claude Code 命令文件，setup 默认会把 `.claude/` 加到 `.gitignore`，避免把个人 Claude 配置整体入库。若团队希望共享这些命令，可以只取消忽略 `.claude/commands/harness/`，不要提交其他 `.claude/` 运行状态文件。
-
-以下文件**不要提交**（本地开发用）：
-
-```
-.harness/error-journal.md   # 已自动添加到 .gitignore
+.claude/       # 含 commands/harness/、个人 Claude 运行状态
+.codex/
+.agents/
 findings.md
 progress.md
 task_plan.md
 .idea/
+.vscode/
 .DS_Store
+*.log
+openspec/
+tools/
 ```
+
+这样做的理由：`.harness/`、`CLAUDE.md`、`AGENTS.md` 都是脚本可重复生成的本地产物，统一来源是本仓库的模板。把它们排除在版本库外，避免「同一份规则在每个业务仓库重复入库、又各自漂移」。需要升级规则时重新跑 setup 即可。
+
+### 想在团队内共享定制规则怎么办
+
+如果你确实改了 `.harness/guides/` 并希望团队共享，有两条路：
+
+- **推荐**：把改动回流到本仓库（或你自己 fork 的 harness 模板仓库），团队统一从模板再生，单一可信源。
+- **就地共享**：在业务仓库的 `.gitignore` 里对需要入库的路径加 `!` 取消忽略（如 `!.harness/guides/`、`!.claude/commands/harness/`），但要注意别把 `error-journal.md`、`VERSION` 这类本地状态一起提交。
 
 如果你想让 `main` 分支必须等 CI 通过后才能合并，见：
 
