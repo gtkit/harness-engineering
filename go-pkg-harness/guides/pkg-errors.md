@@ -68,22 +68,22 @@ func (c *Client) Do(ctx context.Context, req *Request) (*Response, error) {
 2. **sentinel error 用 `errors.New`**：不要用 `fmt.Errorf`
 3. **wrapping 用 `%w`**：让调用方能 `errors.Is` / `errors.As` 穿透
 4. **不暴露内部依赖的错误类型**：wrap 后返回自己的错误
-5. **不 panic**：库代码绝不 panic，所有异常走 error 返回
+5. **禁止隐式 panic**：普通 API 绝不 panic，所有异常走 error 返回；`MustXxx` 只在 Go 生态惯例明确或用户明确要求时允许
 6. **error 是接口**：自定义错误类型必须实现 `error` 接口
 
 ## 不要做的事
 
 ```go
-// ✗ 不要 panic
-func MustParse(s string) *Config {
-    cfg, err := Parse(s)
+// ✗ 普通 API 不要 panic
+func Parse(s string) (*Config, error) {
+    cfg, err := parseConfig(s)
     if err != nil {
-        panic(err)  // 库代码不应该 panic
+        panic(err) // 普通解析 API 不应该 panic
     }
-    return cfg
+    return cfg, nil
 }
 
-// ✓ 如果确实需要 Must 变体，在 GoDoc 里明确说明会 panic
+// ✓ 如果确实需要 Must 变体，函数名必须以 Must 开头，并在 GoDoc 里明确说明会 panic
 // MustParse is like Parse but panics on error.
 // It is intended for use in variable initialization.
 func MustParse(s string) *Config { ... }

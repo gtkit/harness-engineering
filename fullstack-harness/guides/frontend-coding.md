@@ -66,8 +66,14 @@ export function usePagination(fetchFn: (params: ListReq) => Promise<PagedRespons
     loading.value = true
     try {
       const res = await fetchFn({ page: page.value, per_page: perPage.value })
-      data.value = res.data.data
-      total.value = res.data.meta.total
+      const body = res.data
+      if (Array.isArray(body.data)) {
+        data.value = body.data
+        total.value = body.meta?.total ?? 0
+      } else {
+        data.value = body.data.list
+        total.value = body.data.paging.total
+      }
     } finally {
       loading.value = false
     }

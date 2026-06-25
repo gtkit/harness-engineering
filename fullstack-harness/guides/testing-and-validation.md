@@ -7,7 +7,8 @@
 优先使用项目已有统一入口（如 `make test`、`pnpm test`、CI 脚本）。没有统一入口时至少执行：
 
 ```bash
-# 后端
+# 后端（backend/ 路径按实际项目调整；若有 make check 优先使用）
+cd backend && make check
 cd backend && golangci-lint run ./...
 cd backend && go vet ./...
 cd backend && go test -race -count=1 -timeout=5m ./...
@@ -32,7 +33,7 @@ cd frontend && npm test -- --run
 ## 后端测试
 
 - service、领域规则、校验逻辑使用 table-driven 单元测试，覆盖 success / error / edge。
-- handler 使用 `httptest` 覆盖参数绑定、鉴权上下文、错误映射、统一响应结构。
+- transport/http handler 使用 `httptest` 覆盖参数绑定、鉴权上下文、错误映射、统一响应结构。
 - repository / 事务 / 迁移使用集成测试或项目既有测试数据库策略，不写死个人本地数据库。
 - 外部依赖用接口注入和 fake provider；HTTP 依赖用 `httptest.Server`，禁止请求真实第三方。
 - 并发安全、幂等、支付回调、状态流转必须在 `go test -race` 下覆盖重复请求或重复回调。
@@ -48,9 +49,9 @@ cd frontend && npm test -- --run
 ## 前后端契约
 
 - 后端 DTO / Resource / 错误码 / 分页结构变更时，必须同步前端 `src/api/` 类型与调用方。
-- 契约断言至少覆盖字段名、可选字段、错误结构、分页 `meta` 和空数据结构。
+- 契约断言至少覆盖字段名、可选字段、错误结构、分页结构和空数据结构。
 - 前端 mock 数据必须来自真实契约，不允许临时编造字段让页面通过。
-- 联调修复要同时验证后端 Feature/handler 测试与前端 api/composable 测试，避免一侧绿另一侧坏。
+- 联调修复要同时验证后端 handler/application 测试与前端 api/composable 测试，避免一侧绿另一侧坏。
 
 ## 回归与验证纪律
 

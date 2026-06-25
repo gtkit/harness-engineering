@@ -1,212 +1,120 @@
 # 大模型对接规范 Guide
 
-> 本文示例中的 `json` 一律指 `github.com/gtkit/json`（或 `/v2`），**禁止 `encoding/json`**。请求/响应体、SSE chunk 的编解码都走 gtkit/json。
+> LLM 属于外部依赖。具体 provider SDK、stream 类型、token 字段必须以 go.mod 和真实源码为准；禁止臆造 `ChatWithRetry`、`CountTokens`、`Name()`、`<-chan StreamChunk` 等接口。
 
-## 架构模式
+## 模块结构
 
-LLM 调用属于"外部服务"，封装在独立包中：
+推荐按模块化结构组织：
 
 ```
 internal/
-  llm/
-    client.go        # HTTP Client 封装
-    provider.go      # Provider 接口定义
-    stream.go        # SSE 流式响应处理
-    retry.go         # 重试 + 降级逻辑
-    token_counter.go # Token 计数与限额
-    types.go         # 请求/响应结构体
+  module/llm/
+    application/
+      service.go     → 业务编排：会话、鉴权、限额、流式回调
+      ports.go       → Provider / Stream / SessionStore / UserRepository 等 port
+      errors.go      → 领域 error
+    dto/
+    transport/http/
+      handler.go     → 解请求 + 调 service
+      sse_chat.go    → application 回调 → SSE 事件
+  runtime/module/llm/
+    options.go       → config → provider/session client 装配
+  repository/llm_session/
+    session.go       → Redis 会话存储（如需）
 ```
 
-## Provider 接口（必须实现）
+## Provider / Stream port
+
+application 只依赖自己定义的 port：
 
 ```go
+type Stream interface {
+    Recv() (*provider.StreamChunk, error) // io.EOF 表示结束；类型以真实 SDK 为准
+    Close() error
+}
+
 type Provider interface {
-    // Chat 非流式调用
-    Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
-    // ChatStream 流式调用，返回 chunk channel
-    ChatStream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error)
-    // CountTokens 预估 token 消耗
-    CountTokens(text string) int
-    // Name 返回 provider 名称，用于日志和指标
-    Name() string
+    ChatStream(ctx context.Context, req *provider.ChatRequest) (Stream, error)
 }
 ```
 
-所有 LLM Provider（OpenAI、Claude、通义千问、DeepSeek 等）必须实现此接口，方便切换和降级。
+如果项目需要非流式接口、token 计数、provider name，先确认真实 SDK 和业务需要，再在 application port 中显式定义。不要默认生成一组不存在的方法。
 
 ## 超时控制
 
-```go
-// 非流式调用：30-60s
-ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-defer cancel()
-
-// 流式调用：首 chunk 超时 15s，总超时根据 max_tokens 动态计算
-// 估算公式：baseTimeout + max_tokens / tokensPerSecond
-totalTimeout := 15*time.Second + time.Duration(req.MaxTokens/30)*time.Second
-```
-
-使用 `context.WithTimeout`，不要仅依赖 `http.Client.Timeout`。
+- 非流式调用：通常 30-60s。
+- 流式调用：首 chunk 超时和总超时分开控制。
+- 使用 `context.WithTimeout` / deadline，不只依赖 `http.Client.Timeout`。
+- handler、service、provider client 全链路透传 context。
 
 ## 重试与降级
 
+通用建议，落地以项目实际代码为准：
+
 | 错误 | 策略 |
 |------|------|
-| 429（限流） | 指数退避重试，最多 3 次，初始间隔 1s |
-| 500/502/503 | 立即重试 1 次，失败后降级到备用 Provider |
-| 400（参数错误） | 不重试，直接返回 |
-| 401/403（认证） | 不重试，直接返回 |
-| 超时 | 重试 1 次，失败后降级 |
+| 429 | 指数退避，有限次数 |
+| 500/502/503 | 有限重试，必要时切备用 provider |
+| 400 | 不重试 |
+| 401/403 | 不重试，检查配置或权限 |
+| timeout | 有限重试或降级 |
 
-```go
-func (c *Client) ChatWithRetry(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
-    providers := []Provider{c.primary, c.fallback}
-    
-    for _, p := range providers {
-        resp, err := c.doWithRetry(ctx, p, req)
-        if err == nil {
-            return resp, nil
-        }
-        c.logger.Warn("provider failed, trying fallback",
-            zap.String("provider", p.Name()),
-            zap.Error(err),
-        )
-    }
-    return nil, ErrLLMUnavailable
-}
-```
+重试 helper 必须是真实存在的项目包；没有就先实现小而清晰的 retry，不臆造 `Client.ChatWithRetry`。
 
 ## 流式响应（SSE）
 
-```go
-func (c *Client) ChatStream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error) {
-    ch := make(chan StreamChunk, 16) // 带缓冲，避免阻塞生产者
-    
-    go func() {
-        defer close(ch)
-        
-        resp, err := c.httpClient.Do(httpReq)
-        if err != nil {
-            ch <- StreamChunk{Err: fmt.Errorf("http request: %w", err)}
-            return
-        }
-        defer resp.Body.Close()
-        
-        scanner := bufio.NewScanner(resp.Body)
-        for scanner.Scan() {
-            select {
-            case <-ctx.Done():
-                ch <- StreamChunk{Err: ctx.Err()}
-                return
-            default:
-            }
-            
-            line := scanner.Text()
-            if line == "data: [DONE]" {
-                return
-            }
-            if !strings.HasPrefix(line, "data: ") {
-                continue
-            }
-            
-            var chunk StreamChunk
-            if err := json.Unmarshal([]byte(line[6:]), &chunk); err != nil {
-                ch <- StreamChunk{Err: fmt.Errorf("unmarshal chunk: %w", err)}
-                return
-            }
-            ch <- chunk
-        }
-    }()
-    
-    return ch, nil
-}
-```
+推荐边界：
+- application 通过 callback 或 iterator 驱动业务流。
+- transport/http 把业务事件适配成 SSE。
+- handler 只负责绑定请求、调用 SSE adapter、握手失败时回 JSON。
 
-## Gin Handler 中转发 SSE
+事件建议：
+- `session`：会话建立
+- `chunk`：增量文本
+- `done`：正常结束
+- `error`：已开流后的错误
 
-```go
-func (h *ChatHandler) StreamChat(c *gin.Context) {
-    var req dto.ChatReq
-    if err := c.ShouldBindJSON(&req); err != nil {
-        response.Error(c, http.StatusBadRequest, 2001, err.Error())
-        return
-    }
-
-    c.Header("Content-Type", "text/event-stream")
-    c.Header("Cache-Control", "no-cache")
-    c.Header("Connection", "keep-alive")
-
-    chunks, err := h.llmSvc.ChatStream(c.Request.Context(), &req)
-    if err != nil {
-        response.Error(c, http.StatusInternalServerError, 4001, err.Error())
-        return
-    }
-
-    c.Stream(func(w io.Writer) bool {
-        chunk, ok := <-chunks
-        if !ok {
-            return false
-        }
-        if chunk.Err != nil {
-            c.SSEvent("error", chunk.Err.Error())
-            return false
-        }
-        c.SSEvent("message", chunk.Content)
-        return true
-    })
-}
-```
+握手阶段错误仍用普通 JSON 响应；已开流后的错误用 SSE `error` 事件。
 
 ## Token 管控
 
-- 请求前预估 token 消耗，拒绝超限请求
-- 记录每次调用的 prompt_tokens + completion_tokens
-- 支持按用户/租户维度的 token 限额
-- 超限时返回明确的错误码（如 4003 token_limit_exceeded）
+- 请求前预估 token 消耗，拒绝明显超限请求。
+- 记录 prompt_tokens / completion_tokens（如 SDK 可得）。
+- 支持按用户/租户维度的限额。
+- 超限时优先复用项目已有错误状态，例如 `goerr.StatusQuotaExceeded()`；没有再按统一错误体系新增，禁止硬编码裸数字错误码。
 
 ## 敏感信息
 
-- API Key 从环境变量或密钥管理服务获取
-- 日志中禁止打印完整 prompt（可打印前 100 字符 + SHA256 hash）
-- 用户输入发给 LLM 前做基本 sanitize（去除注入指令的尝试）
-- 响应中的敏感信息（如 function_call 参数）按需脱敏
+- API Key 从配置、环境变量或密钥管理服务获取。
+- 日志禁止打印完整 prompt / response / API key。
+- 可记录截断文本、长度、hash、模型名、耗时、终态。
+- 用户输入发给 LLM 前按业务需要做长度限制和基础校验。
 
 ## Prompt 管理
 
-- Prompt 模板放在 `internal/llm/prompts/` 或使用 `embed` 嵌入
-- 使用 `text/template` 或结构化拼接
-- 支持版本管理和 A/B 测试
-- System prompt 和 User prompt 分离
+- Prompt 模板若独立管理，放在 `internal/module/llm` 或项目约定目录。
+- 使用 `text/template` 或结构化拼接。
+- System prompt 与 User prompt 分离。
+- 版本、A/B、灰度策略必须显式配置，不和环境名硬绑定。
 
 ## 错误类型
 
-```go
-var (
-    ErrLLMTimeout       = errors.New("llm: request timeout")
-    ErrLLMRateLimit     = errors.New("llm: rate limit exceeded")
-    ErrLLMTokenLimit    = errors.New("llm: token limit exceeded")
-    ErrLLMUnavailable   = errors.New("llm: service unavailable")
-    ErrLLMInvalidResp   = errors.New("llm: invalid response format")
-)
-```
+模块特有错误放 `module/llm/application/errors.go`，handler 用 `errors.Is` 映射：
+- 无效消息 / 会话 ID
+- 消息过长
+- 需要 VIP / 权限不足
+- 会话并发占用
+- provider 未配置
+- provider 调用失败
+
+错误名以真实代码为准，禁止臆造 `ErrLLM*` 系列。
 
 ## 可观测性
 
-每次 LLM 调用必须记录：
+建议记录：
+- provider 标识、model
+- 耗时、首 chunk 延迟
+- token 用量（如可得）
+- 终态：done / error / timeout / canceled
 
-```go
-logger.Info("llm call completed",
-    zap.String("provider", provider.Name()),
-    zap.String("model", req.Model),
-    zap.Duration("latency", latency),
-    zap.Int("prompt_tokens", resp.Usage.PromptTokens),
-    zap.Int("completion_tokens", resp.Usage.CompletionTokens),
-    zap.Int("status", resp.StatusCode),
-)
-```
-
-Prometheus 指标：
-- `llm_request_duration_seconds{provider, model, status}`
-- `llm_tokens_total{provider, model, type=prompt|completion}`
-- `llm_request_total{provider, model, status}`
-- 流式调用额外记录：`llm_first_chunk_latency_seconds`
+Prometheus label 必须低基数，不要把 user_id、session_id、prompt hash 当 label。

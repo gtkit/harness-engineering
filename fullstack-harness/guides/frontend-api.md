@@ -28,7 +28,7 @@ client.interceptors.response.use(
     const data = response.data as ApiResponse
     if (data.code !== 0) {
       // 业务错误，抛出让调用方处理
-      return Promise.reject(new ApiError(data.code, data.message))
+      return Promise.reject(new ApiError(data.code, data.msg ?? data.message ?? 'request failed'))
     }
     return response
   },
@@ -103,7 +103,7 @@ export interface UpdateUserReq {
 
 export interface ListReq {
   page?: number
-  per_page?: number
+  per_page?: number // 若后端使用 page_size / pageSize，以后端 DTO 为准
   sort?: string
   order?: 'asc' | 'desc'
   search?: string
@@ -116,7 +116,7 @@ export interface ListReq {
 2. **请求和响应必须有类型**，禁止 `any`
 3. **错误处理在调用方**，api 层只负责请求，不负责 UI 提示
 4. **后端 URL 从环境变量获取**：`import.meta.env.VITE_API_BASE_URL`
-5. **前后端类型同步**：后端 DTO 变了，前端 `frontend/src/api/types.ts` 必须同步更新
+5. **前后端类型同步**：后端 DTO、响应信封字段（如 `msg`/`message`）、分页位置（如 `data.paging`/`meta`）变了，前端类型必须同步更新
 
 ## 自定义错误类
 

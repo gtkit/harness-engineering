@@ -102,12 +102,28 @@ api（HTTP 请求层，封装 Axios 调用）
 // frontend/src/types/api.d.ts
 interface ApiResponse<T = unknown> {
   code: number
-  message: string
+  msg?: string
+  message?: string
   data: T
 }
 
-interface PagedResponse<T = unknown> extends ApiResponse<T[]> {
-  meta: {
+interface Paging {
+  page?: number
+  per_page?: number
+  currentPage?: number
+  pageSize?: number
+  total: number
+  total_page?: number
+  totalPage?: number
+}
+
+interface PagedData<T = unknown> {
+  list: T[]
+  paging: Paging
+}
+
+interface PagedResponse<T = unknown> extends ApiResponse<T[] | PagedData<T>> {
+  meta?: {
     page: number
     per_page: number
     total: number
@@ -116,11 +132,11 @@ interface PagedResponse<T = unknown> extends ApiResponse<T[]> {
 }
 ```
 
-每个后端接口在 `frontend/src/api/` 下有对应文件，请求和响应类型必须与后端 DTO 保持同步。
+每个后端接口在 `frontend/src/api/` 下有对应文件，请求和响应类型必须与后端 DTO 保持同步；不要在前端临时发明后端没有的字段。
 
 ## 可观测性与兼容性
 
-- API 错误映射要保留后端错误码、message 和必要上下文，便于定位问题
+- API 错误映射要保留后端错误码、客户端文案字段（如 `msg` / `message`）和必要上下文，便于定位问题
 - 关键交互失败要有明确用户反馈，不吞掉异常
 - 后端 DTO / 错误码 / 分页结构变更时，前端类型、mock、错误处理必须同步
 - 破坏性契约变更要说明兼容策略，必要时同时兼容新旧字段

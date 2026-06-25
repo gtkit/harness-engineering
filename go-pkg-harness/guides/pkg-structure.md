@@ -51,18 +51,23 @@ github.com/gtkit/pkgname/
 ## 接口设计
 
 ```go
-// 暴露接口，隐藏实现
-type Encoder interface {
-    Encode(ctx context.Context, v any) ([]byte, error)
+// 默认返回具体类型，避免为“隐藏实现”提前扩大抽象面。
+type Client struct {
+    cfg config
 }
 
-// 构造函数返回接口（可选，视情况也可以返回具体类型）
-func NewJSONEncoder(opts ...Option) Encoder {
+func New(opts ...Option) (*Client, error) {
     cfg := defaultConfig()
     for _, opt := range opts {
-        opt(cfg)
+        if err := opt(cfg); err != nil {
+            return nil, err
+        }
     }
-    return &jsonEncoder{cfg: cfg}
+    return &Client{cfg: *cfg}, nil
+}
+
+func (c *Client) Encode(ctx context.Context, v any) ([]byte, error) {
+    // ...
 }
 ```
 
@@ -70,12 +75,13 @@ func NewJSONEncoder(opts ...Option) Encoder {
 - 接口应该小（1-3 个方法），大接口拆成小接口组合
 - 接口定义在使用方，不在实现方（Go 惯例）
 - 接口命名以 -er 结尾：`Reader`、`Encoder`、`Validator`
+- 默认构造函数返回具体类型；只有接口本身就是稳定契约，或需要隔离外部依赖/多实现时，才导出小接口
 - 不要提前抽象——先写具体实现，发现需要多态时再抽接口
 
 ## Functional Options
 
 ```go
-type Option func(*config)
+type Option func(*config) error
 
 type config struct {
     timeout     time.Duration
@@ -96,31 +102,43 @@ func defaultConfig() *config {
 }
 
 func WithTimeout(d time.Duration) Option {
-    return func(c *config) { c.timeout = d }
+    return func(c *config) error {
+        if d <= 0 {
+            return fmt.Errorf("pkgname: invalid timeout: %w", ErrInvalidArg)
+        }
+        c.timeout = d
+        return nil
+    }
 }
 
 func WithRetries(n int) Option {
-    return func(c *config) {
-        if n >= 0 {
-            c.retries = n
+    return func(c *config) error {
+        if n < 0 {
+            return fmt.Errorf("pkgname: invalid retries: %w", ErrInvalidArg)
         }
+        c.retries = n
+        return nil
     }
 }
 
 func WithLogger(l *slog.Logger) Option {
-    return func(c *config) {
-        if l != nil {
-            c.logger = l
+    return func(c *config) error {
+        if l == nil {
+            return fmt.Errorf("pkgname: nil logger: %w", ErrInvalidArg)
         }
+        c.logger = l
+        return nil
     }
 }
 ```
 
 **规则：**
 - 所有可选参数用 Option，必选参数放构造函数签名
-- Option 函数内做防御性校验（nil 检查、负数检查）
+- Option 函数内做防御性校验（nil 检查、负数检查），非法值默认返回错误，不静默忽略
 - 必须有合理的默认值，使用者不传任何 Option 也能正常工作
-- 校验失败需要上报（而非静默忽略非法值）时，改用 `type Option func(*config) error`，`New(...) (*Client, error)` 返回错误
+- 示例中的 `ErrInvalidArg` 代表本包在 `errors.go` 中定义的可判断错误；实际名称以项目真实错误体系为准
+- 只有无害兼容场景才允许静默忽略非法 Option，且必须在 GoDoc 中写清楚
+- 如果所有 Option 都不会失败，可以使用 `type Option func(*config)`，但一旦存在非法输入就改为 `type Option func(*config) error`，`New(...) (*Client, error)` 返回错误
 
 ## 命名规范
 
@@ -140,6 +158,7 @@ func WithLogger(l *slog.Logger) Option {
 - **废弃流程**：`// Deprecated: use XXX instead.` 标记 + 注释指向替代 API；至少保留一个 MINOR 周期；只能在下一个 MAJOR 删除
 - **破坏性变更 → 升大版本**。v2+ 不只是改 import：`go.mod` 的 module path 必须带 `/v2`，并通过**仓库子目录 `v2/`** 或**独立 major 分支**提供该版本（Go Module 硬要求），否则下游 `go get` 取不到
 - 破坏性变更必须在 README / CHANGELOG 写清迁移路径
+- 详细兼容性判断见 `pkg-api-compat.md`
 
 ## 可观测性
 
@@ -177,9 +196,9 @@ func WithLogger(l *slog.Logger) Option {
 
 ⚠ **`gtkit/go-pay` 不是轻封装**：v1.3.0 起通过 `paymgr` 包对外提供跨渠道统一抽象（`UnifiedOrder` / `QueryOrder` / `CloseOrder` / `Refund` / `ParseNotify` 等 8 个统一 API、`ChannelError` 结构化错误、`RefundStatus` 跨渠道状态映射），属"对上游有真正增量价值"的增强。**支付场景应优先使用 `gtkit/go-pay`**，不要直连 `go-pay/gopay`。
 
-### JSON 强制规则
+### JSON 选择规则
 
-**禁止使用 `encoding/json`。** JSON 序列化/反序列化必须使用：
+gtkit 生态包、已有项目已使用 gtkit/json、或用户明确要求 gtkit 兼容时，JSON 序列化/反序列化默认使用：
 
 ```go
 import "github.com/gtkit/json"    // v1
@@ -188,9 +207,12 @@ import "github.com/gtkit/json/v2" // v2，按项目已有版本选择
 
 如果项目 go.mod 已有 gtkit/json 的版本，遵循已有版本。新项目推荐 v2。
 
+纯公共小库如果明确以零外部依赖为目标，且标准库能力足够，可以使用 `encoding/json`。使用例外时必须在 README、设计说明或 PR 描述中记录原因；不要为了 JSON 规则引入与包目标相冲突的依赖。
+
 ### gtkit 常用包参考
 
 使用 gtkit 下的包时，如果不确定某个包是否存在或具体 API 签名，**必须先确认**，不要编造。确认方式：
-- 让用户提供 `go doc` 输出
-- 让用户确认包是否存在
+- 优先在本机运行 `go doc` / `go list` / `go env GOPATH` 下模块缓存核验
+- 查阅项目仓库、官方文档或已锁定的 `go.mod` / `go.sum`
+- 本地和公开来源都无法确认时，再让用户确认包是否存在或提供 `go doc` 输出
 - 绝不猜测 gtkit 下的函数名或参数

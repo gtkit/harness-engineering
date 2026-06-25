@@ -122,6 +122,24 @@ function Assert-CodexWorkflowAliases {
     Assert-FileContains $agentsPath "不把 `harness ...` 当作 shell 命令执行"
 }
 
+function Assert-GoPkgProjectFiles {
+    param([string]$ProjectDir)
+
+    $packageName = Split-Path -Leaf $ProjectDir
+    $makefilePath = Join-Path $ProjectDir "Makefile"
+    $versionPath = Join-Path $ProjectDir "version.go"
+
+    Assert-PathExists $makefilePath
+    Assert-PathExists $versionPath
+    Assert-FileContains $makefilePath "golangci-lint run"
+    Assert-FileContains $makefilePath "govulncheck ./..."
+    Assert-FileContains $makefilePath "git tag -a"
+    Assert-FileContains $makefilePath "delcommit:"
+    Assert-FileContains $makefilePath "git reset --soft HEAD~1"
+    Assert-FileContains $versionPath "package $packageName"
+    Assert-FileContains $versionPath 'const Version = "v0.1.0"'
+}
+
 function Invoke-SetupPs1 {
     param(
         [string]$HarnessDir,
@@ -190,7 +208,12 @@ New-Item -ItemType Directory -Path $tmpDir | Out-Null
 try {
     foreach ($module in $modules) {
         $homeDir = Join-Path $tmpDir ($module + "-home")
-        $projectDir = Join-Path $tmpDir ($module + "-project")
+        if ($module -eq "go-pkg-harness") {
+            $projectDir = Join-Path $tmpDir "pkgdemo"
+        }
+        else {
+            $projectDir = Join-Path $tmpDir ($module + "-project")
+        }
         New-Item -ItemType Directory -Path $homeDir | Out-Null
         New-Item -ItemType Directory -Path $projectDir | Out-Null
 
@@ -254,6 +277,10 @@ try {
         Assert-FileContains $versionPath "source-commit:"
         Assert-FileContains $versionPath "installed-at:"
         Assert-FileContains $versionPath "installer: setup.ps1"
+
+        if ($module -eq "go-pkg-harness") {
+            Assert-GoPkgProjectFiles $projectDir
+        }
     }
 
     $preserveHomeDir = Join-Path $tmpDir "preserve-home"
@@ -291,7 +318,12 @@ try {
     Assert-FileContains (Join-Path $preserveProjectDir ".harness\error-journal.md") "windows smoke summary"
 
     foreach ($module in $modules) {
-        $batchProjectDir = Join-Path $tmpDir ($module + "-batch-project")
+        if ($module -eq "go-pkg-harness") {
+            $batchProjectDir = Join-Path $tmpDir "pkgdemobatch"
+        }
+        else {
+            $batchProjectDir = Join-Path $tmpDir ($module + "-batch-project")
+        }
         $batchHomeDir = Join-Path $tmpDir ($module + "-batch-home")
         New-Item -ItemType Directory -Path $batchProjectDir | Out-Null
         New-Item -ItemType Directory -Path $batchHomeDir | Out-Null
@@ -306,7 +338,19 @@ try {
             Assert-GuideFileExists $batchProjectDir "testing-and-validation.md"
             Assert-GuideFileExists $batchProjectDir "workers-and-scheduling.md"
         }
+        if ($module -eq "go-pkg-harness") {
+            Assert-GoPkgProjectFiles $batchProjectDir
+        }
     }
+
+    $emptyPkgProjectDir = Join-Path $tmpDir "emptypkg"
+    $emptyPkgHomeDir = Join-Path $tmpDir "emptypkg-home"
+    New-Item -ItemType Directory -Path $emptyPkgProjectDir | Out-Null
+    New-Item -ItemType Directory -Path $emptyPkgHomeDir | Out-Null
+    New-Item -ItemType File -Path (Join-Path $emptyPkgProjectDir "Makefile") | Out-Null
+    New-Item -ItemType File -Path (Join-Path $emptyPkgProjectDir "version.go") | Out-Null
+    Invoke-SetupPs1 -HarnessDir "go-pkg-harness" -ProjectDir $emptyPkgProjectDir -SandboxHome $emptyPkgHomeDir
+    Assert-GoPkgProjectFiles $emptyPkgProjectDir
 }
 finally {
     Remove-Item -LiteralPath $tmpDir -Recurse -Force

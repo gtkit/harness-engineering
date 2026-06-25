@@ -27,7 +27,7 @@
 - [ ] 外部调用有超时
 
 ### 4. 可维护性
-- [ ] 分层架构正确（handler 无 gorm，service 无 gin）
+- [ ] 后端模块化分层正确（application 无 Gin/GORM/repository；transport/http 无 GORM/repository；repository 无 Gin/module）
 - [ ] 命名清晰、Go 1.26 现代写法
 - [ ] 第三方包选型遵循：标准库 → gtkit 原生包 → 业界事实标准 → 其他第三方（JSON 固定使用 gtkit/json 系列）
 - [ ] gtkit 同名包若仅是事实标准库轻封装，已评估直连事实标准库
@@ -43,7 +43,7 @@
 
 ### 6. 可观测性
 - [ ] 错误是否带足够上下文，便于定位问题
-- [ ] 业务错误经统一 apperror + ErrorHandler 映射错误码（未知错误不暴露内部细节）
+- [ ] 业务错误经项目统一错误体系映射错误码（未知错误不暴露内部细节）
 - [ ] 服务实现优雅关闭（signal.NotifyContext + Server.Shutdown）
 - [ ] 全项目只用一种日志库（不混用 zap / slog / gtkit/logger）
 - [ ] 外部依赖失败是否有清晰日志或可追踪信息
@@ -53,7 +53,7 @@
 - [ ] 超时 + 重试降级 + Token 限额 + Prompt 模板化
 
 ### 8. 支付（如涉及）
-- [ ] 金额 int64 + 幂等 + 验签 + 先落库再调网关
+- [ ] 金额 int64 + 幂等 + 验签 + 先落库再调网关 + 状态白名单/CAS
 
 ### 9. 兼容性与迁移
 - [ ] 公开 API / DTO / 响应结构变更是否说明兼容策略
@@ -136,7 +136,7 @@
 ```
 ## 合规检查摘要
 - [x] Go 1.26 / Vue 3 + TS strict
-- [x] 后端分层 + 前端分层
+- [x] 后端模块化分层 + 前端分层
 - [x] 前后端类型同步
 - [x] 错误处理完整
 - [x] 无硬编码

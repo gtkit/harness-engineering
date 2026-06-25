@@ -174,6 +174,22 @@ assert_installed_guides_match_source() {
     done
 }
 
+assert_go_pkg_project_files() {
+    local project_dir="$1"
+    local package_name
+    package_name="$(basename "$project_dir")"
+
+    test -f "${project_dir}/Makefile" || fail "go-pkg-harness should generate Makefile"
+    test -f "${project_dir}/version.go" || fail "go-pkg-harness should generate version.go"
+    assert_file_contains "${project_dir}/Makefile" "golangci-lint run"
+    assert_file_contains "${project_dir}/Makefile" "govulncheck ./..."
+    assert_file_contains "${project_dir}/Makefile" "git tag -a"
+    assert_file_contains "${project_dir}/Makefile" "delcommit:"
+    assert_file_contains "${project_dir}/Makefile" "git reset --soft HEAD~1"
+    assert_file_contains "${project_dir}/version.go" "package ${package_name}"
+    assert_file_contains "${project_dir}/version.go" 'const Version = "v0.1.0"'
+}
+
 run_setup() {
     local harness_dir="$1"
     local project_dir="$2"
@@ -246,7 +262,11 @@ assert_installed_guides_match_source "go-harness" "${go_project}"
     assert_file_contains "${go_project}/.harness/scripts/read-error-journal.sh" "sed -n '1,240p'"
 
 for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
-    project_dir="${tmpdir}/${harness_dir}-project"
+    if [ "${harness_dir}" = "go-pkg-harness" ]; then
+        project_dir="${tmpdir}/pkgdemo"
+    else
+        project_dir="${tmpdir}/${harness_dir}-project"
+    fi
     home_dir="${tmpdir}/${harness_dir}-home"
     mkdir -p "$project_dir" "$home_dir"
     run_setup "${harness_dir}" "${project_dir}" "${home_dir}"
@@ -262,10 +282,21 @@ for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-full
     test -f "${project_dir}/.harness/scripts/append-error-journal.sh" || fail "${harness_dir} should install append-error-journal.sh"
     assert_version_file "${project_dir}" "${harness_dir}"
     assert_harness_commands "${project_dir}"
+    if [ "${harness_dir}" = "go-pkg-harness" ]; then
+        assert_go_pkg_project_files "${project_dir}"
+    fi
 done
 
+empty_pkg_project="${tmpdir}/emptypkg"
+empty_pkg_home="${tmpdir}/emptypkg-home"
+mkdir -p "$empty_pkg_project" "$empty_pkg_home"
+: > "${empty_pkg_project}/Makefile"
+: > "${empty_pkg_project}/version.go"
+run_setup "go-pkg-harness" "$empty_pkg_project" "$empty_pkg_home"
+assert_go_pkg_project_files "$empty_pkg_project"
+
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "github.com/gtkit/json"
-assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "禁止 \`encoding/json\`"
+assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "纯零依赖公共库允许使用 \`encoding/json\`"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" ".harness/guides/pkg-release-and-supply-chain.md"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/SKILL.codex.md" "AGENTS.md"
 assert_file_contains "${ROOT_DIR}/go-harness/AGENTS.md" ".harness/guides/testing-and-validation.md"
