@@ -1,0 +1,38 @@
+// example.proto —— 示例契约(gRPC + REST 同源)。
+//
+// 这是脚手架示例:展示 proto 唯一事实源、protovalidate 规则、REST 注解三件套。
+// 新项目把 example 换成你的业务域(目录/包名/服务名同步改),然后 make gen。
+
+syntax = "proto3";
+
+package example.v1;
+
+import "buf/validate/validate.proto"; // protovalidate:字段校验规则(运行时由拦截器执行)
+import "google/api/annotations.proto"; // grpc-gateway REST 注解
+
+option go_package = "example-grpc-service/pb/example/v1;examplev1";
+
+// ExampleService 是示例服务:一个只读查询,演示完整分层链路。
+service ExampleService {
+  // GetItem 按 id 查询条目。
+  // REST: GET /v1/example/items/{id}。
+  rpc GetItem(GetItemRequest) returns (GetItemResponse) {
+    option (google.api.http) = {get: "/v1/example/items/{id}"};
+  }
+}
+
+// GetItemRequest 是 GetItem 的入参。
+message GetItemRequest {
+  // id:条目主键,必填(protovalidate 运行时执行)。
+  string id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+}
+
+// GetItemResponse 是 GetItem 的出参。
+message GetItemResponse {
+  string id = 1;
+  string name = 2;
+  string created_at = 3; // Unix 秒,字符串
+}

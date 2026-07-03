@@ -1,0 +1,12 @@
+version: v2
+modules:
+  - path: proto
+deps:
+  - buf.build/googleapis/googleapis # google/api/annotations.proto(REST 映射)
+  - buf.build/bufbuild/protovalidate # buf/validate/validate.proto(参数校验)
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

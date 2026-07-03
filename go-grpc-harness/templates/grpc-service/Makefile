@@ -1,0 +1,38 @@
+.PHONY: gen deps tidy build run test check proto-export
+
+# 提交前统一检查入口(CLAUDE.md 要求优先使用)
+check:
+	golangci-lint run ./...
+	go vet ./...
+	go test -race -count=1 -timeout=5m ./...
+	bash scripts/check-architecture.sh
+
+# buf 依赖导出目标目录:项目内、gitignore、由 buf.lock 重生(供 GoLand 的 Protobuf 插件解析 import)
+DEPS_DIR ?= .proto-deps
+
+# 重新生成 proto 代码与 OpenAPI 文档(依赖由 buf.lock 锁定,不在此升级)
+gen:
+	buf lint
+	buf generate
+
+# 显式升级 buf 依赖并刷新 buf.lock(相当于 go get -u,偶发手动执行,不放进 gen)
+deps:
+	buf dep update
+
+# 导出 buf 第三方依赖到本地目录(消除 GoLand import 报红)
+proto-export:
+	rm -rf $(DEPS_DIR)
+	buf export . --output $(DEPS_DIR)
+	rm -rf $(DEPS_DIR)/example
+
+tidy:
+	go mod tidy
+
+build:
+	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o bin/server ./cmd/server
+
+run:
+	go run ./cmd/server -config config/env/env.yml
+
+test:
+	go test ./...

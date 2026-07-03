@@ -1,0 +1,17 @@
+version: v2
+plugins:
+  # 消息类型
+  - local: protoc-gen-go
+    out: pb
+    opt: paths=source_relative
+  # gRPC 服务桩
+  - local: protoc-gen-go-grpc
+    out: pb
+    opt: paths=source_relative
+  # REST 网关(依据 google.api.http 生成反向代理)
+  - local: protoc-gen-grpc-gateway
+    out: pb
+    opt: paths=source_relative
+  # OpenAPI(交付 PHP 对接)
+  - local: protoc-gen-openapiv2
+    out: pb

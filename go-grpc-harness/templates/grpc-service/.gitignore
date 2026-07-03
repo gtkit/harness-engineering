@@ -1,0 +1,44 @@
+.idea/
+/config/pem/
+/workspace/
+.Ds_Store
+.learnings/
+.golangci.yml
+*.md
+!README.md
+!CHANGELOG.md
+!AGENTS.md
+!CLAUDE.md
+!doc/transport-token-channel-redesign.md
+*.log
+internal/router/logs/
+# 配置出库:运行配置不入库、不入二进制,仅保留 *.example 模板(对齐 sleep_client)
+config/env/*.yml
+!config/env/*.yml.example
+examples
+.cache
+# buf export 产物：供 GoLand 解析 proto import，由 make proto-export 重生，不入库
+.proto-deps/
+.claude
+# Harness: Agent 错误记忆（本地开发用，不提交）
+.harness/
+openspec/
+# Harness: 本地工具与 Agent 运行产物
+.openspec-auto-backup/
+.openspec-auto/
+.vscode/
+.DS_Store
+findings.md
+progress.md
+task_plan.md
+.harness/error-journal.md
+.claude/
+.codex/
+.agents/
+AGENTS.md
+CLAUDE.md
+tools/
+.harness/VERSION
+
+go.work
+go.work.sum
