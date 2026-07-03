@@ -35,16 +35,21 @@ int64 amount = 2 [(buf.validate.field).int64.gt = 0];
 
 ## 拦截器链
 
-装配在 bootstrap，推荐顺序（外 → 内）：
+装配在 bootstrap，推荐顺序（外 → 内），**unary 与 stream 必须同链**（只注册 ChainUnaryInterceptor 会让 streaming RPC 裸奔）：
 
 ```
 recovery（兜住后续所有 panic，转 Internal）
+→ request_id（透传调用方 x-request-id 或生成;入 ctx + 回写响应头;logger WithContextFields 联动）
 → 限流（可选，golimit 令牌桶；超限 ResourceExhausted；qps<=0 不注册）
-→ protovalidate 校验（失败 InvalidArgument）
+→ protovalidate 校验（失败 InvalidArgument;stream 版包装 ServerStream 逐 RecvMsg 校验）
 → 业务 handler
 ```
 
 validate 函数由调用方注入（`func(proto.Message) error`），便于测试替换。注册 `reflection.Register(srv)` 供 grpcurl/buf curl 免 proto 调试。
+
+**健康探针与优雅关闭**：默认注册 `grpc.health.v1`（health.NewServer），启动置 SERVING；
+收到退出信号先置 NOT_SERVING（LB/探针摘流量）→ GracefulStop 等在途请求 → 超过
+shutdown 超时（配置项,默认 30s）强制 Stop，防长请求让进程无限等。
 
 ## 错误码映射（领域错误 → gRPC status）
 

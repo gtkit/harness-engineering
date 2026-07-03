@@ -12,6 +12,8 @@ import (
 	"github.com/gtkit/logger"
 	"github.com/gtkit/ormx"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/protobuf/proto"
 
 	examplegrpc "example-grpc-service/internal/module/example/transport/grpc"
@@ -52,12 +54,13 @@ func Run(cfgPath string) error {
 		}
 	}()
 
-	srv, err := buildGRPCServer(dbClient, cfg.GRPC.RateLimitQPS)
+	srv, hs, err := buildGRPCServer(dbClient, cfg.GRPC.RateLimitQPS)
 	if err != nil {
 		return err
 	}
 
-	return serveUntilSignal(srv, cfg.GRPC.Addr)
+	return serveUntilSignal(srv, hs, cfg.GRPC.Addr,
+		time.Duration(cfg.GRPC.ShutdownTimeoutSeconds)*time.Second)
 }
 
 // applyLogConfig 按配置重新初始化日志(logger.New 幂等,官方注明可重复调用)。
@@ -67,6 +70,8 @@ func applyLogConfig(cfg config.LogConfig) error {
 		logger.WithFile(false),
 		logger.WithLevel(cfg.Level),
 		logger.WithOutJSON(cfg.JSON),
+		// 业务代码用 logger.XxxwCtx(ctx, ...) 即自动携带 request_id 字段
+		logger.WithContextFields(loggerContextFields),
 	)
 }
 
@@ -78,21 +83,24 @@ func openMySQL(cfg config.MySQLConfig) (*ormx.Client, error) {
 }
 
 // buildGRPCServer 装配业务模块与 gRPC server(新增模块在此接线)。
-func buildGRPCServer(dbClient *ormx.Client, rateLimitQPS int) (*grpc.Server, error) {
+func buildGRPCServer(dbClient *ormx.Client, rateLimitQPS int) (*grpc.Server, *health.Server, error) {
 	exampleHandler := examplegrpc.NewHandler(examplert.Build(dbClient.DB()))
 
 	validator, err := protovalidate.New()
 	if err != nil {
-		return nil, fmt.Errorf("new protovalidate: %w", err)
+		return nil, nil, fmt.Errorf("new protovalidate: %w", err)
 	}
 	validate := func(m proto.Message) error { return validator.Validate(m) }
 
-	return NewGRPCServer(exampleHandler, validate, rateLimitQPS), nil
+	srv, hs := NewGRPCServer(exampleHandler, validate, rateLimitQPS)
+	return srv, hs, nil
 }
 
-// serveUntilSignal 启动 gRPC 监听并阻塞:收到退出信号则优雅关闭(等在途请求结束),
+// serveUntilSignal 启动 gRPC 监听并阻塞:收到退出信号则优雅关闭——
+// 先置健康探针 NOT_SERVING 摘流量,再 GracefulStop 等在途请求;
+// 超过 shutdownTimeout 仍未 drain 完则强制 Stop(防长请求让进程无限等)。
 // 监听自身出错则如实返回(不在 goroutine 里 Fatal,保证调用方清理逻辑可达)。
-func serveUntilSignal(srv *grpc.Server, addr string) error {
+func serveUntilSignal(srv *grpc.Server, hs *health.Server, addr string, shutdownTimeout time.Duration) error {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", addr, err)
@@ -109,8 +117,20 @@ func serveUntilSignal(srv *grpc.Server, addr string) error {
 
 	select {
 	case <-ctx.Done():
-		logger.Infof("shutting down grpc server...")
-		srv.GracefulStop()
+		hs.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING) // 先摘流量
+		logger.Infow("shutting down grpc server...", "timeout_seconds", int(shutdownTimeout.Seconds()))
+		done := make(chan struct{})
+		go func() {
+			srv.GracefulStop()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(shutdownTimeout):
+			logger.Warnw("graceful stop timed out, forcing stop")
+			srv.Stop()
+			<-done // GracefulStop 在 Stop 后返回,等它避免 goroutine 泄漏
+		}
 		return nil
 	case err := <-serveErr:
 		return fmt.Errorf("serve grpc: %w", err)

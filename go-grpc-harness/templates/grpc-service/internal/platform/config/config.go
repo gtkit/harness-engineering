@@ -27,6 +27,8 @@ type LogConfig struct {
 type GRPCConfig struct {
 	Addr         string `yaml:"addr"`         // 监听地址,如 ":9090"
 	RateLimitQPS int    `yaml:"ratelimitqps"` // 全局 QPS 限流;0/缺省=关闭(显式启用,不做隐式默认限流)
+	// 优雅关闭等待上限(秒):超时后强制 Stop,防长请求让进程无限等。缺省 30。
+	ShutdownTimeoutSeconds int `yaml:"shutdowntimeoutseconds"`
 }
 
 // MySQLConfig 是 MySQL 连接配置。
@@ -63,6 +65,9 @@ func Load(path string) (*Config, error) {
 	}
 	if c.GRPC.Addr == "" {
 		c.GRPC.Addr = ":9090"
+	}
+	if c.GRPC.ShutdownTimeoutSeconds <= 0 {
+		c.GRPC.ShutdownTimeoutSeconds = 30
 	}
 	if c.MySQL.Host == "" || c.MySQL.DBName == "" {
 		return nil, fmt.Errorf("config %q: mysql.host 与 mysql.dbname 必填", path)

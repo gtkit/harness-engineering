@@ -25,15 +25,25 @@ check "module 层禁止 gorm/repository/gobreaker" \
   'gorm\.io/gorm|internal/repository/|sony/gobreaker' \
   internal/module
 
-# repository 禁止业务模块
-check "repository 禁止 module" \
-  'internal/module/' \
+# repository 禁止业务模块与协议层(pb/transport)
+check "repository 禁止 module/pb/transport" \
+  'internal/module/|/pb/|/transport/' \
   internal/repository
 
 # internal/pkg 禁止反向依赖业务模块
 check "internal/pkg 禁止反向依赖 internal/module" \
   'internal/module/' \
   internal/pkg
+
+# models 是纯数据结构,禁止持有 *gorm.DB 的数据访问方法
+check "models 禁止出现 *gorm.DB" \
+  '\*gorm\.DB' \
+  internal/models
+
+# application 保持传输中立:错误映射属 transport 层
+check "application 禁止 import grpc status/codes" \
+  'google\.golang\.org/grpc/status|google\.golang\.org/grpc/codes' \
+  internal/module/*/application
 
 # 渠道 client 单点供给示例(接入有 token 互斥类约束的 SDK 时启用,把 <sdk> 换成真实包名):
 # out=$(grep -rEn --include='*.go' --exclude='*_test.go' '<sdk>\.New\(' internal | grep -v 'internal/runtime/module/<supplier>/' || true)

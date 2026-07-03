@@ -104,6 +104,18 @@ fi
 echo "  ✓ module 名已替换: ${TEMPLATE_MODULE} → ${MODULE_NAME}(pb/ 产物不替换,make gen 重生)"
 
 chmod +x "${TARGET_DIR}/scripts/"*.sh
+
+# pb 产物按新 module 名重生(descriptor 里的 go_package 与 proto 同步,proto-check 直接可过);
+# 本机没有 buf 时模板 pb 仍可构建运行,首次 make gen 后完全同步。
+if command -v buf >/dev/null 2>&1; then
+    if (cd "${TARGET_DIR}" && buf generate); then
+        echo "  ✓ pb/ 已按新 module 名重新生成"
+    else
+        echo "  ⚠ buf generate 失败:pb/ 暂为模板产物(可构建),稍后手动 make gen"
+    fi
+else
+    echo "  ⚠ 未检测到 buf:pb/ 暂为模板产物(可构建),安装工具链后 make gen 同步"
+fi
 echo ""
 
 # ---------- 护栏 3 / 规则安装 ----------

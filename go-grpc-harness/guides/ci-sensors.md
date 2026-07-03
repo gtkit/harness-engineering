@@ -31,7 +31,7 @@ bash scripts/check-architecture.sh
 
 ## pb 产物一致性
 
-- `pb/` 禁止手改；CI 可加一致性检查：`make gen && git diff --exit-code pb/`（proto 与产物不同步即失败）。
+- `pb/` 禁止手改；模板已带 `make proto-check`（buf lint + generate + `git diff --exit-code pb/ proto/`），**CI 必跑**；本地依赖 buf 工具链故不进默认 `make check`。
 - 本地插件版本变化只会引起产物头部注释 diff，属正常噪音，统一重新生成即可。
 
 ## CI 要求
