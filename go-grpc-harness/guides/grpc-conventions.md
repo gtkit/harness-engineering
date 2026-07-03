@@ -5,7 +5,7 @@
 
 ## 契约纪律（铁律）
 
-1. **proto 是唯一事实源**：改接口只改 `proto/`，然后 `make gen`；**禁止手改 `pb/` 产物**；文档不维护契约副本，只指向 proto 文件。
+1. **proto 是唯一事实源**：改接口只改 `proto/`，然后 `make gen`；**禁止手改 `pb/` 产物，也禁止对 pb 产物做任何文本替换**（生成文件内嵌序列化 descriptor，字符串带长度前缀，文本替换会破坏长度前缀导致 proto 注册 panic——scaffold 实测踩过）；文档不维护契约副本，只指向 proto 文件。
 2. **包版本化**：`package <domain>.v1`，目录 `proto/<domain>/v1/`（buf STANDARD lint 要求，为 v2 并存留空间）。
 3. **服务名以 Service 结尾**（SERVICE_SUFFIX lint 规则）；一个业务模块对应一个 proto service，模块边界与服务边界一一对应。
 4. **go_package 明确**：`option go_package = "<module>/pb/<domain>/v1;<domain>v1";`
