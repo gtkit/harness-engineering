@@ -1,24 +1,8 @@
 .DS_Store
+.Ds_Store
 .idea/
+.vscode/
+*.log
 # docs/ 是项目对外文档与设计留痕，入库；个人草稿/本地参考放 docs/local/，不入库
 docs/local/
 .learnings/
-
-.openspec-auto-backup/
-
-.openspec-auto/
-
-.idea/
-.vscode/
-.Ds_Store
-.DS_Store
-*.log
-# Harness: 本地工具与 Agent 运行产物
-.harness/
-.claude/
-.codex/
-.agents/
-openspec/
-AGENTS.md
-CLAUDE.md
-tools/

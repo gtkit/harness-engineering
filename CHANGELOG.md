@@ -6,16 +6,17 @@
 
 ## [Unreleased]
 
+> ⚠ 行为变更：setup 生成的忽略规则改为**分两处**落地——通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`）留在 `.gitignore`；本地工具与 Agent 运行产物（`.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`openspec/`、`tools/`、计划文件等）改写进 `.git/info/exclude`。老项目重跑 setup 会自动把这些规则从 `.gitignore` 剔除并迁移到 `.git/info/exclude`（业务自定义规则保持不动）。
+
 ### Added
 - 为 `go-harness` 与 `fullstack-harness` 新增 `guides/testing-and-validation.md`，补齐 Go 后端业务服务缺失的测试、回归、race、API 契约和全栈联调验证专项 guide；入口加载表、README 和 smoke 测试同步纳入。
 - 为 `go-harness` 与 `fullstack-harness` 新增 `guides/workers-and-scheduling.md`，补齐 Go 后端后台 goroutine、队列消费者、定时任务、outbox、幂等、优雅关闭和可观测性专项约束。
 - 为 `go-pkg-harness` 新增 `guides/pkg-release-and-supply-chain.md`，补齐 Go 扩展包发布、SemVer/tag、v2+ module path、依赖治理、`govulncheck`、license 和安全发布专项约束。
 
 ### Changed
+- setup 生成的忽略规则由「全部写进 `.gitignore`」改为**按性质分流**：通用构建 / 编辑器 / OS 产物留在 `.gitignore`（可入库），本地工具与 Agent 运行产物（`.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`.agents/`、`openspec/`、`.openspec-auto*/`、`tools/`、`findings.md`、`progress.md`、`task_plan.md`）改写进 `.git/info/exclude`（仅本地、绝不入库）。目的：避免忽略规则本身泄露「本项目使用了 AI 工具」。`sh` / `ps1` 两端模式串保持一致，`.git/info/exclude` 路径经 `git rev-parse --git-path` 解析以兼容 worktree / submodule；非 git 仓库时跳过并提示先 `git init`。README「日常使用」「Git 提交建议」两节与 CHANGELOG 同步。
+- setup 重跑时对存量 `.gitignore` 做**迁移清理**：精确剔除旧版本误写入的本地工具规则与旧 `# Harness:` 标题，迁移到 `.git/info/exclude`，业务自定义规则与通用产物原样保留。两套 smoke 测试新增专门的迁移用例与 `.git/info/exclude` 断言，并为夹具补 `git init`。
 - CI 的 Windows PowerShell 静态检查改为按需安装并导入 `PSScriptAnalyzer`，扫描范围从 5 个 `setup.ps1` 薄包装扩展到共享安装器、error-journal PowerShell 脚本和 PowerShell 测试脚本；README 本地门禁命令同步补齐 Windows setup smoke。
-
-### Fixed
-- 统一 PowerShell 安装器写入的 `.gitignore` Harness 注释标题，与 Bash 安装器保持一致；Windows smoke 测试新增该标题断言，防止跨平台生成结果再次漂移。
 
 ## [1.4.0] - 2026-06-17
 

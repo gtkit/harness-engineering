@@ -71,18 +71,20 @@ assert_error_journal_runtime() {
 assert_gitignore_baseline() {
     local file="$1"
 
+    # .gitignore 只保留通用构建 / 编辑器 / OS 产物
     for line in \
-        ".openspec-auto-backup/" \
-        ".openspec-auto/" \
         ".idea/" \
         ".vscode/" \
         ".Ds_Store" \
         ".DS_Store" \
-        "*.log" \
-        "findings.md" \
-        "progress.md" \
-        "task_plan.md" \
+        "*.log"; do
+        assert_line_exists "$file" "$line"
+    done
+    # 本地工具与运行产物、旧 Harness 标题绝不能出现在 .gitignore（应在 .git/info/exclude）
+    for pattern in \
         "# Harness: 本地工具与 Agent 运行产物" \
+        ".openspec-auto-backup/" \
+        ".openspec-auto/" \
         ".harness/" \
         ".claude/" \
         ".codex/" \
@@ -90,12 +92,35 @@ assert_gitignore_baseline() {
         "openspec/" \
         "AGENTS.md" \
         "CLAUDE.md" \
-        "tools/"; do
+        "tools/" \
+        "findings.md" \
+        "progress.md" \
+        "task_plan.md"; do
+        assert_file_not_contains "$file" "$pattern"
+    done
+}
+
+assert_exclude_baseline() {
+    local file="$1"
+
+    test -f "$file" || fail "expected .git/info/exclude at ${file}"
+    for line in \
+        "# 本地工具与运行产物（仅本地忽略，不进版本库）" \
+        ".openspec-auto-backup/" \
+        ".openspec-auto/" \
+        ".harness/" \
+        ".claude/" \
+        ".codex/" \
+        ".agents/" \
+        "openspec/" \
+        "AGENTS.md" \
+        "CLAUDE.md" \
+        "tools/" \
+        "findings.md" \
+        "progress.md" \
+        "task_plan.md"; do
         assert_line_exists "$file" "$line"
     done
-    # 整目录忽略后，旧的细粒度规则不应再单独出现
-    assert_file_not_contains "$file" ".harness/error-journal.md"
-    assert_file_not_contains "$file" ".harness/VERSION"
 }
 
 assert_version_file() {
@@ -196,6 +221,9 @@ run_setup() {
     local sandbox_home="$3"
     local force_project_files="${4:-0}"
 
+    # setup 会把本地工具规则写进 .git/info/exclude，夹具需先是 git 仓库
+    git init -q "$project_dir" >/dev/null 2>&1 || true
+
     (
         cd "$project_dir"
         HOME="$sandbox_home" CODEX_HOME="$sandbox_home/.codex" HARNESS_FORCE_PROJECT_FILES="$force_project_files" \
@@ -229,6 +257,7 @@ run_setup "go-harness" "$go_project" "$go_home"
 
 test -f "${go_project}/.gitignore" || fail "go-harness should create .gitignore when missing"
 assert_gitignore_baseline "${go_project}/.gitignore"
+assert_exclude_baseline "${go_project}/.git/info/exclude"
 assert_generated_docs_do_not_require_cleanup "${go_project}"
 assert_global_claude_skill "${go_home}/.claude/skills/go-harness/SKILL.md"
 assert_global_codex_skill "${go_home}/.codex/skills/go-harness/SKILL.md"
@@ -261,6 +290,40 @@ assert_installed_guides_match_source "go-harness" "${go_project}"
     assert_file_not_contains "${go_project}/.harness/scripts/read-error-journal.sh" "LOCAL SCRIPT"
     assert_file_contains "${go_project}/.harness/scripts/read-error-journal.sh" "sed -n '1,240p'"
 
+# --- 迁移：旧版本把本地工具规则误写进 .gitignore，重跑 setup 应清理并迁移到 .git/info/exclude ---
+migrate_project="${tmpdir}/migrate-project"
+migrate_home="${tmpdir}/migrate-home"
+mkdir -p "$migrate_project" "$migrate_home"
+git init -q "$migrate_project"
+cat > "${migrate_project}/.gitignore" <<'LEGACY'
+# 业务自定义
+/build/
+
+# Harness: 本地工具与 Agent 运行产物
+.idea/
+.DS_Store
+*.log
+.harness/
+.claude/
+.codex/
+.agents/
+openspec/
+CLAUDE.md
+AGENTS.md
+tools/
+findings.md
+progress.md
+task_plan.md
+.openspec-auto/
+.openspec-auto-backup/
+LEGACY
+run_setup "go-harness" "$migrate_project" "$migrate_home"
+# 业务自定义规则必须原样保留
+assert_line_exists "${migrate_project}/.gitignore" "/build/"
+# 通用产物保留在 .gitignore，本地工具规则被迁移走
+assert_gitignore_baseline "${migrate_project}/.gitignore"
+assert_exclude_baseline "${migrate_project}/.git/info/exclude"
+
 for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
     if [ "${harness_dir}" = "go-pkg-harness" ]; then
         project_dir="${tmpdir}/pkgdemo"
@@ -272,6 +335,7 @@ for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-full
     run_setup "${harness_dir}" "${project_dir}" "${home_dir}"
     test -f "${project_dir}/.gitignore" || fail "${harness_dir} should create .gitignore when missing"
     assert_gitignore_baseline "${project_dir}/.gitignore"
+    assert_exclude_baseline "${project_dir}/.git/info/exclude"
     assert_generated_docs_do_not_require_cleanup "${project_dir}"
     assert_global_claude_skill "${home_dir}/.claude/skills/${harness_dir}/SKILL.md"
     assert_global_codex_skill "${home_dir}/.codex/skills/${harness_dir}/SKILL.md"

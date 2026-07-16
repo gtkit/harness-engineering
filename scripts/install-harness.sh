@@ -16,20 +16,26 @@ _HARNESS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./install-harness-commands.sh
 . "${_HARNESS_LIB_DIR}/install-harness-commands.sh"
 
-# .gitignore 单一源头：sh / ps1 必须保持一致（见 tests/*smoke*）。
-# 整个 .harness/ 目录均为 setup 可再生的本地产物，不入库。
+# 忽略规则单一源头：sh / ps1 必须保持一致（见 tests/*smoke*）。
+#
+# 分两处落地：
+#   - .gitignore（可入库）：只放通用构建 / 编辑器 / OS 产物，不暴露本地工具链。
+#   - .git/info/exclude（仅本地、绝不入库）：本地工具与 Agent 运行产物，
+#     避免忽略规则本身泄露"本项目使用了 AI 工具"。
 _harness_gitignore_patterns() {
     cat <<'EOF'
-.openspec-auto-backup/
-.openspec-auto/
 .idea/
 .vscode/
 .Ds_Store
 .DS_Store
 *.log
-findings.md
-progress.md
-task_plan.md
+EOF
+}
+
+_harness_exclude_patterns() {
+    cat <<'EOF'
+.openspec-auto-backup/
+.openspec-auto/
 .harness/
 .claude/
 .codex/
@@ -38,10 +44,17 @@ openspec/
 AGENTS.md
 CLAUDE.md
 tools/
+findings.md
+progress.md
+task_plan.md
 EOF
 }
 
-_harness_append_gitignore_line() {
+# 旧版本（1.x）曾把上述本地工具规则连同 "# Harness:" 标题一起误写进 .gitignore，
+# 迁移时需从 .gitignore 里精确剔除这些历史行（通用产物行保留）。
+_HARNESS_LEGACY_GITIGNORE_HEADER="# Harness: 本地工具与 Agent 运行产物"
+
+_harness_append_unique_line() {
     local file="$1"
     local line="$2"
 
@@ -50,6 +63,60 @@ _harness_append_gitignore_line() {
         return 0
     fi
     return 1
+}
+
+# 若文件非空且结尾无换行，补一个换行，避免后续 append 粘到最后一行。
+_harness_ensure_trailing_newline() {
+    local file="$1"
+    [ -s "$file" ] || return 0
+    if [ -n "$(tail -c1 "$file" 2>/dev/null)" ]; then
+        printf '\n' >> "$file"
+    fi
+}
+
+# 从 .gitignore 中剔除历史误写入的本地工具规则与旧标题；有剔除返回 0，否则返回 1。
+_harness_strip_gitignore_legacy() {
+    local file="$1"
+    [ -f "$file" ] || return 1
+
+    local removal
+    removal="$(_harness_exclude_patterns)"
+    local tmp
+    tmp="$(mktemp)"
+    local removed=0
+    local line
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [ "$line" = "${_HARNESS_LEGACY_GITIGNORE_HEADER}" ]; then
+            removed=1
+            continue
+        fi
+        if [ -n "$line" ] && printf '%s\n' "$removal" | grep -Fxq -- "$line"; then
+            removed=1
+            continue
+        fi
+        printf '%s\n' "$line" >> "$tmp"
+    done < "$file"
+
+    if [ "$removed" -eq 1 ]; then
+        mv "$tmp" "$file"
+        return 0
+    fi
+    rm -f "$tmp"
+    return 1
+}
+
+# 解析项目的 .git/info/exclude 路径（兼容 worktree / submodule）；非 git 仓库输出空串。
+_harness_resolve_exclude_file() {
+    local project_dir="$1"
+    if git -C "$project_dir" rev-parse --git-dir >/dev/null 2>&1; then
+        local p
+        p="$(cd "$project_dir" && git rev-parse --git-path info/exclude 2>/dev/null)"
+        [ -n "$p" ] || return 0
+        case "$p" in
+            /*) printf '%s\n' "$p" ;;
+            *)  printf '%s/%s\n' "$project_dir" "$p" ;;
+        esac
+    fi
 }
 
 # install_harness <module_name> <display_name> <script_dir>
@@ -199,13 +266,16 @@ install_harness() {
     echo ""
 
     # ==========================================================
-    # Step 4: .gitignore
+    # Step 4: .gitignore（通用产物）+ .git/info/exclude（本地工具/运行产物）
     # ==========================================================
     echo "--------------------------------------------"
-    echo "[Step 4] 更新 .gitignore"
+    echo "[Step 4] 更新 .gitignore 与 .git/info/exclude"
     echo "--------------------------------------------"
     echo ""
 
+    local pattern
+
+    # -- 4a. .gitignore：仅通用构建 / 编辑器 / OS 产物 --
     local gitignore_file="${project_dir}/.gitignore"
     if [ ! -f "${gitignore_file}" ]; then
         touch "${gitignore_file}"
@@ -214,25 +284,57 @@ install_harness() {
         echo "  ⊘ .gitignore 已存在，继续补充规则"
     fi
 
-    local gitignore_updated=0
-    if ! grep -Fq "# Harness: 本地工具与 Agent 运行产物" "${gitignore_file}" 2>/dev/null; then
-        printf '\n# Harness: 本地工具与 Agent 运行产物\n' >> "${gitignore_file}"
-        gitignore_updated=1
+    # 迁移：把旧版本误写入 .gitignore 的本地工具规则清出去（移到 .git/info/exclude）
+    if _harness_strip_gitignore_legacy "${gitignore_file}"; then
+        echo "  ✓ 已从 .gitignore 清理历史本地工具规则（迁移到 .git/info/exclude）"
     fi
-    local pattern
+
+    _harness_ensure_trailing_newline "${gitignore_file}"
+    local gitignore_updated=0
     while IFS= read -r pattern; do
         [ -n "${pattern}" ] || continue
-        if _harness_append_gitignore_line "${gitignore_file}" "${pattern}"; then
+        if _harness_append_unique_line "${gitignore_file}" "${pattern}"; then
             gitignore_updated=1
         fi
     done <<EOF
 $(_harness_gitignore_patterns)
 EOF
-
     if [ "${gitignore_updated}" -eq 1 ]; then
-        echo "  ✓ .gitignore 已同步 Harness 忽略规则"
+        echo "  ✓ .gitignore 已同步通用忽略规则"
     else
-        echo "  ⊘ .gitignore 已包含相关规则"
+        echo "  ⊘ .gitignore 已包含通用规则"
+    fi
+
+    # -- 4b. .git/info/exclude：本地工具与 Agent 运行产物（绝不入库）--
+    local exclude_file
+    exclude_file="$(_harness_resolve_exclude_file "${project_dir}")"
+    if [ -n "${exclude_file}" ]; then
+        mkdir -p "$(dirname "${exclude_file}")"
+        [ -f "${exclude_file}" ] || touch "${exclude_file}"
+
+        local exclude_updated=0
+        local exclude_header="# 本地工具与运行产物（仅本地忽略，不进版本库）"
+        if ! grep -Fxq "${exclude_header}" "${exclude_file}" 2>/dev/null; then
+            _harness_ensure_trailing_newline "${exclude_file}"
+            printf '%s\n' "${exclude_header}" >> "${exclude_file}"
+            exclude_updated=1
+        fi
+        while IFS= read -r pattern; do
+            [ -n "${pattern}" ] || continue
+            if _harness_append_unique_line "${exclude_file}" "${pattern}"; then
+                exclude_updated=1
+            fi
+        done <<EOF
+$(_harness_exclude_patterns)
+EOF
+        if [ "${exclude_updated}" -eq 1 ]; then
+            echo "  ✓ .git/info/exclude 已同步本地工具忽略规则"
+        else
+            echo "  ⊘ .git/info/exclude 已包含相关规则"
+        fi
+    else
+        echo "  ⚠ 未检测到 git 仓库，跳过 .git/info/exclude"
+        echo "    （请先 git init，再重跑 setup 以本地忽略 .harness/、CLAUDE.md 等）"
     fi
     echo ""
 

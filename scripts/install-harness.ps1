@@ -57,13 +57,94 @@ function Set-Utf8NoBomContent {
     [System.IO.File]::WriteAllText($Path, $Value, $utf8NoBom)
 }
 
-function Get-HarnessGitignoreHeader {
+# 旧版本(1.x)误写进 .gitignore 的标题 "# Harness: 本地工具与 Agent 运行产物"，
+# 迁移时用它作为精确剔除的匹配行。CJK 用码点构造，规避 Windows PowerShell 5.1
+# 读取无 BOM 脚本时的编码问题。
+function Get-HarnessLegacyGitignoreHeader {
     $codePoints = @(
         0x672C, 0x5730, 0x5DE5, 0x5177, 0x4E0E, 0x0020,
         0x0041, 0x0067, 0x0065, 0x006E, 0x0074, 0x0020,
         0x8FD0, 0x884C, 0x4EA7, 0x7269
     )
     return "# Harness: " + (($codePoints | ForEach-Object { [char]$_ }) -join '')
+}
+
+# .git/info/exclude 的中文标题 "# 本地工具与运行产物（仅本地忽略，不进版本库）"。
+function Get-HarnessExcludeHeader {
+    $codePoints = @(
+        0x0023, 0x0020, 0x672C, 0x5730, 0x5DE5, 0x5177, 0x4E0E, 0x8FD0,
+        0x884C, 0x4EA7, 0x7269, 0xFF08, 0x4EC5, 0x672C, 0x5730, 0x5FFD,
+        0x7565, 0xFF0C, 0x4E0D, 0x8FDB, 0x7248, 0x672C, 0x5E93, 0xFF09
+    )
+    return (($codePoints | ForEach-Object { [char]$_ }) -join '')
+}
+
+# 从文件中精确剔除指定行（大小写敏感）；有剔除返回 $true，否则 $false。
+function Remove-LinesFromFile {
+    param(
+        [string]$Path,
+        [string[]]$Lines
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $false
+    }
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+    $existing = $content -split "\r?\n"
+    $kept = @()
+    $removed = $false
+    foreach ($line in $existing) {
+        if ($Lines -ccontains $line) {
+            $removed = $true
+            continue
+        }
+        $kept += $line
+    }
+
+    if (-not $removed) {
+        return $false
+    }
+
+    [System.IO.File]::WriteAllText($Path, ($kept -join "`n"), $utf8NoBom)
+    return $true
+}
+
+# 解析项目的 .git/info/exclude 路径(兼容 worktree/submodule); 非 git 仓库返回 $null。
+function Resolve-HarnessExcludeFile {
+    param([string]$ProjectDir)
+
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        return $null
+    }
+
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    try {
+        & git -C $ProjectDir rev-parse --git-dir 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            return $null
+        }
+        Push-Location $ProjectDir
+        try {
+            $relative = & git rev-parse --git-path info/exclude 2>$null
+        }
+        finally {
+            Pop-Location
+        }
+        if ([string]::IsNullOrWhiteSpace($relative)) {
+            return $null
+        }
+        $relative = $relative.Trim()
+        if ([System.IO.Path]::IsPathRooted($relative)) {
+            return $relative
+        }
+        return (Join-Path $ProjectDir $relative)
+    }
+    finally {
+        $ErrorActionPreference = $prevEAP
+    }
 }
 
 function Write-HarnessVersion {
@@ -295,10 +376,37 @@ function Invoke-HarnessSetup {
     Write-Host ""
 
     Write-Host "--------------------------------------------"
-    Write-Host "[Step 4] Update .gitignore"
+    Write-Host "[Step 4] Update .gitignore and .git/info/exclude"
     Write-Host "--------------------------------------------"
     Write-Host ""
 
+    # 忽略规则单一源头：与 scripts/install-harness.sh 保持一致。
+    #   - .gitignore(可入库): 只放通用构建/编辑器/OS 产物。
+    #   - .git/info/exclude(仅本地): 本地工具与 Agent 运行产物，避免忽略规则本身泄露 AI 工具链。
+    $gitignorePatterns = @(
+        ".idea/",
+        ".vscode/",
+        ".Ds_Store",
+        ".DS_Store",
+        "*.log"
+    )
+    $excludePatterns = @(
+        ".openspec-auto-backup/",
+        ".openspec-auto/",
+        ".harness/",
+        ".claude/",
+        ".codex/",
+        ".agents/",
+        "openspec/",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "tools/",
+        "findings.md",
+        "progress.md",
+        "task_plan.md"
+    )
+
+    # -- 4a. .gitignore: generic build / editor / OS artifacts only --
     $gitignorePath = Join-Path $projectDir ".gitignore"
     if (-not (Test-Path -LiteralPath $gitignorePath)) {
         New-Item -ItemType File -Path $gitignorePath | Out-Null
@@ -308,48 +416,56 @@ function Invoke-HarnessSetup {
         Write-Host "  SKIP .gitignore already exists, appending missing rules"
     }
 
-    $gitignoreUpdated = $false
-    if (Add-UniqueLine -Path $gitignorePath -Line "") {
-        $gitignoreUpdated = $true
-    }
-    $gitignoreHeader = Get-HarnessGitignoreHeader
-    if (Add-UniqueLine -Path $gitignorePath -Line $gitignoreHeader) {
-        $gitignoreUpdated = $true
+    # 迁移: 剔除旧版本误写进 .gitignore 的本地工具规则与旧标题(移到 .git/info/exclude)
+    $legacyLines = @(Get-HarnessLegacyGitignoreHeader) + $excludePatterns
+    if (Remove-LinesFromFile -Path $gitignorePath -Lines $legacyLines) {
+        Write-Host "  OK removed legacy local-tool rules from .gitignore (migrated to .git/info/exclude)"
     }
 
-    # .gitignore 单一源头：与 scripts/install-harness.sh 保持一致。
-    # 整个 .harness/ 目录均为 setup 可再生的本地产物，不入库。
-    $patterns = @(
-        ".openspec-auto-backup/",
-        ".openspec-auto/",
-        ".idea/",
-        ".vscode/",
-        ".Ds_Store",
-        ".DS_Store",
-        "*.log",
-        "findings.md",
-        "progress.md",
-        "task_plan.md",
-        ".harness/",
-        ".claude/",
-        ".codex/",
-        ".agents/",
-        "openspec/",
-        "AGENTS.md",
-        "CLAUDE.md",
-        "tools/"
-    )
-    foreach ($pattern in $patterns) {
+    $gitignoreUpdated = $false
+    foreach ($pattern in $gitignorePatterns) {
         if (Add-UniqueLine -Path $gitignorePath -Line $pattern) {
             $gitignoreUpdated = $true
         }
     }
-
     if ($gitignoreUpdated) {
-        Write-Host "  OK .gitignore updated with harness rules"
+        Write-Host "  OK .gitignore updated with generic rules"
     }
     else {
-        Write-Host "  SKIP .gitignore already contains harness rules"
+        Write-Host "  SKIP .gitignore already contains generic rules"
+    }
+
+    # -- 4b. .git/info/exclude: local tool & agent runtime artifacts (never tracked) --
+    $excludeFile = Resolve-HarnessExcludeFile -ProjectDir $projectDir
+    if ($excludeFile) {
+        $excludeDir = Split-Path -Parent $excludeFile
+        if ($excludeDir -and -not (Test-Path -LiteralPath $excludeDir)) {
+            New-Item -ItemType Directory -Path $excludeDir -Force | Out-Null
+        }
+        if (-not (Test-Path -LiteralPath $excludeFile)) {
+            New-Item -ItemType File -Path $excludeFile | Out-Null
+        }
+
+        $excludeUpdated = $false
+        $excludeHeader = Get-HarnessExcludeHeader
+        if (Add-UniqueLine -Path $excludeFile -Line $excludeHeader) {
+            $excludeUpdated = $true
+        }
+        foreach ($pattern in $excludePatterns) {
+            if (Add-UniqueLine -Path $excludeFile -Line $pattern) {
+                $excludeUpdated = $true
+            }
+        }
+        if ($excludeUpdated) {
+            Write-Host "  OK .git/info/exclude updated with local-tool rules"
+        }
+        else {
+            Write-Host "  SKIP .git/info/exclude already contains rules"
+        }
+    }
+    else {
+        Write-Host "  WARN no git repo detected, skipped .git/info/exclude"
+        Write-Host "       run 'git init' then re-run setup to locally ignore .harness/, CLAUDE.md, etc."
     }
     Write-Host ""
 

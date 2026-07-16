@@ -52,6 +52,85 @@ function Assert-LineExists {
     }
 }
 
+function Initialize-GitRepo {
+    param([string]$ProjectDir)
+
+    # setup 会把本地工具规则写进 .git/info/exclude，夹具需先是 git 仓库
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        return
+    }
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    try {
+        & git init -q $ProjectDir 2>$null | Out-Null
+    }
+    finally {
+        $ErrorActionPreference = $prevEAP
+    }
+}
+
+# .git/info/exclude 中文标题 "# 本地工具与运行产物（仅本地忽略，不进版本库）"（码点构造，规避编码问题）
+function Get-ExcludeHeader {
+    $codePoints = @(
+        0x0023, 0x0020, 0x672C, 0x5730, 0x5DE5, 0x5177, 0x4E0E, 0x8FD0,
+        0x884C, 0x4EA7, 0x7269, 0xFF08, 0x4EC5, 0x672C, 0x5730, 0x5FFD,
+        0x7565, 0xFF0C, 0x4E0D, 0x8FDB, 0x7248, 0x672C, 0x5E93, 0xFF09
+    )
+    return (($codePoints | ForEach-Object { [char]$_ }) -join '')
+}
+
+# 旧标题 "# Harness: 本地工具与 Agent 运行产物"（码点构造）
+function Get-LegacyGitignoreHeader {
+    $codePoints = @(
+        0x0023, 0x0020, 0x0048, 0x0061, 0x0072, 0x006E, 0x0065, 0x0073, 0x0073,
+        0x003A, 0x0020,
+        0x672C, 0x5730, 0x5DE5, 0x5177, 0x4E0E, 0x0020,
+        0x0041, 0x0067, 0x0065, 0x006E, 0x0074, 0x0020,
+        0x8FD0, 0x884C, 0x4EA7, 0x7269
+    )
+    return (($codePoints | ForEach-Object { [char]$_ }) -join '')
+}
+
+# .gitignore 只保留通用产物；本地工具规则必须落在 .git/info/exclude
+function Assert-GitignoreSplit {
+    param([string]$ProjectDir)
+
+    $gitignorePath = Join-Path $ProjectDir ".gitignore"
+    $excludePath = Join-Path $ProjectDir ".git\info\exclude"
+
+    $generic = @(".idea/", ".vscode/", ".Ds_Store", ".DS_Store", "*.log")
+    foreach ($line in $generic) {
+        Assert-LineExists $gitignorePath $line
+    }
+
+    $localToolRules = @(
+        ".openspec-auto-backup/",
+        ".openspec-auto/",
+        ".harness/",
+        ".claude/",
+        ".codex/",
+        ".agents/",
+        "openspec/",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "tools/",
+        "findings.md",
+        "progress.md",
+        "task_plan.md"
+    )
+    $legacyHeader = Get-LegacyGitignoreHeader
+    Assert-FileNotContains $gitignorePath $legacyHeader
+    foreach ($rule in $localToolRules) {
+        Assert-FileNotContains $gitignorePath $rule
+    }
+
+    Assert-PathExists $excludePath
+    Assert-LineExists $excludePath (Get-ExcludeHeader)
+    foreach ($rule in $localToolRules) {
+        Assert-LineExists $excludePath $rule
+    }
+}
+
 function Assert-HarnessCommands {
     param([string]$ProjectDir)
 
@@ -148,6 +227,7 @@ function Invoke-SetupPs1 {
         [switch]$ForceProjectFiles
     )
 
+    Initialize-GitRepo $ProjectDir
     Push-Location $ProjectDir
     try {
         $env:HOME = $SandboxHome
@@ -172,6 +252,7 @@ function Invoke-SetupBat {
         [string]$SandboxHome
     )
 
+    Initialize-GitRepo $ProjectDir
     Push-Location $ProjectDir
     try {
         $env:HOME = $SandboxHome
@@ -239,32 +320,7 @@ try {
         Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "AGENTS.md"
         Assert-FileContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "AGENTS.md"
         Assert-FileNotContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "CLAUDE.md"
-        $gitignoreBaseline = @(
-            "# Harness: 本地工具与 Agent 运行产物",
-            ".openspec-auto-backup/",
-            ".openspec-auto/",
-            ".idea/",
-            ".vscode/",
-            ".Ds_Store",
-            ".DS_Store",
-            "*.log",
-            "findings.md",
-            "progress.md",
-            "task_plan.md",
-            ".harness/",
-            ".claude/",
-            ".codex/",
-            ".agents/",
-            "openspec/",
-            "AGENTS.md",
-            "CLAUDE.md",
-            "tools/"
-        )
-        foreach ($line in $gitignoreBaseline) {
-            Assert-LineExists (Join-Path $projectDir ".gitignore") $line
-        }
-        Assert-FileNotContains (Join-Path $projectDir ".gitignore") ".harness/error-journal.md"
-        Assert-FileNotContains (Join-Path $projectDir ".gitignore") ".harness/VERSION"
+        Assert-GitignoreSplit $projectDir
 
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "清理杂物"
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "必须删除并保持工作区干净"
@@ -316,6 +372,36 @@ try {
         -Area "windows-smoke" `
         -Summary "windows smoke summary" | Out-Null
     Assert-FileContains (Join-Path $preserveProjectDir ".harness\error-journal.md") "windows smoke summary"
+
+    # --- 迁移：旧版本把本地工具规则误写进 .gitignore，重跑 setup 应清理并迁移到 .git/info/exclude ---
+    $migrateHomeDir = Join-Path $tmpDir "migrate-home"
+    $migrateProjectDir = Join-Path $tmpDir "migrate-project"
+    New-Item -ItemType Directory -Path $migrateHomeDir | Out-Null
+    New-Item -ItemType Directory -Path $migrateProjectDir | Out-Null
+    $legacyGitignore = @(
+        "# custom",
+        "/build/",
+        ".idea/",
+        ".DS_Store",
+        "*.log",
+        ".harness/",
+        ".claude/",
+        ".codex/",
+        ".agents/",
+        "openspec/",
+        "CLAUDE.md",
+        "AGENTS.md",
+        "tools/",
+        "findings.md",
+        "progress.md",
+        "task_plan.md",
+        ".openspec-auto/",
+        ".openspec-auto-backup/"
+    ) -join "`n"
+    Set-Content -LiteralPath (Join-Path $migrateProjectDir ".gitignore") -Value $legacyGitignore
+    Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $migrateProjectDir -SandboxHome $migrateHomeDir
+    Assert-LineExists (Join-Path $migrateProjectDir ".gitignore") "/build/"
+    Assert-GitignoreSplit $migrateProjectDir
 
     foreach ($module in $modules) {
         if ($module -eq "go-pkg-harness") {

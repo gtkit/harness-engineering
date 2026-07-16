@@ -16,5 +16,6 @@ bin/
 go.work
 go.work.sum
 
-# 说明:AGENTS.md/CLAUDE.md/.harness/ 等规则文件由 harness setup.sh 本地生成、
-# 不入库(scaffold/setup 会在下方追加对应忽略规则)——clone 本仓库后先跑 setup.sh。
+# 说明:AGENTS.md/CLAUDE.md/.harness/ 等本地工具/规则文件由 harness setup.sh 本地生成、
+# 不入库;setup 会把它们的忽略规则写进 .git/info/exclude(仅本地、不进版本库),
+# 而非本文件——clone 本仓库后先跑 setup.sh。
