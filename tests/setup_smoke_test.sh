@@ -93,6 +93,7 @@ assert_gitignore_baseline() {
         "AGENTS.md" \
         "CLAUDE.md" \
         "tools/" \
+        ".learnings/" \
         "findings.md" \
         "progress.md" \
         "task_plan.md"; do
@@ -116,6 +117,7 @@ assert_exclude_baseline() {
         "AGENTS.md" \
         "CLAUDE.md" \
         "tools/" \
+        ".learnings/" \
         "findings.md" \
         "progress.md" \
         "task_plan.md"; do
@@ -201,8 +203,18 @@ assert_installed_guides_match_source() {
 
 assert_go_pkg_project_files() {
     local project_dir="$1"
+    local expected_package="${2:-}"
     local package_name
-    package_name="$(basename "$project_dir")"
+    local detected_version
+    local tag_body
+    local fmt_write_count
+
+    if [ -n "${expected_package}" ]; then
+        package_name="${expected_package}"
+    else
+        package_name="$(basename "$project_dir")"
+        package_name="${package_name//-/}"
+    fi
 
     test -f "${project_dir}/Makefile" || fail "go-pkg-harness should generate Makefile"
     test -f "${project_dir}/version.go" || fail "go-pkg-harness should generate version.go"
@@ -211,8 +223,45 @@ assert_go_pkg_project_files() {
     assert_file_contains "${project_dir}/Makefile" "git tag -a"
     assert_file_contains "${project_dir}/Makefile" "delcommit:"
     assert_file_contains "${project_dir}/Makefile" "git reset --soft HEAD~1"
-    assert_file_contains "${project_dir}/version.go" "package ${package_name}"
-    assert_file_contains "${project_dir}/version.go" 'const Version = "v0.1.0"'
+
+    # 发版入口与可覆盖的门禁配置
+    assert_file_contains "${project_dir}/Makefile" "release-patch:"
+    assert_file_contains "${project_dir}/Makefile" "release-minor:"
+    assert_file_contains "${project_dir}/Makefile" "push-tag:"
+    assert_file_contains "${project_dir}/Makefile" "fmt:"
+    assert_file_contains "${project_dir}/Makefile" "BUMP              ?= patch"
+    assert_file_contains "${project_dir}/Makefile" "COVERAGE_MIN      ?= 80"
+    assert_file_contains "${project_dir}/Makefile" "REQUIRE_CHANGELOG ?= 1"
+    assert_file_contains "${project_dir}/Makefile" "工作区不干净"
+    assert_file_contains "${project_dir}/Makefile" "go mod tidy -diff"
+    # MAJOR 只 bump tag 不改 module path 是错误发布，脚本必须拒绝
+    assert_file_contains "${project_dir}/Makefile" "本脚本不处理 MAJOR"
+
+    # 两步发布的核心不变量：tag 目标推 main，标签留给 push-tag 推
+    tag_body="$(awk '/^tag:/ {f=1; next} f && /^[a-zA-Z]/ {exit} f' "${project_dir}/Makefile")"
+    printf '%s' "${tag_body}" | grep -Fq 'git push $(RELEASE_REMOTE) HEAD' \
+        || fail "tag target should push main to \$(RELEASE_REMOTE)"
+    if printf '%s' "${tag_body}" | grep -Fq 'git push $(RELEASE_REMOTE) "$$new"'; then
+        fail "tag target must not push the tag itself; that is push-tag's job"
+    fi
+    assert_file_contains "${project_dir}/Makefile" 'git push $(RELEASE_REMOTE) "$$tag"'
+
+    # tool 是只读检查，唯一允许写文件的格式化入口是 fmt
+    fmt_write_count="$(grep -c -- 'gofumpt -l -w' "${project_dir}/Makefile")"
+    if [ "${fmt_write_count}" != "1" ]; then
+        fail "expected exactly one 'gofumpt -l -w' (fmt target only), got ${fmt_write_count}"
+    fi
+
+    assert_line_exists "${project_dir}/version.go" "package ${package_name}"
+    assert_line_exists "${project_dir}/version.go" 'const Version = "v0.1.0"'
+    assert_file_contains "${project_dir}/version.go" "// Version 是本包的当前版本号"
+    assert_file_contains "${project_dir}/version.go" "make release-patch / make release-minor"
+
+    # 发版脚本取文件里第一个匹配到的版本号，注释不得抢在 const 行前面
+    detected_version="$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' "${project_dir}/version.go" | head -n1)"
+    if [ "${detected_version}" != "v0.1.0" ]; then
+        fail "release script would read '${detected_version}' from ${project_dir}/version.go"
+    fi
 }
 
 run_setup() {
@@ -311,6 +360,7 @@ openspec/
 CLAUDE.md
 AGENTS.md
 tools/
+.learnings/
 findings.md
 progress.md
 task_plan.md
@@ -359,6 +409,29 @@ mkdir -p "$empty_pkg_project" "$empty_pkg_home"
 run_setup "go-pkg-harness" "$empty_pkg_project" "$empty_pkg_home"
 assert_go_pkg_project_files "$empty_pkg_project"
 
+# 空目录 + 目录名带横线：package 名按目录名推导，横线直接去掉
+dashed_pkg_project="${tmpdir}/lenovo-pay"
+dashed_pkg_home="${tmpdir}/lenovo-pay-home"
+mkdir -p "$dashed_pkg_project" "$dashed_pkg_home"
+run_setup "go-pkg-harness" "$dashed_pkg_project" "$dashed_pkg_home"
+assert_go_pkg_project_files "$dashed_pkg_project"
+assert_line_exists "${dashed_pkg_project}/version.go" "package lenovopay"
+
+# 目录内已有 .go 文件：沿用既有 package 名，不按目录名另起一个（否则同目录 package 冲突）
+existing_pkg_project="${tmpdir}/go-pay"
+existing_pkg_home="${tmpdir}/go-pay-home"
+mkdir -p "$existing_pkg_project" "$existing_pkg_home"
+printf 'package gopay\n\nfunc Noop() {}\n' > "${existing_pkg_project}/pay.go"
+printf 'package gopay_test\n' > "${existing_pkg_project}/pay_test.go"
+run_setup "go-pkg-harness" "$existing_pkg_project" "$existing_pkg_home"
+assert_go_pkg_project_files "$existing_pkg_project" "gopay"
+assert_line_exists "${existing_pkg_project}/version.go" "package gopay"
+
+# 既有 package 名优先于旧 version.go 里的错误值，HARNESS_FORCE_PROJECT_FILES=1 能纠正
+printf 'package go_pay\n' > "${existing_pkg_project}/version.go"
+run_setup "go-pkg-harness" "$existing_pkg_project" "$existing_pkg_home" "1"
+assert_go_pkg_project_files "$existing_pkg_project" "gopay"
+
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "github.com/gtkit/json"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "纯零依赖公共库允许使用 \`encoding/json\`"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" ".harness/guides/pkg-release-and-supply-chain.md"
@@ -382,5 +455,14 @@ assert_file_contains "${ROOT_DIR}/README.md" "harness research: 你的需求描�
 assert_file_contains "${ROOT_DIR}/README.md" "docs/harness-command-workflow.md"
 assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "## 命令对照"
 assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "doctor -> research -> plan -> implement -> review"
+
+for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
+    assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "## 本机容器与镜像纪律（铁律）"
+    assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "docker images"
+    assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "docker ps -a"
+    assert_file_contains "${ROOT_DIR}/${harness_dir}/CLAUDE.md" "## 本机容器与镜像纪律（铁律）"
+    assert_file_contains "${ROOT_DIR}/${harness_dir}/CLAUDE.md" "docker images"
+    assert_file_contains "${ROOT_DIR}/${harness_dir}/CLAUDE.md" "docker ps -a"
+done
 
 printf 'setup smoke test passed\n'

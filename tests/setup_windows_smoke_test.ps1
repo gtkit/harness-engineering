@@ -114,6 +114,7 @@ function Assert-GitignoreSplit {
         "AGENTS.md",
         "CLAUDE.md",
         "tools/",
+        ".learnings/",
         "findings.md",
         "progress.md",
         "task_plan.md"
@@ -202,9 +203,17 @@ function Assert-CodexWorkflowAliases {
 }
 
 function Assert-GoPkgProjectFiles {
-    param([string]$ProjectDir)
+    param(
+        [string]$ProjectDir,
+        [string]$ExpectedPackage = ""
+    )
 
-    $packageName = Split-Path -Leaf $ProjectDir
+    if ($ExpectedPackage) {
+        $packageName = $ExpectedPackage
+    }
+    else {
+        $packageName = (Split-Path -Leaf $ProjectDir).Replace("-", "")
+    }
     $makefilePath = Join-Path $ProjectDir "Makefile"
     $versionPath = Join-Path $ProjectDir "version.go"
 
@@ -215,8 +224,55 @@ function Assert-GoPkgProjectFiles {
     Assert-FileContains $makefilePath "git tag -a"
     Assert-FileContains $makefilePath "delcommit:"
     Assert-FileContains $makefilePath "git reset --soft HEAD~1"
-    Assert-FileContains $versionPath "package $packageName"
-    Assert-FileContains $versionPath 'const Version = "v0.1.0"'
+
+    # 发版入口与可覆盖的门禁配置
+    Assert-FileContains $makefilePath "release-patch:"
+    Assert-FileContains $makefilePath "release-minor:"
+    Assert-FileContains $makefilePath "push-tag:"
+    Assert-FileContains $makefilePath "fmt:"
+    Assert-FileContains $makefilePath "BUMP              ?= patch"
+    Assert-FileContains $makefilePath "COVERAGE_MIN      ?= 80"
+    Assert-FileContains $makefilePath "REQUIRE_CHANGELOG ?= 1"
+    Assert-FileContains $makefilePath "工作区不干净"
+    Assert-FileContains $makefilePath "go mod tidy -diff"
+    # MAJOR 只 bump tag 不改 module path 是错误发布，脚本必须拒绝
+    Assert-FileContains $makefilePath "本脚本不处理 MAJOR"
+
+    # 两步发布的核心不变量：tag 目标推 main，标签留给 push-tag 推
+    $tagBody = [System.Collections.Generic.List[string]]::new()
+    $inTagTarget = $false
+    foreach ($line in (Get-Content -LiteralPath $makefilePath)) {
+        if ($line -match '^tag:') { $inTagTarget = $true; continue }
+        if ($inTagTarget -and $line -match '^[a-zA-Z]') { break }
+        if ($inTagTarget) { $tagBody.Add($line) }
+    }
+    $tagBodyText = $tagBody -join "`n"
+    if (-not $tagBodyText.Contains('git push $(RELEASE_REMOTE) HEAD')) {
+        Fail 'tag target should push main to $(RELEASE_REMOTE)'
+    }
+    if ($tagBodyText.Contains('git push $(RELEASE_REMOTE) "$$new"')) {
+        Fail 'tag target must not push the tag itself; that is push-tag''s job'
+    }
+    Assert-FileContains $makefilePath 'git push $(RELEASE_REMOTE) "$$tag"'
+
+    # tool 是只读检查，唯一允许写文件的格式化入口是 fmt
+    $makefileContent = Get-Content -LiteralPath $makefilePath -Raw
+    $fmtWriteCount = ([regex]::Matches($makefileContent, [regex]::Escape('gofumpt -l -w'))).Count
+    if ($fmtWriteCount -ne 1) {
+        Fail "expected exactly one 'gofumpt -l -w' (fmt target only), got $fmtWriteCount"
+    }
+
+    Assert-LineExists $versionPath "package $packageName"
+    Assert-LineExists $versionPath 'const Version = "v0.1.0"'
+    Assert-FileContains $versionPath "// Version 是本包的当前版本号"
+    Assert-FileContains $versionPath "make release-patch / make release-minor"
+
+    # 发版脚本取文件里第一个匹配到的版本号，注释不得抢在 const 行前面
+    $versionContent = Get-Content -LiteralPath $versionPath -Raw
+    $detectedVersion = [regex]::Match($versionContent, 'v[0-9]+\.[0-9]+\.[0-9]+').Value
+    if ($detectedVersion -ne "v0.1.0") {
+        Fail "release script would read '$detectedVersion' from $versionPath"
+    }
 }
 
 function Invoke-SetupPs1 {
@@ -281,6 +337,15 @@ foreach ($module in $modules) {
     Assert-PathExists (Join-Path (Join-Path $RootDir $module) "setup.ps1")
     Assert-PathExists (Join-Path (Join-Path $RootDir $module) "setup.bat")
     Assert-AllGuidesAreReferenced $module
+}
+
+foreach ($module in @($modules + "go-grpc-harness")) {
+    foreach ($entryFile in @("AGENTS.md", "CLAUDE.md")) {
+        $entryPath = Join-Path (Join-Path $RootDir $module) $entryFile
+        Assert-FileContains $entryPath "## 本机容器与镜像纪律（铁律）"
+        Assert-FileContains $entryPath "docker images"
+        Assert-FileContains $entryPath "docker ps -a"
+    }
 }
 
 $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("harness-windows-smoke-" + [System.Guid]::NewGuid().ToString("N"))
@@ -392,6 +457,7 @@ try {
         "CLAUDE.md",
         "AGENTS.md",
         "tools/",
+        ".learnings/",
         "findings.md",
         "progress.md",
         "task_plan.md",
@@ -437,6 +503,31 @@ try {
     New-Item -ItemType File -Path (Join-Path $emptyPkgProjectDir "version.go") | Out-Null
     Invoke-SetupPs1 -HarnessDir "go-pkg-harness" -ProjectDir $emptyPkgProjectDir -SandboxHome $emptyPkgHomeDir
     Assert-GoPkgProjectFiles $emptyPkgProjectDir
+
+    # 空目录 + 目录名带横线：package 名按目录名推导，横线直接去掉
+    $dashedPkgProjectDir = Join-Path $tmpDir "lenovo-pay"
+    $dashedPkgHomeDir = Join-Path $tmpDir "lenovo-pay-home"
+    New-Item -ItemType Directory -Path $dashedPkgProjectDir | Out-Null
+    New-Item -ItemType Directory -Path $dashedPkgHomeDir | Out-Null
+    Invoke-SetupPs1 -HarnessDir "go-pkg-harness" -ProjectDir $dashedPkgProjectDir -SandboxHome $dashedPkgHomeDir
+    Assert-GoPkgProjectFiles $dashedPkgProjectDir
+    Assert-LineExists (Join-Path $dashedPkgProjectDir "version.go") "package lenovopay"
+
+    # 目录内已有 .go 文件：沿用既有 package 名，不按目录名推导
+    $existingPkgProjectDir = Join-Path $tmpDir "go-pay"
+    $existingPkgHomeDir = Join-Path $tmpDir "go-pay-home"
+    New-Item -ItemType Directory -Path $existingPkgProjectDir | Out-Null
+    New-Item -ItemType Directory -Path $existingPkgHomeDir | Out-Null
+    Set-Content -LiteralPath (Join-Path $existingPkgProjectDir "pay.go") -Value "package gopay`n`nfunc Noop() {}"
+    Set-Content -LiteralPath (Join-Path $existingPkgProjectDir "pay_test.go") -Value "package gopay_test"
+    Invoke-SetupPs1 -HarnessDir "go-pkg-harness" -ProjectDir $existingPkgProjectDir -SandboxHome $existingPkgHomeDir
+    Assert-GoPkgProjectFiles $existingPkgProjectDir "gopay"
+    Assert-LineExists (Join-Path $existingPkgProjectDir "version.go") "package gopay"
+
+    # 既有 package 名优先于旧 version.go 里的错误值，-ForceProjectFiles 能纠正
+    Set-Content -LiteralPath (Join-Path $existingPkgProjectDir "version.go") -Value "package go_pay"
+    Invoke-SetupPs1 -HarnessDir "go-pkg-harness" -ProjectDir $existingPkgProjectDir -SandboxHome $existingPkgHomeDir -ForceProjectFiles
+    Assert-GoPkgProjectFiles $existingPkgProjectDir "gopay"
 }
 finally {
     Remove-Item -LiteralPath $tmpDir -Recurse -Force
