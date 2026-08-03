@@ -139,6 +139,14 @@ Repository / Query Object / Eloquent
 - Listener 保持轻量，跨边界逻辑优先下沉到 Service
 - Notification / Mail 独立建类，避免内联模板和文案
 
+## 本机容器与镜像纪律（铁律）
+
+- **先查后用**：需要镜像时先 `docker images` 看本机有没有；本机已有就用本机这一版，不再 `docker pull` 别的 tag（含 `latest`）。
+- **复用已启动容器**：先 `docker ps -a` 看目标容器在不在；正在运行就直接连，已存在但停止就 `docker start` 复用，不新建同类容器、不换端口再起一份。
+- **缺了先问**：本机确实没有所需镜像或容器时停下来，告诉用户缺什么、准备用哪个镜像和 tag，得到明确同意后才执行 `docker pull` / `docker run`。
+- **隐式拉取同样受限**：`docker run`（镜像缺失时自动拉）、`docker compose up`、Laravel Sail（`sail up` 会拉取并新建整套容器）、脚本里封装的容器命令，执行前一律先确认本机镜像与容器状态。
+- **版本以本机为准**：不因为"官方推荐更新版本"就替换本机镜像 tag；测试与本地联调连本机已启动的依赖服务（MySQL / Redis / 队列等），不另起实例。
+
 ## 提交前检查
 
 优先使用项目已有统一入口：
