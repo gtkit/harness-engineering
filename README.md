@@ -282,6 +282,8 @@ bash ~/tools/harness-engineering/go-pkg-harness/setup.sh
 your-go-package/
 ├── CLAUDE.md
 ├── AGENTS.md
+├── Makefile                  ← lint / govulncheck / release-patch·release-minor 两步发版
+├── version.go                ← const Version = "v0.1.0"
 ├── .claude/
 │   └── commands/
 │       └── harness/
@@ -296,6 +298,17 @@ your-go-package/
         ├── pkg-release-and-supply-chain.md 发布、依赖、供应链安全
         └── pkg-review.md           包级 9 维度审查清单
 ```
+
+`version.go` 的 package 名优先沿用目录内既有 `.go` 文件声明的 package 名（同目录 package 名必须一致，否则编译失败）；目录里没有其它 Go 文件时按目录名推导，横线直接去掉：
+
+| 项目目录 | 生成的 package 名 |
+|--|--|
+| `~/go/src/my-gtkit-package/lenovo-pay` | `package lenovopay` |
+| `~/code/cachex` | `package cachex` |
+
+横线是去掉而不是换成下划线——Go 包名不用下划线，`lenovo_pay` 会被 staticcheck 判为 `should not use underscores in package names`（ST1003）。目录名转换后仍不是合法 Go 标识符（如以数字开头）或撞上 Go 关键字时，跳过 `version.go` 并打印提示，其余文件照常安装。`Makefile` 与 `version.go` 已存在则默认不覆盖，`HARNESS_FORCE_PROJECT_FILES=1` 可强制刷新。
+
+`Makefile` 的发版分两步。`make release-patch` / `make release-minor` 先跑完整门禁（工作区干净、空白检查、`go mod tidy -diff`、`go vet`、`golangci-lint`、`gofumpt` 只读检查、race 测试、覆盖率、benchmark、`govulncheck`、`gosec`），通过后自增 `version.go` 的 `Version`、提交、打附注标签并推主干，**标签留在本地**；远端 CI 全绿后再 `make push-tag` 发布标签，它会核对该 commit 的 check-runs 结论，未全绿拒绝推送。分两步的原因是 Go module proxy 抓取标签后永久缓存，删除或覆盖都收不回来。门禁阈值可按包覆盖：`COVERAGE_MIN`、`REQUIRE_CHANGELOG`、`RELEASE_REMOTE`、`EXTRA_TEST_TARGET`。
 
 ---
 
@@ -728,6 +741,7 @@ openspec/
 .openspec-auto/
 .openspec-auto-backup/
 tools/
+.learnings/
 findings.md
 progress.md
 task_plan.md

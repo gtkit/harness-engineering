@@ -6,7 +6,39 @@
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-08-03
+
 > ⚠ 行为变更：setup 生成的忽略规则改为**分两处**落地——通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`）留在 `.gitignore`；本地工具与 Agent 运行产物（`.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`openspec/`、`tools/`、计划文件等）改写进 `.git/info/exclude`。老项目重跑 setup 会自动把这些规则从 `.gitignore` 剔除并迁移到 `.git/info/exclude`（业务自定义规则保持不动）。
+
+### Added
+- 全部 harness（`go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`、`laravel-harness`、`laravel-fullstack-harness`）的入口规则（`AGENTS.md` / `CLAUDE.md`）新增「本机容器与镜像纪律（铁律）」一节：需要容器时先用 `docker images` / `docker ps -a` 查本机，已有镜像与容器直接复用（停止的容器 `docker start`，不新建同类容器、不换端口再起一份），不擅自 `docker pull` 其他 tag；本机缺失时先向用户说明缺什么、准备用哪个 tag 并取得同意；`docker run`、`docker compose up`、testcontainers、Laravel Sail、Makefile / 脚本封装的容器命令等隐式拉取路径同样受限。两套 smoke 测试新增对应断言。
+
+### Changed
+- `go-pkg-harness` 生成 `version.go` 时，package 名改为**优先沿用目录内既有 `.go` 文件声明的 package 名**（同目录 package 名必须一致，否则编译失败）；目录里没有其它 Go 文件时按目录名推导，**横线直接去掉**（`lenovo-pay` → `package lenovopay`）。此前带横线的目录会被判为非法 package 名而整个跳过 `version.go`，现在能正常生成。横线去掉而非换成下划线，是因为 Go 包名不用下划线——`lenovo_pay` 会被 staticcheck 判为 `should not use underscores in package names`（ST1003）。转换后仍不合法（以数字开头等）或撞 Go 关键字时保持跳过并提示。`sh` / `ps1` 两端行为一致，两套 smoke 测试新增带横线目录、沿用既有 package 名和 `HARNESS_FORCE_PROJECT_FILES=1` 纠正错误 package 名的用例，README 场景 C 与 `guides/pkg-structure.md` 同步补充 `Makefile` / `version.go` 产物与 package 命名规则说明。
+- `go-pkg-harness` 的 `Makefile` 模板发版流程改为**两步发布**，并补齐此前完全缺失的发版门禁。新增 `release-patch` / `release-minor` 语义化入口；`tag` 目标承载完整门禁——工作区干净检查、`git diff --check` 空白检查（上一个 tag..HEAD）、`go mod tidy -diff`、`go vet`、`golangci-lint`、`gofumpt` 只读检查、race 测试、可选 `EXTRA_TEST_TARGET`、覆盖率下限、benchmark、`govulncheck`、`gosec`——全部通过后才自增 `version.go` 的 `Version`、提交、打附注标签并推主干，**标签留在本地**；新增 `push-tag` 在远端 CI 全绿后发布标签，它核对该 commit 的 GitHub check-runs 结论，未全绿或查不到记录一律拒绝推送（已人工确认时用 `SKIP_CI_CHECK=1`）。原先 `tag` 目标没有任何门禁，且一步推完 commit 与标签——标签一旦被 Go module proxy 抓取即永久不可变，删除或覆盖都收不回来，来不及等远端 CI 结果。`BUMP` 只接受 `patch` / `minor`，传 `major` 明确拒绝并指向 MINOR 路径（只 bump tag 而不改 module path 是错误发布）。`REQUIRE_CHANGELOG=1`（默认）要求 `CHANGELOG.md` 已有 `## [vX.Y.Z] - YYYY-MM-DD` 条目，脚本把该条目正文写进 tag message。发版阈值按包可覆盖：`BUMP`、`RELEASE_REMOTE`、`COVERAGE_MIN`、`REQUIRE_CHANGELOG`、`EXTRA_TEST_TARGET`。
+- `go-pkg-harness` 的 `make tool` 改为只读静态检查：发现未按 `gofumpt` 格式化的文件时打印清单并失败，不再就地改写代码；写文件的格式化移到新目标 `make fmt`。`version.go` 模板注释与 `AGENTS.md` / `CLAUDE.md` / `guides/pkg-release-and-supply-chain.md` / README 的发版指引同步指向 `make release-patch` / `make release-minor` / `make push-tag`。两套 smoke 测试新增发版入口、门禁配置项、`tag` 目标不推标签（两步发布不变量）和「`gofumpt -l -w` 只出现在 `fmt`」的断言。
+- setup 生成的忽略规则由「全部写进 `.gitignore`」改为**按性质分流**：通用构建 / 编辑器 / OS 产物留在 `.gitignore`（可入库），本地工具与 Agent 运行产物（`.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`.agents/`、`openspec/`、`.openspec-auto*/`、`tools/`、`.learnings/`、`findings.md`、`progress.md`、`task_plan.md`）改写进 `.git/info/exclude`（仅本地、绝不入库）。目的：避免忽略规则本身泄露「本项目使用了 AI 工具」。`sh` / `ps1` 两端模式串保持一致，`.git/info/exclude` 路径经 `git rev-parse --git-path` 解析以兼容 worktree / submodule；非 git 仓库时跳过并提示先 `git init`。README「日常使用」「Git 提交建议」两节与 CHANGELOG 同步。
+- setup 重跑时对存量 `.gitignore` 做**迁移清理**：精确剔除旧版本误写入的本地工具规则与旧 `# Harness:` 标题，迁移到 `.git/info/exclude`，业务自定义规则与通用产物原样保留。两套 smoke 测试新增专门的迁移用例与 `.git/info/exclude` 断言，并为夹具补 `git init`。
+
+## [1.6.0] - 2026-07-03
+
+### Added
+- 新增 `go-grpc-harness`：面向 grpc-go + buf + protovalidate 技术栈的 gRPC 微服务 harness，含服务模板、基础设施代码与配套规范文档。
+- gRPC 服务模板新增 `grpc.health.v1` 健康探针；优雅关闭时先置 `NOT_SERVING`，等待超时后再强制停止。
+- gRPC 拦截器链新增 `request_id` 透传，支持请求唯一标识的生成与回写；限流拦截器补齐 streaming 版本，保证流式调用同样受限流约束；protovalidate 校验支持对 stream 消息逐条校验。
+- 模板 `Makefile` 新增 `proto-check` 目标，校验 proto 与 pb 产物的一致性，CI 必跑。
+
+### Changed
+- gRPC 配置新增优雅关闭等待超时字段（默认 30 秒），避免长请求阻塞进程退出。
+- 架构检查脚本新增规则：禁止业务模块依赖 pb / transport 层，落实层次隔离。
+- `go-grpc-harness` 规范补充禁止对 pb 产物做任何文本替换的说明——替换会破坏长度前缀并导致 proto 注册 panic；proto 是唯一事实源，文档只指向 proto 文件。
+
+## [1.5.1] - 2026-06-26
+
+### Changed
+- `go-harness` 与 `fullstack-harness` 的配置管理方案改为**外置 YAML 文件加载**（`config/env/env.yml`），进程启动时一次性读取并校验；运行环境由配置文件里的 `env` 字段决定（dev / test / prod），不再通过文件名或命令行参数推断，避免环境混淆；敏感配置（密钥、密码、证书）不纳入版本控制，通过外部注入或文件挂载提供。
+
+## [1.5.0] - 2026-06-25
 
 ### Added
 - 为 `go-harness` 与 `fullstack-harness` 新增 `guides/testing-and-validation.md`，补齐 Go 后端业务服务缺失的测试、回归、race、API 契约和全栈联调验证专项 guide；入口加载表、README 和 smoke 测试同步纳入。
@@ -14,8 +46,9 @@
 - 为 `go-pkg-harness` 新增 `guides/pkg-release-and-supply-chain.md`，补齐 Go 扩展包发布、SemVer/tag、v2+ module path、依赖治理、`govulncheck`、license 和安全发布专项约束。
 
 ### Changed
-- setup 生成的忽略规则由「全部写进 `.gitignore`」改为**按性质分流**：通用构建 / 编辑器 / OS 产物留在 `.gitignore`（可入库），本地工具与 Agent 运行产物（`.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`.agents/`、`openspec/`、`.openspec-auto*/`、`tools/`、`findings.md`、`progress.md`、`task_plan.md`）改写进 `.git/info/exclude`（仅本地、绝不入库）。目的：避免忽略规则本身泄露「本项目使用了 AI 工具」。`sh` / `ps1` 两端模式串保持一致，`.git/info/exclude` 路径经 `git rev-parse --git-path` 解析以兼容 worktree / submodule；非 git 仓库时跳过并提示先 `git init`。README「日常使用」「Git 提交建议」两节与 CHANGELOG 同步。
-- setup 重跑时对存量 `.gitignore` 做**迁移清理**：精确剔除旧版本误写入的本地工具规则与旧 `# Harness:` 标题，迁移到 `.git/info/exclude`，业务自定义规则与通用产物原样保留。两套 smoke 测试新增专门的迁移用例与 `.git/info/exclude` 断言，并为夹具补 `git init`。
+- `go-harness` 与 `fullstack-harness` 的后端分层改为**模块化分层结构**，细化各层职责与禁止引用规则；新增数据库迁移、缓存、可观测性、CI 传感器的 guide 加载入口；后端检查流程改为优先执行统一的 `make check`。
+- 统一编码基线：强调错误包装与现代 Go 特性；API 设计规范明确响应格式、错误码与 handler 标准流程，并禁止 handler 直接操作数据库或触碰底层实现细节。
+- 入口规则补充交叉验证与错误记忆的操作指南，强化质量门禁与自检流程。
 - CI 的 Windows PowerShell 静态检查改为按需安装并导入 `PSScriptAnalyzer`，扫描范围从 5 个 `setup.ps1` 薄包装扩展到共享安装器、error-journal PowerShell 脚本和 PowerShell 测试脚本；README 本地门禁命令同步补齐 Windows setup smoke。
 
 ## [1.4.0] - 2026-06-17
