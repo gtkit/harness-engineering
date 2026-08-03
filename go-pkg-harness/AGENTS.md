@@ -119,6 +119,14 @@ Claude Code 可以直接使用 `/harness:*` slash commands；Codex 不会自动�
 | 代码审查 | `.harness/guides/pkg-review.md` |
 | 所有任务 | `pkg-structure.md` 始终生效 |
 
+## 本机容器与镜像纪律（铁律）
+
+- **先查后用**：需要镜像时先 `docker images` 看本机有没有；本机已有就用本机这一版，不再 `docker pull` 别的 tag（含 `latest`）。
+- **复用已启动容器**：先 `docker ps -a` 看目标容器在不在；正在运行就直接连，已存在但停止就 `docker start` 复用，不新建同类容器、不换端口再起一份。
+- **缺了先问**：本机确实没有所需镜像或容器时停下来，告诉用户缺什么、准备用哪个镜像和 tag，得到明确同意后才执行 `docker pull` / `docker run`。
+- **隐式拉取同样受限**：`docker run`（镜像缺失时自动拉）、`docker compose up`、testcontainers、Makefile 与脚本里封装的容器命令，执行前一律先确认本机镜像与容器状态。
+- **版本以本机为准**：不因为"官方推荐更新版本"就替换本机镜像 tag；需要外部依赖的集成测试连本机已启动的服务实例，不另起一份。
+
 ## 提交前检查
 
 ```bash
@@ -216,7 +224,18 @@ Go 扩展包的依赖解析直接按 tag 走，版本号即对外契约，规则
 - `v1.0.0`：宣告稳定，此后严格遵守 SemVer，MAJOR 不可回退
 - `v2.0.0` 及以上：`go.mod` 的 module path 必须带 `/v2`、`/v3` 后缀，且仓库需通过子目录（`v2/`）或分支提供该 major 版本（Go Module 规则）
 
+### 发版入口
+
+发版走 Makefile 的两步流程，不手工拼 git 命令：
+
+- `make release-patch` / `make release-minor`：跑完整门禁 → 自增 `version.go` 的 `Version` → 提交 → 打附注标签 → 推主干，标签留在本地
+- `make push-tag`：远端 CI 全绿后发布标签（会自己核对 check-runs 结论）
+
+标签分两步推是因为 Go module proxy 抓取后永久缓存，删除或覆盖收不回来。配置项与使用约束见 `.harness/guides/pkg-release-and-supply-chain.md`。
+
 ### 打 tag 前必须通过
+
+`make release-*` 已包含下列检查；在没有 Makefile 的包里手工发布时至少执行：
 
 ```bash
 go vet ./...

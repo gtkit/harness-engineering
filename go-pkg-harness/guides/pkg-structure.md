@@ -5,6 +5,7 @@
 ```
 github.com/gtkit/pkgname/
 ├── doc.go               # 包级文档（Package pkgname ...）
+├── version.go           # 包版本常量（make tag 原地自增）
 ├── pkgname.go           # 核心类型 + 接口 + 构造函数
 ├── options.go           # Functional Options
 ├── errors.go            # 包级错误定义
@@ -150,6 +151,10 @@ func WithLogger(l *slog.Logger) Option {
 | Option | `With` 前缀 | `WithTimeout()`、`WithLogger()` |
 | 接口 | -er 后缀 | `Signer`、`Validator` |
 | 错误变量 | `Err` 前缀 | `ErrTimeout`、`ErrInvalidKey` |
+
+包名可以和所在目录名不同。目录名带横线时，package 名把横线去掉：目录 `lenovo-pay` 对应 `package lenovopay`——Go 包名不用下划线，`lenovo_pay` 会被 staticcheck ST1003 判为 `should not use underscores in package names`。
+
+setup 生成 `version.go` 时按这条规则推导 package 名；目录内已有其它 `.go` 文件时沿用它们声明的 package 名（同目录 package 名必须一致，否则编译失败）。多段横线的目录名拼接后可读性差（`my-gtkit-package` → `mygtkitpackage`），这种情况自己定一个短包名写进去。
 
 ## API 稳定性规则
 

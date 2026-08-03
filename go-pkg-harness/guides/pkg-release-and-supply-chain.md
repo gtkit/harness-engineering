@@ -2,9 +2,39 @@
 
 本 guide 约束 Go 扩展包的发布、版本、依赖和供应链安全。只要涉及 tag、module path、依赖新增/升级、漏洞修复、license 或发布流程，就必须读取本文件。
 
+## 发布入口
+
+发版走 Makefile 的两步流程，本地门禁与标签发布分开：
+
+```bash
+make release-patch   # PATCH：bug 修复 / 文档修正 / 内部重构 / 性能优化
+make release-minor   # MINOR：向后兼容的新增导出 API、Option、能力
+```
+
+`release-*` 依次执行工作区干净检查、空白检查（`git diff --check` 上一个 tag..HEAD）、`go mod tidy -diff`、`go vet`、`golangci-lint`、`gofumpt` 只读检查、race 测试、`EXTRA_TEST_TARGET`（配置了才跑）、覆盖率门禁、benchmark、`govulncheck`、`gosec`；全部通过后原地自增 `version.go` 的 `Version` 常量、提交、打附注标签、推送主干分支。**标签留在本地。**
+
+远端 CI 全绿后再发布标签：
+
+```bash
+make push-tag
+```
+
+`push-tag` 核对该 commit 的 GitHub check-runs 结论，全绿才推送标签。已人工确认 CI 通过但 API 查不到（仓库私有、限额、网络）时用 `make push-tag SKIP_CI_CHECK=1`。
+
+标签之所以分两步推：Go module proxy 抓取标签后永久缓存，删除或覆盖都收不回来，所以推标签前必须先拿到远端 CI 的结论。本地门禁只能证明本机通过，跨平台 job 和 CI 专有的集成测试本机跑不到。
+
+可按包覆盖的配置：`BUMP`、`RELEASE_REMOTE`、`COVERAGE_MIN`（0 表示不检查）、`REQUIRE_CHANGELOG`、`EXTRA_TEST_TARGET`。
+
+使用约束：
+
+- `BUMP` 只接受 `patch` 和 `minor`。传 `major` 会被拒绝并指向 MINOR 路径——只 bump tag 而不改 module path 是错误发布。
+- `REQUIRE_CHANGELOG=1`（默认）时 `CHANGELOG.md` 必须已有 `## [vX.Y.Z] - YYYY-MM-DD` 条目，脚本会把该条目正文写进 tag message。
+- `version.go` 里 `const Version = "vX.Y.Z"` 这行的形状不能改，注释中不能出现版本号字面量——脚本取文件里第一个匹配到的版本号。
+- 格式化只走 `make fmt`；`make tool` 是只读检查，发现未格式化文件会失败而不是就地改写。
+
 ## 发布前门禁
 
-发布前必须通过项目既有 CI。没有统一入口时至少执行：
+`release-*` 已包含下列检查。手工核对或在没有 Makefile 的包里发布时，至少执行：
 
 ```bash
 go mod tidy

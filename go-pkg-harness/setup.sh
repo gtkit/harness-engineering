@@ -54,27 +54,65 @@ install_go_pkg_project_files() {
         echo "  ⊘ Makefile 已存在，跳过"
     fi
 
+    local dir_name
     local package_name
-    package_name="$(basename "${project_dir}")"
-    if [[ ! "${package_name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || _go_pkg_is_keyword "${package_name}"; then
-        echo "  ! version.go 未生成：目录名 ${package_name} 不是合法 Go package 名"
-        echo ""
-        return 0
+    local package_note
+    dir_name="$(basename "${project_dir}")"
+    # package 名优先沿用目录内既有 .go 文件（同目录 package 名必须一致，否则编译失败）；
+    # 目录里没有其它 Go 文件时按目录名推导，横线直接去掉（lenovo-pay → lenovopay）
+    package_name="$(_go_pkg_existing_package "${project_dir}")"
+    if [ -n "${package_name}" ]; then
+        package_note="，沿用目录内既有 package 名"
+    else
+        package_name="${dir_name//-/}"
+        package_note=""
+        if [ "${package_name}" != "${dir_name}" ]; then
+            package_note="，目录名的横线已去掉"
+        fi
+        if [[ ! "${package_name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || _go_pkg_is_keyword "${package_name}"; then
+            echo "  ! version.go 未生成：目录名 ${dir_name} 无法转成合法 Go package 名"
+            echo ""
+            return 0
+        fi
     fi
 
     if [ "${force_project_files}" = "1" ] || [ ! -s "${project_dir}/version.go" ]; then
         sed "s/{{PACKAGE_NAME}}/${package_name}/g" "${template_dir}/version.go.tmpl" > "${project_dir}/version.go"
         if [ "${force_project_files}" = "1" ]; then
-            echo "  ✓ version.go（package ${package_name}，已刷新）"
+            echo "  ✓ version.go（package ${package_name}${package_note}，已刷新）"
         elif [ -f "${project_dir}/version.go" ]; then
-            echo "  ✓ version.go（package ${package_name}，已写入模板内容）"
+            echo "  ✓ version.go（package ${package_name}${package_note}，已写入模板内容）"
         else
-            echo "  ✓ version.go（package ${package_name}）"
+            echo "  ✓ version.go（package ${package_name}${package_note}）"
         fi
     else
         echo "  ⊘ version.go 已存在，跳过"
     fi
     echo ""
+}
+
+# 取目录内既有 .go 文件声明的 package 名（version.go 自身与测试文件除外），没有则输出空
+_go_pkg_existing_package() {
+    local project_dir="$1"
+    local go_file
+    local base_name
+    local declared
+
+    for go_file in "${project_dir}"/*.go; do
+        [ -f "${go_file}" ] || continue
+        base_name="$(basename "${go_file}")"
+        case "${base_name}" in
+            version.go|*_test.go)
+                continue
+                ;;
+        esac
+        declared="$(sed -n -E 's/^package[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/p' "${go_file}" | head -n1)"
+        if [ -n "${declared}" ]; then
+            printf '%s' "${declared}"
+            return 0
+        fi
+    done
+    return 0
 }
 
 _go_pkg_is_keyword() {
