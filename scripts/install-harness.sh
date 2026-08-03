@@ -44,6 +44,7 @@ openspec/
 AGENTS.md
 CLAUDE.md
 tools/
+.learnings/
 findings.md
 progress.md
 task_plan.md
