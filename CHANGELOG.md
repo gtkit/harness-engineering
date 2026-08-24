@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-24
+
+> ⚠ 行为变更：Go 系列 harness 的统一检查入口新增 `go fix -diff`（`make check` / `make tool` / `go-pkg-harness` 发版门禁 / 三份 `ci-sensors.md` 的本地入口）。存量项目重跑门禁时，只要代码里还留着新版本 modernizer 能改写的旧写法（`interface{}`、三段式 for、`wg.Add`/`go`/`wg.Done` 等），检查即失败；先跑 `go fix ./...` 应用改写并复核后再提交。
+
 ### Added
 - 全部 Go harness（`go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`）新增 **`go fix -diff` 现代写法门禁**：Go 1.27 的 `go fix` 内置 27 个 modernizer（`errorsastype`、`waitgroupgo`、`rangeint`、`stringsseq`、`omitzero`、`newexpr`、`stditerators` 等），有输出即失败，把原先靠人工勾选的「现代写法合理使用」变成可执行检查。落点：三份 `ci-sensors.md` 的本地入口、三份 `review-checklist.md` 的对应条目、`grpc-service/Makefile` 的 `check`、`go-pkg-harness` 模板 `Makefile` 的 `tool` 与 `tag`（发版门禁）、`pkg-release-and-supply-chain.md` 的发布前门禁清单。`go fix -diff` 在无差异时退出 0、有差异时退出 1 并打印补丁，无包可查时与 `go vet` 同样退出 1，不引入比既有门禁更严的失败模式。
 - `go-pkg-harness/guides/pkg-generics.md` 新增「泛型方法（Go 1.27）」一节：方法可自带类型参数，并写明两条编译器强制的使用约束——接口方法不能带类型参数（需要接口抽象时改用包级泛型函数），方法值必须先实例化（`s.GetAs[int]` 合法，`s.GetAs` 报 `cannot use generic function ... without instantiation`）。
