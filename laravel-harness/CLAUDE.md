@@ -2,6 +2,7 @@
 
 > Claude Code 项目级完整规则入口。
 > 为避免依赖全局厚 skill，本文件承载完整项目规则；与 `AGENTS.md` 应保持同级完整。
+> Laravel 项目 Harness。适用于 API / 后端服务项目，也兼容传统 Laravel Web 项目。
 
 ---
 ## 行为纪律

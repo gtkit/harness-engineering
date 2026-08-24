@@ -2,6 +2,7 @@
 
 > Claude Code 项目级完整规则入口。
 > 为避免依赖全局厚 skill，本文件承载完整项目规则；与 `AGENTS.md` 应保持同级完整。
+> Laravel + Vue 全栈 Harness。后端代码在 `backend/`，前端代码在 `frontend/`。
 
 ---
 ## 行为纪律

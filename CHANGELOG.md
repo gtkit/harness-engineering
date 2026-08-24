@@ -6,6 +6,23 @@
 
 ## [Unreleased]
 
+### Added
+- 全部 Go harness（`go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`）新增 **`go fix -diff` 现代写法门禁**：Go 1.27 的 `go fix` 内置 27 个 modernizer（`errorsastype`、`waitgroupgo`、`rangeint`、`stringsseq`、`omitzero`、`newexpr`、`stditerators` 等），有输出即失败，把原先靠人工勾选的「现代写法合理使用」变成可执行检查。落点：三份 `ci-sensors.md` 的本地入口、三份 `review-checklist.md` 的对应条目、`grpc-service/Makefile` 的 `check`、`go-pkg-harness` 模板 `Makefile` 的 `tool` 与 `tag`（发版门禁）、`pkg-release-and-supply-chain.md` 的发布前门禁清单。`go fix -diff` 在无差异时退出 0、有差异时退出 1 并打印补丁，无包可查时与 `go vet` 同样退出 1，不引入比既有门禁更严的失败模式。
+- `go-pkg-harness/guides/pkg-generics.md` 新增「泛型方法（Go 1.27）」一节：方法可自带类型参数，并写明两条编译器强制的使用约束——接口方法不能带类型参数（需要接口抽象时改用包级泛型函数），方法值必须先实例化（`s.GetAs[int]` 合法，`s.GetAs` 报 `cannot use generic function ... without instantiation`）。
+- 三份 `ci-sensors.md` 新增「Go 版本升级核对」：升大版本时依次核对 `go fix -diff`、GODEBUG 兼容开关、`go mod tidy -diff` / `vet` / race 测试、`govulncheck`。Go 1.27 已移除 `asynctimerchan`、`tlsrsakex`、`tls10server`、`tls3des`、`x509keypairleaf`、`gotypesalias`、`tlsunsafeekm`，仍在设置这些开关的项目升级前要先改回标准行为。
+- 各 Go harness 技术栈新增 UUID 选型：用标准库 `uuid` 包（Go 1.27 起提供，RFC 9562），`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID 适合作数据库主键。
+
+### Fixed
+- **`go-grpc-harness` 的 `AGENTS.md` 与 `CLAUDE.md` 从未进入版本库**，clone 出来的仓库跑 `go-grpc-harness/setup.sh` 会直接失败（`✗ 错误: 找不到 .../go-grpc-harness/CLAUDE.md`），该 harness 对本机之外的所有人都不可用。根因是本仓库 `.git/info/exclude` 里无斜杠的 `AGENTS.md` / `CLAUDE.md` 规则会匹配任意层级的同名文件；其余五套的同名文件在该规则生效前就已被跟踪，故不受影响，只有后加入的 gRPC 套被挡在库外。两个文件已纳入版本库，`tests/setup_smoke_test.sh` 新增 `assert_entry_files_tracked`：逐套校验入口文件确实被 git 跟踪，缺失即报错。
+- `go-grpc-harness` 此前不在 `scripts/sync-claude-from-agents.sh` 的模块列表里，`CLAUDE.md` 与 `AGENTS.md` 只能手工对齐、CI 的 `--check` 也覆盖不到；现已纳入同步。同时纳入 CI 的 `bash -n`、`shellcheck`、PSScriptAnalyzer 检查，纳入冒烟测试的 guide 引用校验与完整安装场景，并在 README 补上包清单、仓库目录树、场景 F（含 `scaffold.sh` 脚手架用法）、全局 Skill 一览与核心差异表。
+- `scripts/sync-claude-from-agents.sh` 渲染 `CLAUDE.md` 时会丢掉 `AGENTS.md` 的项目引言（如「本项目使用 Go 1.27 + Gin + GORM ...」），与文件自称的「与 `AGENTS.md` 应保持同级完整」不符。现在引言会被承接，仅排除 Codex 专属提示行；六套 `CLAUDE.md` 随之补回各自的引言。
+- `tests/laravel_package_smoke_test.sh` 的忽略规则断言停留在 1.7.0 之前：夹具目录没有 `git init`，却断言 `.gitignore` 含 `.harness/`、`findings.md` 等——这些规则在 1.7.0 已迁往 `.git/info/exclude`，非 git 仓库下更是整段跳过，测试因此长期失败。现补上 `git init`，并改为与 `tests/setup_smoke_test.sh` 同一份基线：`.gitignore` 只校验通用产物且断言不含本地工具规则，`.git/info/exclude` 校验完整的 15 条本地忽略规则。
+
+### Changed
+- Go 版本基线由 1.26 提升到 1.27：四个 Go harness 的 `AGENTS.md` / `CLAUDE.md` / 审查清单，以及 `grpc-service` 模板的 `go.mod`（`go 1.26.4` → `go 1.27.0`，模板在 1.27 下 `build` / `vet` / `go fix -diff` / `go test -race` / `go mod tidy -diff` 全部通过）。技术栈的现代特性清单补入泛型方法、`errors.AsType`、`WaitGroup.Go`、`new(expr)`。
+- 三份 `testing-and-validation.md` 补入 Go 1.27 测试 API：HTTP 桩优先 `httptest.NewTestServer(t, handler)`（随测试自动关闭，默认走内存网络，`srv.URL` 是 `http://example.com`，请求必须经 `srv.Client()` 发出）；定时/超时逻辑放进 `synctest.Test`，用 `synctest.Sleep(d)` 推进假时钟而非真实 `time.Sleep`。`go-pkg-harness/guides/pkg-testing.md` 的 `synctest` 说明同步补充 `Sleep`。
+- `go-pkg-harness/guides/pkg-review.md` 的日志检查项由「用 `slog` 替代 `log`」改为「需要日志时用 `github.com/gtkit/logger`」，与其余 harness 禁用 `log/slog` 的规则对齐。
+
 ## [1.7.0] - 2026-08-03
 
 > ⚠ 行为变更：setup 生成的忽略规则改为**分两处**落地——通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`）留在 `.gitignore`；本地工具与 Agent 运行产物（`.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`openspec/`、`tools/`、计划文件等）改写进 `.git/info/exclude`。老项目重跑 setup 会自动把这些规则从 `.gitignore` 剔除并迁移到 `.git/info/exclude`（业务自定义规则保持不动）。

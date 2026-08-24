@@ -6,6 +6,7 @@ MODE="${1:-write}"
 
 MODULES=(
     "go-harness"
+    "go-grpc-harness"
     "fullstack-harness"
     "go-pkg-harness"
     "laravel-harness"
@@ -20,9 +21,12 @@ render_claude_file() {
 
 > Claude Code 项目级完整规则入口。
 > 为避免依赖全局厚 skill，本文件承载完整项目规则；与 `AGENTS.md` 应保持同级完整。
-
----
 EOF
+
+    # 承接 AGENTS.md 的项目引言（第一个 ## 之前的引用行）；Codex 专属提示不进 CLAUDE.md
+    awk '/^## / { exit } /^> / && !/Codex/ { print }' "$agents_path"
+
+    printf '\n---\n'
 
     awk 'started { print } /^## / && !started { started = 1; print }' "$agents_path"
 }

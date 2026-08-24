@@ -14,7 +14,8 @@
 
 ## 技术栈
 
-- Go 1.26（使用所有现代特性：泛型、slices/maps/cmp、range-over-func、iterator）
+- Go 1.27（使用所有现代特性：泛型、泛型方法、slices/maps/cmp、range-over-func、iterator）
+- UUID 用标准库 `uuid` 包：`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）
 - 零外部依赖优先，能用标准库的绝不引入第三方；JSON 场景按 `pkg-structure.md` 的 JSON 选择规则处理
 - **第三方包选型顺序**：标准库 → `github.com/gtkit/*` 下的原生包（如 `gtkit/logger`、`gtkit/json`、`gtkit/go-pay`，其中 `gtkit/go-pay` 通过 `paymgr` 提供跨渠道统一抽象，非轻封装）→ 业界事实标准（如 `redis/go-redis`、`gorm/gorm`、`gin-gonic/gin`，gtkit 下无原生包或同名包仅是轻封装时可直连）→ 其他第三方
 - **JSON 默认优先 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`；纯零依赖公共库允许使用 `encoding/json`，但必须记录取舍原因**
@@ -142,7 +143,7 @@ go test -coverprofile=coverage.out ./...
 每次交付附上：
 ```
 ## 合规检查摘要
-- [x] Go 1.26 现代特性
+- [x] Go 1.27 现代特性
 - [x] 零/最小外部依赖
 - [x] Functional Options + 合理默认值
 - [x] 导出 API 全部有 GoDoc

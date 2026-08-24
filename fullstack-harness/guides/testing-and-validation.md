@@ -36,7 +36,9 @@ cd frontend && npm test -- --run
 - transport/http handler 使用 `httptest` 覆盖参数绑定、鉴权上下文、错误映射、统一响应结构。
 - repository / 事务 / 迁移使用集成测试或项目既有测试数据库策略，不写死个人本地数据库。
 - 外部依赖用接口注入和 fake provider；HTTP 依赖用 `httptest.Server`，禁止请求真实第三方。
+- Go 1.27 起 HTTP 桩优先 `httptest.NewTestServer(t, handler)`：随测试自动关闭，默认走内存网络（`srv.URL` 是 `http://example.com`），请求必须经 `srv.Client()` 发出。
 - 并发安全、幂等、支付回调、状态流转必须在 `go test -race` 下覆盖重复请求或重复回调。
+- 依赖定时器/超时的逻辑放进 `synctest.Test(t, ...)`，用 `synctest.Sleep(d)`（Go 1.27）推进假时钟并等待其余 goroutine 稳定，不写真实 `time.Sleep`。
 
 ## 前端测试
 

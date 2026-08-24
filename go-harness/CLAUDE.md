@@ -2,6 +2,7 @@
 
 > Claude Code 项目级完整规则入口。
 > 为避免依赖全局厚 skill，本文件承载完整项目规则；与 `AGENTS.md` 应保持同级完整。
+> 本项目使用 Go 1.27 + Gin + GORM + github.com/gtkit/* 开发企业级 Web 服务。
 
 ---
 ## 行为纪律（铁律）
@@ -15,7 +16,8 @@
 
 ## 技术栈
 
-- Go 1.26（使用现代特性：range-over-func、slices/maps/cmp、iterator 等）
+- Go 1.27（使用现代特性：泛型方法、range-over-func、slices/maps/cmp、errors.AsType、WaitGroup.Go、new(expr) 等）
+- UUID 用标准库 `uuid` 包：`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）
 - Gin + GORM + github.com/gtkit/*
 - 第三方包选型顺序：标准库 → gtkit 原生包 → 业界事实标准 → 其他第三方
 - 依赖使用最新稳定版，不用 RC/Beta
@@ -154,7 +156,7 @@ bash .harness/scripts/read-error-journal.sh .
 
 ```markdown
 ## 合规检查摘要
-- [x] Go 1.26 现代特性
+- [x] Go 1.27 现代特性
 - [x] 分层架构
 - [x] 错误处理
 - [x] 并发安全

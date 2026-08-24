@@ -21,6 +21,8 @@ EXTRA_TEST_TARGET ?=
 tool: ## 只读静态检查（不修改代码，格式化用 make fmt）
 	@ echo "▶️ golangci-lint run"
 	golangci-lint run $(LINT_TARGETS)
+	@ echo "▶️ go fix -diff（现代写法门禁）"
+	go fix -diff $(LINT_TARGETS)
 	@ unformatted=$$(gofumpt -l .); \
 	if [ -n "$$unformatted" ]; then \
 	  echo "✗ 以下文件未按 gofumpt 格式化（运行 make fmt 修复）:"; echo "$$unformatted"; exit 1; \
@@ -46,6 +48,7 @@ tag:
 	fi; \
 	echo "▶️ go mod tidy -diff"; go mod tidy -diff; \
 	echo "▶️ go vet"; go vet ./...; \
+	echo "▶️ go fix -diff（现代写法门禁）"; go fix -diff $(LINT_TARGETS); \
 	echo "▶️ golangci-lint run"; golangci-lint run $(LINT_TARGETS); \
 	echo "▶️ gofumpt 只读检查"; \
 	unformatted=$$(gofumpt -l .); \

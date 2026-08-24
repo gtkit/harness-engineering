@@ -9,7 +9,7 @@
 | Benchmark | `benchmark_test.go` | 性能关键路径必须有 |
 | Fuzz 测试 | `fuzz_test.go` | 解析类/编解码类函数推荐加 |
 
-> 覆盖率优先级：**导出 API + 错误路径**必须覆盖，优先于凑数字；80% 是底线不是目标。单元测试默认加 `t.Parallel()`；涉及定时/并发逻辑可用 `testing/synctest`（Go 1.25+）。
+> 覆盖率优先级：**导出 API + 错误路径**必须覆盖，优先于凑数字；80% 是底线不是目标。单元测试默认加 `t.Parallel()`；涉及定时/并发逻辑可用 `testing/synctest`（Go 1.25+）；Go 1.27 起用 `synctest.Sleep(d)` 推进假时钟并等待其余 goroutine 稳定，`Sleep(2*time.Hour)` 瞬时返回。
 
 ## 单元测试（table-driven）
 

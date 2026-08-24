@@ -14,7 +14,8 @@
 
 ## 技术栈
 
-**后端**：Go 1.26 + Gin + GORM + gtkit（代码在 `backend/`）
+**后端**：Go 1.27 + Gin + GORM + gtkit（代码在 `backend/`；使用现代特性：泛型方法、range-over-func、slices/maps/cmp、errors.AsType、WaitGroup.Go、new(expr) 等）
+**UUID**：用标准库 `uuid` 包，`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）
 **前端**：Vue 3 + Vite + TypeScript strict + Pinia + Axios（代码在 `frontend/`）
 **JSON**：后端统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 **第三方包选型顺序**：标准库 → `github.com/gtkit/*` 下的原生包（如 `gtkit/logger`、`gtkit/json`、`gtkit/go-pay`，其中 `gtkit/go-pay` 通过 `paymgr` 提供跨渠道统一抽象，非轻封装）→ 业界事实标准（如 `redis/go-redis`、`gorm/gorm`、`gin-gonic/gin`，gtkit 下无原生包或同名包仅是轻封装时可直连）→ 其他第三方
@@ -186,7 +187,7 @@ cd frontend && npx vite build
 每次交付附上：
 ```
 ## 合规检查摘要
-- [x] Go 1.26 / Vue 3 + TS strict
+- [x] Go 1.27 / Vue 3 + TS strict
 - [x] 后端模块化分层 + 前端分层
 - [x] 前后端类型同步
 - [x] 错误处理完整

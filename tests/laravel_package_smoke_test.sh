@@ -27,10 +27,82 @@ assert_line_exists() {
     grep -Fxq "$line" "$file" || fail "expected ${file} to contain line: ${line}"
 }
 
+assert_file_not_contains() {
+    local file="$1"
+    local pattern="$2"
+
+    if grep -Fq "$pattern" "$file"; then
+        fail "expected ${file} to not contain: ${pattern}"
+    fi
+}
+
+# .gitignore 只放通用构建 / 编辑器 / OS 产物；本地工具与 Agent 运行产物走 .git/info/exclude
+assert_gitignore_baseline() {
+    local file="$1"
+    local line
+    local pattern
+
+    test -f "$file" || fail "expected .gitignore at ${file}"
+    for line in \
+        ".idea/" \
+        ".vscode/" \
+        ".Ds_Store" \
+        ".DS_Store" \
+        "*.log"; do
+        assert_line_exists "$file" "$line"
+    done
+    for pattern in \
+        "# Harness: 本地工具与 Agent 运行产物" \
+        ".openspec-auto-backup/" \
+        ".openspec-auto/" \
+        ".harness/" \
+        ".claude/" \
+        ".codex/" \
+        ".agents/" \
+        "openspec/" \
+        "AGENTS.md" \
+        "CLAUDE.md" \
+        "tools/" \
+        ".learnings/" \
+        "findings.md" \
+        "progress.md" \
+        "task_plan.md"; do
+        assert_file_not_contains "$file" "$pattern"
+    done
+}
+
+assert_exclude_baseline() {
+    local file="$1"
+    local line
+
+    test -f "$file" || fail "expected .git/info/exclude at ${file}"
+    for line in \
+        "# 本地工具与运行产物（仅本地忽略，不进版本库）" \
+        ".openspec-auto-backup/" \
+        ".openspec-auto/" \
+        ".harness/" \
+        ".claude/" \
+        ".codex/" \
+        ".agents/" \
+        "openspec/" \
+        "AGENTS.md" \
+        "CLAUDE.md" \
+        "tools/" \
+        ".learnings/" \
+        "findings.md" \
+        "progress.md" \
+        "task_plan.md"; do
+        assert_line_exists "$file" "$line"
+    done
+}
+
 run_setup() {
     local harness_dir="$1"
     local project_dir="$2"
     local sandbox_home="$3"
+
+    # setup 会把本地工具规则写进 .git/info/exclude，夹具需先是 git 仓库
+    git init -q "$project_dir" >/dev/null 2>&1 || true
 
     (
         cd "$project_dir"
@@ -99,13 +171,8 @@ laravel_project="${tmpdir}/laravel-project"
 mkdir -p "$laravel_home" "$laravel_project"
 run_setup "laravel-harness" "$laravel_project" "$laravel_home"
 
-test -f "${laravel_project}/.gitignore" || fail "laravel-harness should create .gitignore"
-assert_line_exists "${laravel_project}/.gitignore" ".harness/"
-assert_line_exists "${laravel_project}/.gitignore" ".idea/"
-assert_line_exists "${laravel_project}/.gitignore" ".DS_Store"
-assert_line_exists "${laravel_project}/.gitignore" "findings.md"
-assert_line_exists "${laravel_project}/.gitignore" "progress.md"
-assert_line_exists "${laravel_project}/.gitignore" "task_plan.md"
+assert_gitignore_baseline "${laravel_project}/.gitignore"
+assert_exclude_baseline "${laravel_project}/.git/info/exclude"
 assert_file_exists "${laravel_project}/CLAUDE.md"
 assert_file_exists "${laravel_project}/AGENTS.md"
 assert_file_exists "${laravel_project}/.harness/guides/laravel-modules.md"
@@ -124,13 +191,8 @@ laravel_fullstack_project="${tmpdir}/laravel-fullstack-project"
 mkdir -p "$laravel_fullstack_home" "$laravel_fullstack_project/backend" "$laravel_fullstack_project/frontend"
 run_setup "laravel-fullstack-harness" "$laravel_fullstack_project" "$laravel_fullstack_home"
 
-test -f "${laravel_fullstack_project}/.gitignore" || fail "laravel-fullstack-harness should create .gitignore"
-assert_line_exists "${laravel_fullstack_project}/.gitignore" ".harness/"
-assert_line_exists "${laravel_fullstack_project}/.gitignore" ".idea/"
-assert_line_exists "${laravel_fullstack_project}/.gitignore" ".DS_Store"
-assert_line_exists "${laravel_fullstack_project}/.gitignore" "findings.md"
-assert_line_exists "${laravel_fullstack_project}/.gitignore" "progress.md"
-assert_line_exists "${laravel_fullstack_project}/.gitignore" "task_plan.md"
+assert_gitignore_baseline "${laravel_fullstack_project}/.gitignore"
+assert_exclude_baseline "${laravel_fullstack_project}/.git/info/exclude"
 assert_file_exists "${laravel_fullstack_project}/.harness/guides/frontend-api.md"
 assert_file_exists "${laravel_fullstack_project}/.harness/guides/frontend-architecture.md"
 assert_file_exists "${laravel_fullstack_project}/.harness/guides/frontend-coding.md"

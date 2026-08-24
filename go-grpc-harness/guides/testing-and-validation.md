@@ -64,7 +64,7 @@ case 名说明业务场景；断言具体；覆盖 success、error、edge。
 - mock 通过接口注入，不 monkey patch。
 - service 测试 mock repository / provider。
 - repository 测试用真实 DB 或项目既有集成测试策略。
-- HTTP 外部依赖用 `httptest.Server`。
+- HTTP 外部依赖用 `httptest.Server`；Go 1.27 起优先 `httptest.NewTestServer(t, handler)`：随测试自动关闭，默认走内存网络（`srv.URL` 是 `http://example.com`），请求必须经 `srv.Client()` 发出。
 - 时间、随机数、ID 生成器尽量可注入。
 
 ## 并发与 Race
@@ -73,6 +73,7 @@ case 名说明业务场景；断言具体；覆盖 success、error、edge。
 - goroutine 能通过 context 或 channel 退出。
 - 幂等、状态流转、支付回调覆盖并发重复请求。
 - 涉及共享状态跑 `go test -race`。
+- 依赖定时器/超时的逻辑放进 `synctest.Test(t, ...)`，用 `synctest.Sleep(d)`（Go 1.27）推进假时钟并等待其余 goroutine 稳定，不写真实 `time.Sleep`。
 
 ## 数据库与迁移验证
 

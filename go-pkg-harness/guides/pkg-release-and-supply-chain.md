@@ -11,7 +11,7 @@ make release-patch   # PATCH：bug 修复 / 文档修正 / 内部重构 / 性能
 make release-minor   # MINOR：向后兼容的新增导出 API、Option、能力
 ```
 
-`release-*` 依次执行工作区干净检查、空白检查（`git diff --check` 上一个 tag..HEAD）、`go mod tidy -diff`、`go vet`、`golangci-lint`、`gofumpt` 只读检查、race 测试、`EXTRA_TEST_TARGET`（配置了才跑）、覆盖率门禁、benchmark、`govulncheck`、`gosec`；全部通过后原地自增 `version.go` 的 `Version` 常量、提交、打附注标签、推送主干分支。**标签留在本地。**
+`release-*` 依次执行工作区干净检查、空白检查（`git diff --check` 上一个 tag..HEAD）、`go mod tidy -diff`、`go vet`、`go fix -diff`、`golangci-lint`、`gofumpt` 只读检查、race 测试、`EXTRA_TEST_TARGET`（配置了才跑）、覆盖率门禁、benchmark、`govulncheck`、`gosec`；全部通过后原地自增 `version.go` 的 `Version` 常量、提交、打附注标签、推送主干分支。**标签留在本地。**
 
 远端 CI 全绿后再发布标签：
 
@@ -39,6 +39,7 @@ make push-tag
 ```bash
 go mod tidy
 go vet ./...
+go fix -diff ./...
 golangci-lint run ./...
 go test -race -count=1 -timeout=5m ./...
 go test -bench=. -benchmem -count=3 ./...
@@ -47,6 +48,7 @@ govulncheck ./...
 ```
 
 - `go mod tidy` 后的 `go.mod` / `go.sum` diff 必须可解释。
+- `go fix -diff` 有输出即发版失败：说明新版本 Go 的 modernizer 还没落地，先 `go fix ./...` 应用并复核。
 - Benchmark 结果用于发现明显退化，不要求每次发布都追求更快。
 - `govulncheck` 如受环境阻塞，发布说明必须写明未执行原因和替代检查。
 

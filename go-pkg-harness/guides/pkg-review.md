@@ -78,12 +78,13 @@
 - [ ] go.mod 的 module path 与版本一致？（v2+ 需要 `/v2`）
 - [ ] 破坏性变更是否说明迁移路径或前向兼容策略？
 
-## 8. Go 1.26 现代特性
+## 8. Go 1.27 现代特性
 
+- [ ] `go fix -diff ./...` 无输出？（内置 27 个 modernizer：errorsastype、waitgroupgo、rangeint、stringsseq、omitzero、newexpr 等）
 - [ ] 用 `slices`/`maps`/`cmp` 替代手写循环？
-- [ ] 合理使用泛型（不过度、不不足）？
+- [ ] 合理使用泛型（不过度、不不足）？容器上随调用方类型变化的读取/转换用泛型方法（Go 1.27）？
 - [ ] 用 `b.Loop()` 替代 `for i := 0; i < b.N; i++`？
-- [ ] 用 `slog` 替代 `log`（如需日志）？
+- [ ] 需要日志时用 `github.com/gtkit/logger`？
 
 ## 9. 反编造
 
@@ -97,7 +98,7 @@
 
 ```
 ## 合规检查摘要
-- [x] Go 1.26 现代特性
+- [x] Go 1.27 现代特性
 - [x] 零/最小外部依赖
 - [x] Functional Options + 合理默认值
 - [x] 导出 API 全部有 GoDoc

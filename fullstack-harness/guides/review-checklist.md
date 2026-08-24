@@ -28,7 +28,7 @@
 
 ### 4. 可维护性
 - [ ] 后端模块化分层正确（application 无 Gin/GORM/repository；transport/http 无 GORM/repository；repository 无 Gin/module）
-- [ ] 命名清晰、Go 1.26 现代写法
+- [ ] 命名清晰、Go 1.27 现代写法（后端 `go fix -diff ./...` 无输出）
 - [ ] 第三方包选型遵循：标准库 → gtkit 原生包 → 业界事实标准 → 其他第三方（JSON 固定使用 gtkit/json 系列）
 - [ ] gtkit 同名包若仅是事实标准库轻封装，已评估直连事实标准库
 - [ ] 无无意义重复代码；重复逻辑已提取或说明保留原因
@@ -135,7 +135,7 @@
 
 ```
 ## 合规检查摘要
-- [x] Go 1.26 / Vue 3 + TS strict
+- [x] Go 1.27 / Vue 3 + TS strict
 - [x] 后端模块化分层 + 前端分层
 - [x] 前后端类型同步
 - [x] 错误处理完整

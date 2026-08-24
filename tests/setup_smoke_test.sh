@@ -187,6 +187,21 @@ assert_all_guides_are_referenced() {
     done
 }
 
+# 入口规则文件必须真的在版本库里。go-grpc-harness 的 AGENTS.md / CLAUDE.md 曾被
+# .git/info/exclude 的无斜杠 "AGENTS.md" / "CLAUDE.md" 规则挡在库外（该规则匹配任意层级），
+# clone 后 setup.sh 找不到 CLAUDE.md 直接报错退出。
+assert_entry_files_tracked() {
+    local harness_dir="$1"
+    local file
+
+    git -C "${ROOT_DIR}" rev-parse --git-dir >/dev/null 2>&1 || return 0
+
+    for file in AGENTS.md CLAUDE.md; do
+        git -C "${ROOT_DIR}" ls-files --error-unmatch "${harness_dir}/${file}" >/dev/null 2>&1 \
+            || fail "${harness_dir}/${file} 不在版本库中：clone 后 setup 会因找不到该文件而失败"
+    done
+}
+
 assert_installed_guides_match_source() {
     local harness_dir="$1"
     local project_dir="$2"
@@ -288,12 +303,13 @@ assert_file_contains "${workflow_file}" "pull_request:"
 assert_file_contains "${workflow_file}" "branches: [main]"
 assert_file_contains "${workflow_file}" "runs-on: ubuntu-latest"
 assert_file_contains "${workflow_file}" "uses: actions/checkout@v4"
-assert_file_contains "${workflow_file}" "bash -n go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh"
+assert_file_contains "${workflow_file}" "bash -n go-harness/setup.sh go-grpc-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh"
 assert_file_contains "${workflow_file}" "bash scripts/sync-claude-from-agents.sh --check"
 assert_file_contains "${workflow_file}" "bash tests/setup_smoke_test.sh"
 
-for harness_dir in go-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
+for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
     assert_all_guides_are_referenced "${harness_dir}"
+    assert_entry_files_tracked "${harness_dir}"
 done
 
 tmpdir="$(mktemp -d /tmp/harness-smoke-XXXXXX)"
@@ -374,7 +390,7 @@ assert_line_exists "${migrate_project}/.gitignore" "/build/"
 assert_gitignore_baseline "${migrate_project}/.gitignore"
 assert_exclude_baseline "${migrate_project}/.git/info/exclude"
 
-for harness_dir in fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
+for harness_dir in go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
     if [ "${harness_dir}" = "go-pkg-harness" ]; then
         project_dir="${tmpdir}/pkgdemo"
     else

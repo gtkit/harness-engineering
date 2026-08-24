@@ -87,9 +87,34 @@ func GroupBy[T any, K comparable](items []T, keyFn func(T) K) map[K][]T {
 }
 ```
 
+### 泛型方法（Go 1.27）
+
+Go 1.27 起方法可以自带类型参数，容器不必再为每种取出类型写一个包级函数：
+
+```go
+type Store[K comparable] struct{ m map[K]any }
+
+func (s *Store[K]) GetAs[V any](k K) (V, bool) {
+    var zero V
+    v, ok := s.m[k]
+    if !ok {
+        return zero, false
+    }
+    tv, ok := v.(V)
+    return tv, ok
+}
+
+n, ok := s.GetAs[int]("count")
+```
+
+使用约束（编译器强制，写之前先确认）：
+
+- **接口方法不能带类型参数**，带类型参数的方法也就无法用来满足接口。需要接口抽象时，写包级泛型函数并把接收者放第一个参数。
+- **方法值必须先实例化**：`f := s.GetAs[int]` 合法；`f := s.GetAs` 报 `cannot use generic function ... without instantiation`。
+
 ### 优先用标准库
 
-Go 1.26 标准库已经提供了大量泛型工具，**不要重复造轮子**：
+Go 1.27 标准库已经提供了大量泛型工具，**不要重复造轮子**：
 
 ```go
 import (
@@ -122,3 +147,4 @@ maps.DeleteFunc(m, func(k string, v int) bool { return v == 0 })
 2. **约束越紧越好**：能用 `comparable` 不用 `any`，能用 `cmp.Ordered` 不用自定义
 3. **类型参数命名**：单字母大写 `T`、`K`、`V`、`E`；语义明确时可用短词 `Elem`、`Key`
 4. **不要泛型化一切**：如果函数只被一两个类型调用，直接写具体类型
+5. **泛型方法用于收敛容器 API**：同一容器上按调用方类型变化的读取/转换，用泛型方法；跨实现替换的能力用接口 + 包级泛型函数

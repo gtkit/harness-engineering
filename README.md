@@ -8,17 +8,18 @@
 
 ## 这是什么
 
-五套针对不同场景的 AI 编码约束系统（Harness），安装后 AI 代理每次写代码都会自动遵守你定义的架构规范、编码标准和质量检查流程。
+六套针对不同场景的 AI 编码约束系统（Harness），安装后 AI 代理每次写代码都会自动遵守你定义的架构规范、编码标准和质量检查流程。
 
 | 包名 | 适用场景 | 目录 |
 |-----|---------|------|
 | **go-harness** | 纯 Go 后端业务服务（Gin + GORM + gtkit） | `go-harness/` |
+| **go-grpc-harness** | 纯 Go gRPC 微服务（grpc-go + buf + protovalidate + ormx + gtkit） | `go-grpc-harness/` |
 | **fullstack-harness** | Go 后端 + Vue 前端（同一项目目录） | `fullstack-harness/` |
 | **go-pkg-harness** | Go 扩展包 / 第三方库开发 | `go-pkg-harness/` |
 | **laravel-harness** | 纯 Laravel 项目（API / Web，默认纳入 Queue / Scheduler / Event / Notification） | `laravel-harness/` |
 | **laravel-fullstack-harness** | Laravel 后端 + Vue 前端（`backend/` + `frontend/` 同仓库） | `laravel-fullstack-harness/` |
 
-五套互相独立，按项目类型选用一套即可。
+六套互相独立，按项目类型选用一套即可。
 
 安装后还会在项目内安装一组可选的 Claude Code slash commands。普通小改动可以不用；复杂、高风险、跨模块任务可以用它把工作拆成可恢复的 Research → Plan → Implementation 流程：
 
@@ -59,6 +60,31 @@ harness-engineering/
 │       ├── payment.md
 │       ├── workers-and-scheduling.md
 │       ├── pkg-design.md
+│       ├── testing-and-validation.md
+│       ├── review-checklist.md
+│       └── error-journal-template.md
+│
+├── go-grpc-harness/         ← 纯 Go gRPC 微服务
+│   ├── setup.sh             ← 只装规则（存量项目）
+│   ├── scaffold.sh          ← 从模板生成新项目骨架（新项目）
+│   ├── SKILL.md
+│   ├── CLAUDE.md
+│   ├── AGENTS.md
+│   ├── templates/
+│   │   └── grpc-service/    ← 可运行的 gRPC 服务骨架
+│   └── guides/
+│       ├── architecture.md
+│       ├── grpc-conventions.md
+│       ├── db-patterns.md
+│       ├── migration.md
+│       ├── llm-integration.md
+│       ├── payment.md
+│       ├── workers-and-scheduling.md
+│       ├── worker-and-cache.md
+│       ├── observability.md
+│       ├── internal-pkg.md
+│       ├── pkg-design.md
+│       ├── ci-sensors.md
 │       ├── testing-and-validation.md
 │       ├── review-checklist.md
 │       └── error-journal-template.md
@@ -387,13 +413,72 @@ your-laravel-fullstack-project/
 
 ---
 
+#### 场景 F：纯 Go gRPC 微服务
+
+适用于用 grpc-go + buf + protovalidate + ormx + gtkit 开发的 gRPC 微服务。
+
+存量项目只装规则：
+
+```bash
+# 进入你的 gRPC 项目根目录
+cd ~/code/your-grpc-service
+
+# 运行安装脚本
+bash ~/tools/harness-engineering/go-grpc-harness/setup.sh
+```
+
+新项目可以先用脚手架生成骨架，它在末尾会自动调 `setup.sh` 把规则一起装好，骨架与规则同版本交付：
+
+```bash
+bash ~/tools/harness-engineering/go-grpc-harness/scaffold.sh my-order-service ~/code/my-order-service
+```
+
+脚手架只对新项目生效：目标目录出现 `go.mod` / `cmd` / `internal` 任一即拒绝，任何目标文件已存在即中止。
+
+安装完成后你的项目会多出：
+
+```text
+your-grpc-service/
+├── CLAUDE.md                  ← Claude Code 每次对话自动读取
+├── AGENTS.md                  ← Codex 每次任务自动读取
+├── .claude/
+│   └── commands/
+│       └── harness/           ← /harness:* 命令
+└── .harness/
+    ├── error-journal.md       ← AI 错误记忆文件
+    ├── guides/                ← 14 个规范文档
+    │   ├── architecture.md         分层架构、依赖方向
+    │   ├── grpc-conventions.md     proto / buf / 契约与拦截器
+    │   ├── db-patterns.md          GORM、Repository、事务
+    │   ├── migration.md            数据库迁移
+    │   ├── llm-integration.md      大模型对接（流式、重试降级）
+    │   ├── payment.md              支付（幂等、验签、对账）
+    │   ├── workers-and-scheduling.md Worker、队列、定时任务
+    │   ├── worker-and-cache.md     cache / Redis / PubSub / 延迟队列
+    │   ├── observability.md        日志、指标、链路
+    │   ├── internal-pkg.md         internal/pkg 边界
+    │   ├── pkg-design.md           扩展包设计
+    │   ├── ci-sensors.md           CI 与架构传感器
+    │   ├── testing-and-validation.md 测试、回归、验证
+    │   └── review-checklist.md     审查清单
+    └── scripts/               ← error-journal 读写脚本
+        ├── read-error-journal.sh
+        ├── append-error-journal.sh
+        ├── read-error-journal.ps1
+        └── append-error-journal.ps1
+```
+
+---
+
 ## 安装后的全局 Skill 一览
 
-五套脚本各自安装到不同目录，互不覆盖：
+六套脚本各自安装到不同目录，互不覆盖：
 
 ```
 ~/.claude/skills/
 ├── go-harness/              ← 场景 A
+│   └── SKILL.md
+├── go-grpc-harness/         ← 场景 F
 │   └── SKILL.md
 ├── fullstack-harness/       ← 场景 B
 │   └── SKILL.md
@@ -406,6 +491,8 @@ your-laravel-fullstack-project/
 
 ~/.codex/skills/
 ├── go-harness/              ← 场景 A
+│   └── SKILL.md
+├── go-grpc-harness/         ← 场景 F
 │   └── SKILL.md
 ├── fullstack-harness/       ← 场景 B
 │   └── SKILL.md
@@ -628,11 +715,12 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"。这里
 
 ---
 
-## 五套 Harness 的核心差异
+## 六套 Harness 的核心差异
 
 | 包名 | 定位 | 默认结构 | 关键约束 |
 |--|--|--|--|
 | `go-harness` | Go 后端业务服务 | 单仓后端 | Gin + GORM + gtkit、分层、支付/LLM/DB 规范 |
+| `go-grpc-harness` | Go gRPC 微服务 | 单仓后端 + `proto/` / `pb/` | grpc-go + buf + protovalidate、pb 产物一致性门禁、可选脚手架 |
 | `fullstack-harness` | Go + Vue 全栈 | `backend/` + `frontend/` | Go 后端分层 + Vue 3 + TS strict + 契约同步 |
 | `go-pkg-harness` | Go 扩展包 / 第三方库 | 单包 / 多包库 | GoDoc、Benchmark、Example、语义化版本 |
 | `laravel-harness` | Laravel 项目 | 单仓 Laravel | HTTP、Eloquent、Queue、Scheduler、Event、Notification、可选 `Modules/` |
@@ -878,7 +966,7 @@ Windows 下同样支持先设置 `HARNESS_FORCE_GUIDES=1`，再执行任一脚�
 # 1. CLAUDE.md / AGENTS.md 同步检查（修改 AGENTS.md 后必跑）
 bash scripts/sync-claude-from-agents.sh --check
 
-# 2. setup.sh 语法 + 行为冒烟测试（5 套）
+# 2. setup.sh 语法 + 行为冒烟测试（6 套）
 bash tests/setup_smoke_test.sh
 
 # 3. error-journal 脚本契约单测
