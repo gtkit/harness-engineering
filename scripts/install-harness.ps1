@@ -383,13 +383,18 @@ function Invoke-HarnessSetup {
     # 忽略规则单一源头：与 scripts/install-harness.sh 保持一致。
     #   - .gitignore(可入库): 只放通用构建/编辑器/OS 产物。
     #   - .git/info/exclude(仅本地): 本地工具与 Agent 运行产物，避免忽略规则本身泄露 AI 工具链。
+    #   go-pkg-harness 是纯扩展包，不产生 .env 运行配置；其余 harness 面向应用/服务，一律忽略 .env。
     $gitignorePatterns = @(
         ".idea/",
         ".vscode/",
         ".Ds_Store",
         ".DS_Store",
-        "*.log"
+        "*.log",
+        "*.out"
     )
+    if ($ModuleName -ne "go-pkg-harness") {
+        $gitignorePatterns += ".env"
+    }
     $excludePatterns = @(
         ".openspec-auto-backup/",
         ".openspec-auto/",

@@ -31,6 +31,15 @@ assert_line_exists() {
     grep -Fxq "$line" "$file" || fail "expected ${file} to contain line: ${line}"
 }
 
+assert_line_not_exists() {
+    local file="$1"
+    local line="$2"
+
+    if grep -Fxq "$line" "$file"; then
+        fail "expected ${file} to not contain line: ${line}"
+    fi
+}
+
 assert_global_claude_skill() {
     local file="$1"
 
@@ -68,8 +77,12 @@ assert_error_journal_runtime() {
     assert_file_contains "${project_dir}/.harness/error-journal.md" "## [ERR-"
 }
 
+# assert_gitignore_baseline <gitignore_file> <module_name>
 assert_gitignore_baseline() {
     local file="$1"
+    local module_name="${2:-}"
+
+    test -n "${module_name}" || fail "assert_gitignore_baseline needs a module name"
 
     # .gitignore 只保留通用构建 / 编辑器 / OS 产物
     for line in \
@@ -77,9 +90,16 @@ assert_gitignore_baseline() {
         ".vscode/" \
         ".Ds_Store" \
         ".DS_Store" \
-        "*.log"; do
+        "*.log" \
+        "*.out"; do
         assert_line_exists "$file" "$line"
     done
+    # go-pkg-harness 是纯扩展包，不产生 .env 运行配置；其余 harness 一律忽略 .env
+    if [ "${module_name}" = "go-pkg-harness" ]; then
+        assert_line_not_exists "$file" ".env"
+    else
+        assert_line_exists "$file" ".env"
+    fi
     # 本地工具与运行产物、旧 Harness 标题绝不能出现在 .gitignore（应在 .git/info/exclude）
     for pattern in \
         "# Harness: 本地工具与 Agent 运行产物" \
@@ -321,7 +341,7 @@ mkdir -p "$go_home" "$go_project"
 run_setup "go-harness" "$go_project" "$go_home"
 
 test -f "${go_project}/.gitignore" || fail "go-harness should create .gitignore when missing"
-assert_gitignore_baseline "${go_project}/.gitignore"
+assert_gitignore_baseline "${go_project}/.gitignore" "go-harness"
 assert_exclude_baseline "${go_project}/.git/info/exclude"
 assert_generated_docs_do_not_require_cleanup "${go_project}"
 assert_global_claude_skill "${go_home}/.claude/skills/go-harness/SKILL.md"
@@ -387,7 +407,7 @@ run_setup "go-harness" "$migrate_project" "$migrate_home"
 # 业务自定义规则必须原样保留
 assert_line_exists "${migrate_project}/.gitignore" "/build/"
 # 通用产物保留在 .gitignore，本地工具规则被迁移走
-assert_gitignore_baseline "${migrate_project}/.gitignore"
+assert_gitignore_baseline "${migrate_project}/.gitignore" "go-harness"
 assert_exclude_baseline "${migrate_project}/.git/info/exclude"
 
 for harness_dir in go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
@@ -400,7 +420,7 @@ for harness_dir in go-grpc-harness fullstack-harness go-pkg-harness laravel-harn
     mkdir -p "$project_dir" "$home_dir"
     run_setup "${harness_dir}" "${project_dir}" "${home_dir}"
     test -f "${project_dir}/.gitignore" || fail "${harness_dir} should create .gitignore when missing"
-    assert_gitignore_baseline "${project_dir}/.gitignore"
+    assert_gitignore_baseline "${project_dir}/.gitignore" "${harness_dir}"
     assert_exclude_baseline "${project_dir}/.git/info/exclude"
     assert_generated_docs_do_not_require_cleanup "${project_dir}"
     assert_global_claude_skill "${home_dir}/.claude/skills/${harness_dir}/SKILL.md"

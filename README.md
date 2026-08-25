@@ -53,6 +53,7 @@ harness-engineering/
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
 │   └── guides/
+│       ├── go-modern.md
 │       ├── architecture.md
 │       ├── api-conventions.md
 │       ├── db-patterns.md
@@ -73,6 +74,7 @@ harness-engineering/
 │   ├── templates/
 │   │   └── grpc-service/    ← 可运行的 gRPC 服务骨架
 │   └── guides/
+│       ├── go-modern.md
 │       ├── architecture.md
 │       ├── grpc-conventions.md
 │       ├── db-patterns.md
@@ -95,6 +97,7 @@ harness-engineering/
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
 │   └── guides/
+│       ├── go-modern.md
 │       ├── architecture.md
 │       ├── api-conventions.md
 │       ├── db-patterns.md
@@ -115,6 +118,7 @@ harness-engineering/
     ├── CLAUDE.md
     ├── AGENTS.md
     └── guides/
+        ├── go-modern.md
         ├── pkg-structure.md
         ├── pkg-errors.md
         ├── pkg-testing.md
@@ -191,7 +195,7 @@ mv harness-engineering ~/tools/harness-engineering
 1. **全局 Skill** 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`（只装一次，所有项目共享）
 2. **项目文件** 安装到当前项目目录（每个项目各一份，完整规则在这里）
 3. **Claude Code Commands** 安装到项目 `.claude/commands/harness/`
-4. **忽略规则** 自动创建/补齐：通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`）写进 `.gitignore`；本地工具与 Agent 运行产物（整个 `.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`openspec/`、计划文件等）写进 `.git/info/exclude`（仅本地、不进版本库，避免忽略规则本身泄露 AI 工具链）
+4. **忽略规则** 自动创建/补齐：通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`、`*.out`，以及应用型 harness 的 `.env`）写进 `.gitignore`；本地工具与 Agent 运行产物（整个 `.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`openspec/`、计划文件等）写进 `.git/info/exclude`（仅本地、不进版本库，避免忽略规则本身泄露 AI 工具链）
 
 其中：
 
@@ -226,14 +230,20 @@ your-backend-project/
 │       └── harness/           ← /harness:* 命令
 └── .harness/
     ├── error-journal.md       ← AI 错误记忆文件
-    ├── guides/                ← 9 个规范文档
+    ├── guides/                ← 15 个规范文档
+    │   ├── go-modern.md            Go 1.27 现代语法、泛型方法、UUID
     │   ├── architecture.md         分层架构、依赖方向
     │   ├── api-conventions.md      统一响应格式、错误码
-    │   ├── db-patterns.md          GORM、Repository、事务
+    │   ├── db-patterns.md          GORM、Repository、事务、UUID 主键
+    │   ├── migration.md            数据库迁移
     │   ├── llm-integration.md      大模型对接（SSE、重试降级）
     │   ├── payment.md              支付（幂等、验签、对账）
     │   ├── workers-and-scheduling.md Worker、队列、定时任务
+    │   ├── worker-and-cache.md     cache / Redis / PubSub / 延迟队列
+    │   ├── observability.md        日志、指标、链路
+    │   ├── internal-pkg.md         internal/pkg 边界
     │   ├── pkg-design.md           扩展包设计
+    │   ├── ci-sensors.md           CI 与架构传感器
     │   ├── testing-and-validation.md 测试、回归、验证
     │   └── review-checklist.md     12 维度审查清单
     └── scripts/               ← error-journal 读写脚本
@@ -268,14 +278,20 @@ your-fullstack-project/
 │       └── harness/
 └── .harness/
     ├── error-journal.md
-    ├── guides/                ← 12 个规范文档（后端 9 + 前端 3）
+    ├── guides/                ← 18 个规范文档（后端 15 + 前端 3）
+    │   ├── go-modern.md
     │   ├── architecture.md
     │   ├── api-conventions.md
     │   ├── db-patterns.md
+    │   ├── migration.md
     │   ├── llm-integration.md
     │   ├── payment.md
     │   ├── workers-and-scheduling.md
+    │   ├── worker-and-cache.md
+    │   ├── observability.md
+    │   ├── internal-pkg.md
     │   ├── pkg-design.md
+    │   ├── ci-sensors.md
     │   ├── testing-and-validation.md
     │   ├── frontend-architecture.md
     │   ├── frontend-api.md
@@ -315,12 +331,14 @@ your-go-package/
 │       └── harness/
 └── .harness/
     ├── error-journal.md
-    └── guides/                ← 7 个规范文档
+    └── guides/                ← 9 个规范文档
+        ├── go-modern.md            Go 1.27 现代语法、UUID
         ├── pkg-structure.md        包结构、接口、Functional Options
         ├── pkg-errors.md           三层错误体系
         ├── pkg-testing.md          测试、Benchmark、Example、Fuzz
         ├── pkg-docs.md             GoDoc、README、CHANGELOG
-        ├── pkg-generics.md         泛型应用
+        ├── pkg-generics.md         泛型应用、泛型方法
+        ├── pkg-api-compat.md       API 兼容性、导出面、SemVer 影响
         ├── pkg-release-and-supply-chain.md 发布、依赖、供应链安全
         └── pkg-review.md           包级 9 维度审查清单
 ```
@@ -446,10 +464,11 @@ your-grpc-service/
 │       └── harness/           ← /harness:* 命令
 └── .harness/
     ├── error-journal.md       ← AI 错误记忆文件
-    ├── guides/                ← 14 个规范文档
+    ├── guides/                ← 15 个规范文档
+    │   ├── go-modern.md            Go 1.27 现代语法、泛型方法、UUID
     │   ├── architecture.md         分层架构、依赖方向
     │   ├── grpc-conventions.md     proto / buf / 契约与拦截器
-    │   ├── db-patterns.md          GORM、Repository、事务
+    │   ├── db-patterns.md          GORM、Repository、事务、UUID 主键
     │   ├── migration.md            数据库迁移
     │   ├── llm-integration.md      大模型对接（流式、重试降级）
     │   ├── payment.md              支付（幂等、验签、对账）
@@ -814,6 +833,8 @@ HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.
 .vscode/
 .DS_Store
 *.log
+*.out          # coverage.out、cpu.out、mem.out 等覆盖率 / profile 产物
+.env           # go-pkg-harness 不写这一行：纯扩展包没有 .env 运行配置
 ```
 
 `.git/info/exclude`（仅本地、绝不入库）——本地工具与 Agent 运行产物：

@@ -22,14 +22,24 @@ _HARNESS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   - .gitignore（可入库）：只放通用构建 / 编辑器 / OS 产物，不暴露本地工具链。
 #   - .git/info/exclude（仅本地、绝不入库）：本地工具与 Agent 运行产物，
 #     避免忽略规则本身泄露"本项目使用了 AI 工具"。
+# _harness_gitignore_patterns <module_name>
+# module_name 用于区分库项目与应用项目：go-pkg-harness 是纯扩展包，
+# 不产生 .env 运行配置，其余 harness 面向应用/服务，一律忽略 .env。
 _harness_gitignore_patterns() {
+    local module_name="${1:-}"
+
     cat <<'EOF'
 .idea/
 .vscode/
 .Ds_Store
 .DS_Store
 *.log
+*.out
 EOF
+
+    if [ "${module_name}" != "go-pkg-harness" ]; then
+        printf '%s\n' '.env'
+    fi
 }
 
 _harness_exclude_patterns() {
@@ -298,7 +308,7 @@ install_harness() {
             gitignore_updated=1
         fi
     done <<EOF
-$(_harness_gitignore_patterns)
+$(_harness_gitignore_patterns "${module_name}")
 EOF
     if [ "${gitignore_updated}" -eq 1 ]; then
         echo "  ✓ .gitignore 已同步通用忽略规则"

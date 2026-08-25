@@ -14,8 +14,8 @@
 
 ## 技术栈
 
-- Go 1.27（使用所有现代特性：泛型、泛型方法、slices/maps/cmp、range-over-func、iterator）
-- UUID 用标准库 `uuid` 包：`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）
+- Go 1.27，**必须使用现代语法**：泛型、泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`iter.Seq` 迭代器、`slices`/`maps`/`cmp`、`omitzero` tag；落地写法与实测约束见 `.harness/guides/go-modern.md`，门禁是 `go fix -diff ./...` 无输出
+- UUID 用标准库 `uuid` 包：`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）；`uuid.Nil()` 是函数不是变量，导出 UUID 类型的入库与 JSON 约束见 `.harness/guides/go-modern.md`
 - 零外部依赖优先，能用标准库的绝不引入第三方；JSON 场景按 `pkg-structure.md` 的 JSON 选择规则处理
 - **第三方包选型顺序**：标准库 → `github.com/gtkit/*` 下的原生包（如 `gtkit/logger`、`gtkit/json`、`gtkit/go-pay`，其中 `gtkit/go-pay` 通过 `paymgr` 提供跨渠道统一抽象，非轻封装）→ 业界事实标准（如 `redis/go-redis`、`gorm/gorm`、`gin-gonic/gin`，gtkit 下无原生包或同名包仅是轻封装时可直连）→ 其他第三方
 - **JSON 默认优先 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`；纯零依赖公共库允许使用 `encoding/json`，但必须记录取舍原因**
@@ -118,7 +118,8 @@ Claude Code 可以直接使用 `/harness:*` slash commands；Codex 不会自动�
 | API 兼容性、导出面、SemVer 影响 | `.harness/guides/pkg-api-compat.md` |
 | 发布、依赖、供应链安全 | `.harness/guides/pkg-release-and-supply-chain.md` |
 | 代码审查 | `.harness/guides/pkg-review.md` |
-| 所有任务 | `pkg-structure.md` 始终生效 |
+| Go 1.27 现代语法 / UUID | `.harness/guides/go-modern.md` |
+| 所有任务 | `pkg-structure.md` + `go-modern.md` 始终生效 |
 
 ## 本机容器与镜像纪律（铁律）
 
@@ -311,7 +312,7 @@ go test -coverprofile=coverage.out ./...
     dist/
     build/
     coverage/
-    coverage.out
+    *.out
     *.log
 
 ### 事故响应

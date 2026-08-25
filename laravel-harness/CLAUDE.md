@@ -271,6 +271,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-erro
     build/
     coverage/
     *.log
+    *.out
 
 各技术栈按需补齐（Go `bin/`、Node `node_modules/`、PHP `vendor/` 等）。
 

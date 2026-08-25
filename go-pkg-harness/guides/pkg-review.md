@@ -80,11 +80,15 @@
 
 ## 8. Go 1.27 现代特性
 
-- [ ] `go fix -diff ./...` 无输出？（内置 27 个 modernizer：errorsastype、waitgroupgo、rangeint、stringsseq、omitzero、newexpr 等）
+- [ ] `go fix -diff ./...` 无输出？（改写器清单用 `go tool fix help` 查：errorsastype、waitgroupgo、rangeint、stringsseq、omitzero、newexpr 等）
 - [ ] 用 `slices`/`maps`/`cmp` 替代手写循环？
 - [ ] 合理使用泛型（不过度、不不足）？容器上随调用方类型变化的读取/转换用泛型方法（Go 1.27）？
 - [ ] 用 `b.Loop()` 替代 `for i := 0; i < b.N; i++`？
 - [ ] 需要日志时用 `github.com/gtkit/logger`？
+- [ ] 新建 ID 走标准库 `uuid`（主键 `uuid.NewV7()`，通用随机标识 `uuid.New()`），判空用 `uuid.Nil()` 或 `uuid.UUID{}`？
+- [ ] 对外承诺"可直接入库"的 UUID 类型，`Value()` 与 `Scan()` 成对实现且有往返测试？
+- [ ] 可选 UUID 字段的 JSON tag 用 `omitzero`（`omitempty` 对数组无效）？
+- [ ] 细则见 `go-modern.md`、泛型细则见 `pkg-generics.md`？
 
 ## 9. 反编造
 

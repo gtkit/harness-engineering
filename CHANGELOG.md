@@ -6,12 +6,31 @@
 
 ## [Unreleased]
 
+### Added
+- 四套 Go harness（`go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`）新增 **`go-modern.md`**：Go 1.27 现代语法的落地规范，一次性覆盖泛型方法、标准库 `uuid` 包、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`slices`/`maps`/`cmp`、`omitzero` tag。文中每条签名、报错信息与编解码输出都在本机 go1.27.0 上实测过，代码片段整包 `go run` + `go vet` + `go fix -diff` 通过。该 guide 已登记进四套的 Guide 加载表，并在服务型三套里声明为"所有代码任务始终生效"。
+  - **泛型方法**：写法 + 两条编译器强制约束的实测报错——接口里带类型参数的方法报 `interface method must have no type parameters`，未实例化的方法值报 `cannot use generic function ... without instantiation`；选型标准是"同一容器上随调用方类型变化的读取 / 转换用泛型方法，跨实现替换用接口 + 包级泛型函数"。`go-pkg-harness` 版指向已有的 `pkg-generics.md` 不重复，并补上"泛型方法进入导出面、改类型参数是破坏性变更"的 SemVer 影响。
+  - **UUID**：标准库 `uuid` 包的完整取用表（`New` / `NewV4` / `NewV7` / `Nil` / `Max` / `Parse` / `MustParse` / `Compare` / `String`），加三条实测行为——① `uuid.Nil()` 是函数不是变量，漏括号写 `u == uuid.Nil` 报 `mismatched types uuid.UUID and func() uuid.UUID`；② `uuid.UUID` 未实现 `driver.Valuer`、`*uuid.UUID` 未实现 `sql.Scanner`，不能直接当 GORM 列类型，必须 `.String()`（`CHAR(36)`）/ `u[:]`（`BINARY(16)`）/ 成对自实现 Valuer+Scanner；③ 它是数组类型，`omitempty` 对其无效，可选字段的 JSON tag 必须用 `omitzero`——而 `go fix` 的 `omitzero` 改写器实测**不**标记数组类型上的 `omitempty`，这条门禁抓不到，只能人工核对。
+  - `go-grpc-harness` 版额外给出 proto 侧落法：契约用 `string` 字段 + protovalidate 的 `(buf.validate.field).string.uuid = true`（该规则在 protovalidate v1.3.0 自带测试 proto 中已使用，已核对），transport 层 `uuid.Parse` 转换，`application` 只见 `uuid.UUID`。
+- 服务型三套的 `db-patterns.md` 新增「主键与 UUID」一节：何时从自增整型换到 UUID、为什么主键选 `NewV7()`（高 48 位时间戳、B+ 树插入不随机跳页）、`CHAR(36)` 与 `BINARY(16)` 两种落库形态的取舍，以及存储形态切换属破坏性变更须走 `migration.md`。
+- 四套 Go harness 的审查清单（三份 `review-checklist.md` + `pkg-review.md`）新增泛型方法与 UUID 检查项：泛型方法是否用在了该用的地方、ID 是否走 `uuid.NewV7()` / `uuid.New()`、入库转换是否显式且 Valuer/Scanner 成对、可选 UUID 字段是否用 `omitzero`。
+
+### Fixed
+- 「`go fix` 内置 27 个 modernizer」这个数字是错的：本机 go1.27.0 上 `go tool fix help` 实测注册 **26 个** analyzer，且其中 `buildtag`、`hostport`、`plusbuild`、`inline` 并不是现代化改写器。四份 `go-modern.md`、`pkg-review.md` 与 1.8.0 的 CHANGELOG 条目改为不写死数量、指向 `go tool fix help` 查清单，避免随 Go 版本继续漂移。
+
+### Changed
+- 四套 Go harness 的技术栈段从"使用现代特性"改为 **"必须使用现代语法"**，特性清单统一（此前 `go-pkg-harness` 缺 `errors.AsType` / `WaitGroup.Go` / `new(expr)`，三套服务型缺 `omitzero`），并写明门禁是 `go fix -diff ./...` 无输出、细则指向 `.harness/guides/go-modern.md`。UUID 那一行补上 `uuid.Nil()` 是函数的提示与转换约束入口。
+- README 的四处安装说明树补入 `go-modern.md`，并把「N 个规范文档」的计数与清单改成与实际安装结果逐名一致（此前 `go-harness` 声称 9 实际 14、`fullstack-harness` 声称 12 实际 17、`go-pkg-harness` 声称 7 实际 8；现为 15 / 18 / 9 / 15，已用实跑 setup 的产物逐个核对）。
+- setup 写入 `.gitignore` 的通用忽略规则新增 `*.out`（覆盖 `coverage.out`、`cpu.out`、`mem.out` 等覆盖率 / profile 产物），六套 harness 一致；除 `go-pkg-harness` 外的五套（`go-harness`、`go-grpc-harness`、`fullstack-harness`、`laravel-harness`、`laravel-fullstack-harness`）另加 `.env`——`go-pkg-harness` 是纯扩展包，没有 `.env` 运行配置。规则仍收敛在 `scripts/install-harness.sh` 的 `_harness_gitignore_patterns` 与 `scripts/install-harness.ps1` 的 `$gitignorePatterns` 单一源头，`sh` / `ps1` 两端行为一致。已被 git 跟踪的文件不受忽略规则影响，仍需 `git rm --cached` 才会退出版本库。
+- `go-grpc-harness/templates/grpc-service/.gitignore` 同步补入 `*.out` 与 `.env`。
+- 四套带「`.gitignore` 必备条目」清单的入口规则（`fullstack-harness`、`laravel-harness`、`laravel-fullstack-harness`、`go-pkg-harness` 的 `AGENTS.md` / `CLAUDE.md`）清单补入 `*.out`；`go-pkg-harness` 原有的 `coverage.out` 收敛为 `*.out`。README 的忽略规则说明同步更新。
+- 三套 smoke 测试的忽略规则基线按模块区分：`tests/setup_smoke_test.sh` 的 `assert_gitignore_baseline` 与 `tests/setup_windows_smoke_test.ps1` 的 `Assert-GitignoreSplit` 改为必须传模块名，对 `go-pkg-harness` 断言 `.gitignore` **不含** `.env` 行、其余模块断言含该行，两端各新增 `assert_line_not_exists` / `Assert-LineNotExists` 精确整行断言；`tests/laravel_package_smoke_test.sh` 的基线补入 `*.out` 与 `.env`。
+
 ## [1.8.0] - 2026-08-24
 
 > ⚠ 行为变更：Go 系列 harness 的统一检查入口新增 `go fix -diff`（`make check` / `make tool` / `go-pkg-harness` 发版门禁 / 三份 `ci-sensors.md` 的本地入口）。存量项目重跑门禁时，只要代码里还留着新版本 modernizer 能改写的旧写法（`interface{}`、三段式 for、`wg.Add`/`go`/`wg.Done` 等），检查即失败；先跑 `go fix ./...` 应用改写并复核后再提交。
 
 ### Added
-- 全部 Go harness（`go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`）新增 **`go fix -diff` 现代写法门禁**：Go 1.27 的 `go fix` 内置 27 个 modernizer（`errorsastype`、`waitgroupgo`、`rangeint`、`stringsseq`、`omitzero`、`newexpr`、`stditerators` 等），有输出即失败，把原先靠人工勾选的「现代写法合理使用」变成可执行检查。落点：三份 `ci-sensors.md` 的本地入口、三份 `review-checklist.md` 的对应条目、`grpc-service/Makefile` 的 `check`、`go-pkg-harness` 模板 `Makefile` 的 `tool` 与 `tag`（发版门禁）、`pkg-release-and-supply-chain.md` 的发布前门禁清单。`go fix -diff` 在无差异时退出 0、有差异时退出 1 并打印补丁，无包可查时与 `go vet` 同样退出 1，不引入比既有门禁更严的失败模式。
+- 全部 Go harness（`go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`）新增 **`go fix -diff` 现代写法门禁**：Go 1.27 的 `go fix` 内置一批改写器（`go tool fix help` 可查清单，go1.27.0 实测注册 26 个 analyzer，含 `errorsastype`、`waitgroupgo`、`rangeint`、`stringsseq`、`omitzero`、`newexpr`、`stditerators`），有输出即失败，把原先靠人工勾选的「现代写法合理使用」变成可执行检查。落点：三份 `ci-sensors.md` 的本地入口、三份 `review-checklist.md` 的对应条目、`grpc-service/Makefile` 的 `check`、`go-pkg-harness` 模板 `Makefile` 的 `tool` 与 `tag`（发版门禁）、`pkg-release-and-supply-chain.md` 的发布前门禁清单。`go fix -diff` 在无差异时退出 0、有差异时退出 1 并打印补丁，无包可查时与 `go vet` 同样退出 1，不引入比既有门禁更严的失败模式。
 - `go-pkg-harness/guides/pkg-generics.md` 新增「泛型方法（Go 1.27）」一节：方法可自带类型参数，并写明两条编译器强制的使用约束——接口方法不能带类型参数（需要接口抽象时改用包级泛型函数），方法值必须先实例化（`s.GetAs[int]` 合法，`s.GetAs` 报 `cannot use generic function ... without instantiation`）。
 - 三份 `ci-sensors.md` 新增「Go 版本升级核对」：升大版本时依次核对 `go fix -diff`、GODEBUG 兼容开关、`go mod tidy -diff` / `vet` / race 测试、`govulncheck`。Go 1.27 已移除 `asynctimerchan`、`tlsrsakex`、`tls10server`、`tls3des`、`x509keypairleaf`、`gotypesalias`、`tlsunsafeekm`，仍在设置这些开关的项目升级前要先改回标准行为。
 - 各 Go harness 技术栈新增 UUID 选型：用标准库 `uuid` 包（Go 1.27 起提供，RFC 9562），`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID 适合作数据库主键。

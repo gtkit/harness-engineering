@@ -46,6 +46,11 @@
 - [ ] 没有无主 TODO / FIXME
 - [ ] 优先复用已有 helper / service / repository / middleware
 - [ ] Go 1.27 现代写法合理使用（`go fix -diff ./...` 无输出）
+- [ ] 容器上随调用方类型变化的读取 / 转换用泛型方法，而不是每种类型复制一个包级函数
+- [ ] 新建 ID 走标准库 `uuid`：主键 `uuid.NewV7()`，通用随机标识 `uuid.New()`
+- [ ] `uuid.UUID` 入库处有显式转换（`.String()` / `u[:]` / 成对实现的 Valuer+Scanner），判空用 `uuid.Nil()` 或 `uuid.UUID{}`
+- [ ] 可选 UUID 字段的 JSON tag 用 `omitzero`（`omitempty` 对数组无效，零值会输出全 0 串）
+- [ ] 细则见 `go-modern.md`
 
 ## 6. 测试
 

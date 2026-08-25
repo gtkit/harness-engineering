@@ -16,8 +16,8 @@
 
 ## 技术栈
 
-- Go 1.27（使用现代特性：泛型方法、range-over-func、slices/maps/cmp、errors.AsType、WaitGroup.Go、new(expr) 等）
-- UUID 用标准库 `uuid` 包：`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）
+- Go 1.27，**必须使用现代语法**：泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`slices`/`maps`/`cmp`、`omitzero` tag；落地写法与实测约束见 `.harness/guides/go-modern.md`，门禁是 `go fix -diff ./...` 无输出
+- UUID 用标准库 `uuid` 包：`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）；`uuid.Nil()` 是函数不是变量，入库与 JSON 的转换约束见 `.harness/guides/go-modern.md`
 - gRPC：google.golang.org/grpc + buf（v2 配置、本地 protoc-gen-* 插件）
 - 参数校验：protovalidate（规则写在 proto，拦截器统一执行；运行时模块是 `buf.build/go/protovalidate`，**`github.com/bufbuild/protovalidate-go` 是已废弃旧路径，禁用**）
 - DB：`github.com/gtkit/ormx`（GORM 封装：StartupPing/错误翻译/健康检查；业务层只消费 `*gorm.DB`）
@@ -51,7 +51,8 @@
 | CI / 传感器 | `.harness/guides/ci-sensors.md` |
 | 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
-| 所有代码任务 | `.harness/guides/architecture.md` 始终生效 |
+| Go 1.27 现代语法 / 泛型方法 / UUID | `.harness/guides/go-modern.md` |
+| 所有代码任务 | `.harness/guides/architecture.md` + `.harness/guides/go-modern.md` 始终生效 |
 
 ## Codex 命令化工作流兼容入口
 

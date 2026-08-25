@@ -43,12 +43,15 @@ assert_gitignore_baseline() {
     local pattern
 
     test -f "$file" || fail "expected .gitignore at ${file}"
+    # laravel / laravel-fullstack 都是应用型 harness，.env 必须在 .gitignore 里
     for line in \
         ".idea/" \
         ".vscode/" \
         ".Ds_Store" \
         ".DS_Store" \
-        "*.log"; do
+        "*.log" \
+        "*.out" \
+        ".env"; do
         assert_line_exists "$file" "$line"
     done
     for pattern in \

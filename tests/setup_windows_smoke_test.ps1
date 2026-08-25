@@ -52,6 +52,18 @@ function Assert-LineExists {
     }
 }
 
+function Assert-LineNotExists {
+    param(
+        [string]$Path,
+        [string]$Unexpected
+    )
+
+    $lines = Get-Content -LiteralPath $Path
+    if ($lines -contains $Unexpected) {
+        Fail "Expected file $Path to not contain line: $Unexpected"
+    }
+}
+
 function Initialize-GitRepo {
     param([string]$ProjectDir)
 
@@ -93,14 +105,28 @@ function Get-LegacyGitignoreHeader {
 
 # .gitignore 只保留通用产物；本地工具规则必须落在 .git/info/exclude
 function Assert-GitignoreSplit {
-    param([string]$ProjectDir)
+    param(
+        [string]$ProjectDir,
+        [string]$ModuleName
+    )
+
+    if (-not $ModuleName) {
+        Fail "Assert-GitignoreSplit needs a module name"
+    }
 
     $gitignorePath = Join-Path $ProjectDir ".gitignore"
     $excludePath = Join-Path $ProjectDir ".git\info\exclude"
 
-    $generic = @(".idea/", ".vscode/", ".Ds_Store", ".DS_Store", "*.log")
+    $generic = @(".idea/", ".vscode/", ".Ds_Store", ".DS_Store", "*.log", "*.out")
     foreach ($line in $generic) {
         Assert-LineExists $gitignorePath $line
+    }
+    # go-pkg-harness 是纯扩展包，不产生 .env 运行配置；其余 harness 一律忽略 .env
+    if ($ModuleName -eq "go-pkg-harness") {
+        Assert-LineNotExists $gitignorePath ".env"
+    }
+    else {
+        Assert-LineExists $gitignorePath ".env"
     }
 
     $localToolRules = @(
@@ -385,7 +411,7 @@ try {
         Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "AGENTS.md"
         Assert-FileContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "AGENTS.md"
         Assert-FileNotContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "CLAUDE.md"
-        Assert-GitignoreSplit $projectDir
+        Assert-GitignoreSplit -ProjectDir $projectDir -ModuleName $module
 
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "清理杂物"
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "必须删除并保持工作区干净"
@@ -467,7 +493,7 @@ try {
     Set-Content -LiteralPath (Join-Path $migrateProjectDir ".gitignore") -Value $legacyGitignore
     Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $migrateProjectDir -SandboxHome $migrateHomeDir
     Assert-LineExists (Join-Path $migrateProjectDir ".gitignore") "/build/"
-    Assert-GitignoreSplit $migrateProjectDir
+    Assert-GitignoreSplit -ProjectDir $migrateProjectDir -ModuleName "go-harness"
 
     foreach ($module in $modules) {
         if ($module -eq "go-pkg-harness") {

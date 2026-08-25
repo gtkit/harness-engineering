@@ -17,8 +17,8 @@
 
 ## 技术栈
 
-**后端**：Go 1.27 + Gin + GORM + gtkit（代码在 `backend/`；使用现代特性：泛型方法、range-over-func、slices/maps/cmp、errors.AsType、WaitGroup.Go、new(expr) 等）
-**UUID**：用标准库 `uuid` 包，`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）
+**后端**：Go 1.27 + Gin + GORM + gtkit（代码在 `backend/`）。**必须使用现代语法**：泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`slices`/`maps`/`cmp`、`omitzero` tag；落地写法与实测约束见 `.harness/guides/go-modern.md`，门禁是 `backend/` 下 `go fix -diff ./...` 无输出
+**UUID**：用标准库 `uuid` 包，`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）；`uuid.Nil()` 是函数不是变量，入库与 JSON 的转换约束见 `.harness/guides/go-modern.md`
 **前端**：Vue 3 + Vite + TypeScript strict + Pinia + Axios（代码在 `frontend/`）
 **JSON**：后端统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 **第三方包选型顺序**：标准库 → `github.com/gtkit/*` 下的原生包（如 `gtkit/logger`、`gtkit/json`、`gtkit/go-pay`，其中 `gtkit/go-pay` 通过 `paymgr` 提供跨渠道统一抽象，非轻封装）→ 业界事实标准（如 `redis/go-redis`、`gorm/gorm`、`gin-gonic/gin`，gtkit 下无原生包或同名包仅是轻封装时可直连）→ 其他第三方
@@ -130,6 +130,7 @@ Claude Code 可以直接使用 `/harness:*` slash commands；Codex 不会自动�
 | 前端 API 对接 | `.harness/guides/frontend-api.md` |
 | 前后端联调 | `.harness/guides/api-conventions.md` + `.harness/guides/frontend-api.md` + `.harness/guides/testing-and-validation.md` |
 | 前端测试 / 验证 | `.harness/guides/testing-and-validation.md` + `.harness/guides/frontend-coding.md` |
+| Go 1.27 现代语法 / 泛型方法 / UUID（后端） | `.harness/guides/go-modern.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
 
 ## 后端分层
@@ -280,6 +281,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-erro
     build/
     coverage/
     *.log
+    *.out
 
 各技术栈按需补齐（Go `bin/`、Node `node_modules/`、PHP `vendor/` 等）。
 

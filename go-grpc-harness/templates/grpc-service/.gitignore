@@ -1,10 +1,13 @@
 # 运行配置不入库,仅保留 example 模板(严格解析,见 config/env/env.yml.example)
 config/env/*.yml
 !config/env/*.yml.example
+.env
 
 # 构建产物
 bin/
 *.log
+# 覆盖率/profile 产物(coverage.out、cpu.out、mem.out 等)
+*.out
 
 # buf export 产物(供 GoLand 解析 proto import,由 make proto-export 重生)
 .proto-deps/

@@ -29,6 +29,11 @@
 ### 4. 可维护性
 - [ ] 后端模块化分层正确（application 无 Gin/GORM/repository；transport/http 无 GORM/repository；repository 无 Gin/module）
 - [ ] 命名清晰、Go 1.27 现代写法（后端 `go fix -diff ./...` 无输出）
+- [ ] 后端容器上随调用方类型变化的读取 / 转换用泛型方法，而不是每种类型复制一个包级函数
+- [ ] 新建 ID 走标准库 `uuid`：主键 `uuid.NewV7()`，通用随机标识 `uuid.New()`
+- [ ] `uuid.UUID` 入库处有显式转换（`.String()` / `u[:]` / 成对实现的 Valuer+Scanner），判空用 `uuid.Nil()` 或 `uuid.UUID{}`
+- [ ] 可选 UUID 字段的 JSON tag 用 `omitzero`（`omitempty` 对数组无效，零值会输出全 0 串）
+- [ ] 细则见 `go-modern.md`
 - [ ] 第三方包选型遵循：标准库 → gtkit 原生包 → 业界事实标准 → 其他第三方（JSON 固定使用 gtkit/json 系列）
 - [ ] gtkit 同名包若仅是事实标准库轻封装，已评估直连事实标准库
 - [ ] 无无意义重复代码；重复逻辑已提取或说明保留原因

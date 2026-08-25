@@ -62,6 +62,31 @@ func (r *Repository) UpdateProfile(ctx context.Context, userID int64, fields map
 
 由 application 根据请求指针字段决定纳入哪些列。
 
+## 主键与 UUID
+
+自增整型主键仍是默认选择；需要在写入前就拿到 ID、或要避免 ID 泄露记录数量时改用 UUID，用标准库 `uuid` 包的 `uuid.NewV7()`——高 48 位是时间戳，除系统时钟回拨外单调递增，B+ 树插入不会像 v4 那样随机跳页。
+
+`uuid.UUID` 是 `[16]byte`，未实现 `driver.Valuer`、`*uuid.UUID` 未实现 `sql.Scanner`（实测确认），**不能直接作为 GORM 列类型**，模型里要落成显式可映射的类型：
+
+```go
+// CHAR(36)：可读、便于排查，索引比 BINARY(16) 大
+type Order struct {
+    ID string `gorm:"type:char(36);primaryKey"`
+}
+o := &Order{ID: uuid.NewV7().String()}
+
+// BINARY(16)：省一半索引空间，排查时要转换才能读
+type Event struct {
+    ID []byte `gorm:"type:binary(16);primaryKey"`
+}
+u := uuid.NewV7()
+e := &Event{ID: u[:]}
+```
+
+要在模型里直接放 UUID 类型，就自己包一层并**成对**实现 `Value()`（值接收者）与 `Scan()`（指针接收者），只实现一半会在读或写的一侧静默退化成默认编码；完整示例与其余约束见 `go-modern.md`。
+
+同一张表的存储形态必须与迁移脚本一致：`CHAR(36)` 与 `BINARY(16)` 之间切换是破坏性变更，按 `migration.md` 走。
+
 ## 事务
 
 单 repo / 聚合内部的多语句原子写可在 repo 内事务：
