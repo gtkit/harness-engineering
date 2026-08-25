@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-08-25
+
 ### Added
 - 四套 Go harness（`go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`）新增 **`go-modern.md`**：Go 1.27 现代语法的落地规范，一次性覆盖泛型方法、标准库 `uuid` 包、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`slices`/`maps`/`cmp`、`omitzero` tag。文中每条签名、报错信息与编解码输出都在本机 go1.27.0 上实测过，代码片段整包 `go run` + `go vet` + `go fix -diff` 通过。该 guide 已登记进四套的 Guide 加载表，并在服务型三套里声明为"所有代码任务始终生效"。
   - **泛型方法**：写法 + 两条编译器强制约束的实测报错——接口里带类型参数的方法报 `interface method must have no type parameters`，未实例化的方法值报 `cannot use generic function ... without instantiation`；选型标准是"同一容器上随调用方类型变化的读取 / 转换用泛型方法，跨实现替换用接口 + 包级泛型函数"。`go-pkg-harness` 版指向已有的 `pkg-generics.md` 不重复，并补上"泛型方法进入导出面、改类型参数是破坏性变更"的 SemVer 影响。
