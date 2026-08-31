@@ -57,6 +57,23 @@ function Set-Utf8NoBomContent {
     [System.IO.File]::WriteAllText($Path, $Value, $utf8NoBom)
 }
 
+# 判断已存在的目标文件是否与本版本模板内容一致；用于把"跳过"细分为
+# "已是本版本" 与 "内容落后"，后者在安装结束时汇总提示。
+function Test-HarnessSameContent {
+    param(
+        [string]$PathA,
+        [string]$PathB
+    )
+
+    if (-not (Test-Path -LiteralPath $PathA) -or -not (Test-Path -LiteralPath $PathB)) {
+        return $false
+    }
+
+    $hashA = (Get-FileHash -LiteralPath $PathA -Algorithm SHA256).Hash
+    $hashB = (Get-FileHash -LiteralPath $PathB -Algorithm SHA256).Hash
+    return $hashA -eq $hashB
+}
+
 # 旧版本(1.x)误写进 .gitignore 的标题 "# Harness: 本地工具与 Agent 运行产物"，
 # 迁移时用它作为精确剔除的匹配行。CJK 用码点构造，规避 Windows PowerShell 5.1
 # 读取无 BOM 脚本时的编码问题。
@@ -202,6 +219,8 @@ function Invoke-HarnessSetup {
     )
 
     $projectDir = (Get-Location).Path
+    $script:harnessStaleProjectFiles = @()
+    $script:harnessStaleGuides = @()
     $forceGuides = if ($env:HARNESS_FORCE_GUIDES) { $env:HARNESS_FORCE_GUIDES } else { "0" }
     $forceProjectFiles = if ($env:HARNESS_FORCE_PROJECT_FILES) { $env:HARNESS_FORCE_PROJECT_FILES } else { "0" }
     $homeDir = Get-HarnessHomeDir
@@ -264,8 +283,12 @@ function Invoke-HarnessSetup {
             Write-Host "  OK CLAUDE.md"
         }
     }
+    elseif (Test-HarnessSameContent -PathA $claudePath -PathB $projectClaudePath) {
+        Write-Host "  SKIP CLAUDE.md already exists and matches this version"
+    }
     else {
-        Write-Host "  SKIP CLAUDE.md already exists"
+        Write-Host "  WARN CLAUDE.md already exists and differs from this version template; left untouched"
+        $script:harnessStaleProjectFiles += "CLAUDE.md"
     }
 
     $projectAgentsPath = Join-Path $projectDir "AGENTS.md"
@@ -278,8 +301,12 @@ function Invoke-HarnessSetup {
             Write-Host "  OK AGENTS.md"
         }
     }
+    elseif (Test-HarnessSameContent -PathA $agentsPath -PathB $projectAgentsPath) {
+        Write-Host "  SKIP AGENTS.md already exists and matches this version"
+    }
     else {
-        Write-Host "  SKIP AGENTS.md already exists"
+        Write-Host "  WARN AGENTS.md already exists and differs from this version template; left untouched"
+        $script:harnessStaleProjectFiles += "AGENTS.md"
     }
 
     $projectHarnessDir = Join-Path $projectDir ".harness"
@@ -288,6 +315,7 @@ function Invoke-HarnessSetup {
 
     $guideCopied = 0
     $guidePreserved = 0
+    $guideStale = 0
     $guideFiles = Get-ChildItem -LiteralPath $guidesDir -File -Filter *.md
     foreach ($guideFile in $guideFiles) {
         if ($guideFile.Name -eq "error-journal-template.md") {
@@ -301,6 +329,10 @@ function Invoke-HarnessSetup {
         }
         else {
             $guidePreserved++
+            if (-not (Test-HarnessSameContent -PathA $guideFile.FullName -PathB $destination)) {
+                $guideStale++
+                $script:harnessStaleGuides += $guideFile.Name
+            }
         }
     }
 
@@ -310,6 +342,9 @@ function Invoke-HarnessSetup {
     }
     else {
         Write-Host "  OK .harness/guides/ - $guideCount guides (added $guideCopied, preserved $guidePreserved)"
+        if ($guideStale -gt 0) {
+            Write-Host "  WARN $guideStale of them differ from this version template (not overwritten)"
+        }
     }
 
     $projectScriptsDir = Join-Path $projectHarnessDir "scripts"
@@ -486,4 +521,25 @@ function Invoke-HarnessSetup {
     Write-Host "  Install complete"
     Write-Host "============================================"
     Write-Host ""
+
+    if ($script:harnessStaleProjectFiles.Count -gt 0 -or $script:harnessStaleGuides.Count -gt 0) {
+        Write-Host "--------------------------------------------"
+        Write-Host "  WARN these files exist and differ from this version template; not overwritten"
+        Write-Host "--------------------------------------------"
+        if ($script:harnessStaleProjectFiles.Count -gt 0) {
+            Write-Host ("    project files: " + ($script:harnessStaleProjectFiles -join " "))
+        }
+        if ($script:harnessStaleGuides.Count -gt 0) {
+            Write-Host ("    guides:        " + ($script:harnessStaleGuides -join " "))
+        }
+        Write-Host ""
+        Write-Host "  A difference means either the local copy is behind, or it was customized on purpose."
+        Write-Host "  Diff each one to tell which. Once you are sure no local content needs preserving, force refresh with:"
+        Write-Host '    $env:HARNESS_FORCE_PROJECT_FILES=1; $env:HARNESS_FORCE_GUIDES=1'
+        Write-Host ("    powershell -NoProfile -ExecutionPolicy Bypass -File " + (Join-Path $ScriptDir "setup.ps1"))
+        Write-Host ""
+        Write-Host "  Note: refreshing CLAUDE.md / AGENTS.md overwrites the whole file. If they carry"
+        Write-Host "  managed blocks written by other tools (e.g. openspec-auto), re-run that installer afterwards."
+        Write-Host ""
+    }
 }

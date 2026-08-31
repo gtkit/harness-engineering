@@ -144,6 +144,11 @@ install_harness() {
     local force_project_files="${HARNESS_FORCE_PROJECT_FILES:-0}"
     local error_journal_runtime_dir="${harness_root}/scripts/error-journal"
 
+    # 差异清单：已存在且内容与本版本模板不同的文件（仅提示，不覆盖）。
+    # 变量名里的 stale 只表示"与模板不同"，不断言方向——差异可能是本地落后，也可能是本地定制。
+    _HARNESS_STALE_PROJECT_FILES=""
+    _HARNESS_STALE_GUIDES=""
+
     # ---------- 前置检查 ----------
     if [ ! -d "${script_dir}/guides" ]; then
         echo "✗ 错误: 找不到 ${script_dir}/guides/ 目录"
@@ -215,6 +220,7 @@ install_harness() {
     mkdir -p "${project_dir}/.harness/guides"
     local guide_copied=0
     local guide_preserved=0
+    local guide_stale=0
     local f filename dest
     for f in "${script_dir}/guides/"*.md; do
         filename="$(basename "$f")"
@@ -227,6 +233,10 @@ install_harness() {
             guide_copied=$((guide_copied + 1))
         else
             guide_preserved=$((guide_preserved + 1))
+            if ! cmp -s "$f" "$dest"; then
+                guide_stale=$((guide_stale + 1))
+                _HARNESS_STALE_GUIDES="${_HARNESS_STALE_GUIDES}${filename} "
+            fi
         fi
     done
     local guide_count
@@ -235,6 +245,9 @@ install_harness() {
         echo "  ✓ .harness/guides/ — ${guide_count} 个规范文档（强制刷新 ${guide_copied} 个）"
     else
         echo "  ✓ .harness/guides/ — ${guide_count} 个规范文档（新增 ${guide_copied} 个，保留 ${guide_preserved} 个）"
+        if [ "${guide_stale}" -gt 0 ]; then
+            echo "  ⚠ 其中 ${guide_stale} 个与本版本模板不同（未覆盖）"
+        fi
     fi
 
     # -- .harness/scripts/（error-journal runtime）--
@@ -393,6 +406,26 @@ EOF
     echo ""
     echo "  全局 Skill 只是入口；项目规则维护在 CLAUDE.md、AGENTS.md 和 .harness/guides/。"
     echo ""
+
+    if [ -n "${_HARNESS_STALE_PROJECT_FILES}${_HARNESS_STALE_GUIDES}" ]; then
+        echo "--------------------------------------------"
+        echo "  ⚠ 以下文件已存在且内容与本版本模板不同，本次未覆盖"
+        echo "--------------------------------------------"
+        if [ -n "${_HARNESS_STALE_PROJECT_FILES}" ]; then
+            echo "    项目文件: ${_HARNESS_STALE_PROJECT_FILES}"
+        fi
+        if [ -n "${_HARNESS_STALE_GUIDES}" ]; then
+            echo "    guides:   ${_HARNESS_STALE_GUIDES}"
+        fi
+        echo ""
+        echo "  差异有两种可能：本地版本落后，或本地有意定制过。逐个 diff 确认属于哪种，"
+        echo "  确认无需保留本地内容后，再用下面的命令强制刷新："
+        echo "    HARNESS_FORCE_PROJECT_FILES=1 HARNESS_FORCE_GUIDES=1 bash ${script_dir}/setup.sh"
+        echo ""
+        echo "  注意：刷新 CLAUDE.md / AGENTS.md 是整文件覆盖。若这两个文件里有"
+        echo "  openspec-auto 等其他工具写入的托管块，覆盖后需重新执行对应安装器补回。"
+        echo ""
+    fi
 }
 
 # _harness_install_project_file <src> <dest> <label> <force>
@@ -409,7 +442,10 @@ _harness_install_project_file() {
         else
             echo "  ✓ ${label}"
         fi
+    elif cmp -s "${src}" "${dest}"; then
+        echo "  ⊘ ${label} 已存在且与本版本一致，跳过"
     else
-        echo "  ⊘ ${label} 已存在，跳过"
+        echo "  ⚠ ${label} 已存在且内容与本版本模板不同，保留未动"
+        _HARNESS_STALE_PROJECT_FILES="${_HARNESS_STALE_PROJECT_FILES}${label} "
     fi
 }
