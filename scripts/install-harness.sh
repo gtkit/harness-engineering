@@ -585,6 +585,17 @@ _harness_install_project_file() {
         return 0
     fi
 
+    # 剥离托管块后为空：文件里只有 openspec-auto 等工具写的块，没有任何 harness 规则。
+    # 这是"openspec-auto 先装、harness 后装被判为『与模板不同』跳过"留下的产物——
+    # 项目看着装了 harness（.harness/ 齐全），实际 agent 读不到任何 harness 规则。
+    # 这种文件不是用户定制，直接写入模板并把托管块追加回去。
+    if [ -n "${block}" ] && [ -z "$(_harness_strip_managed_block "${dest}")" ]; then
+        cp "${src}" "${dest}"
+        printf '\n%s\n' "${block}" >> "${dest}"
+        echo "  ✓ ${label}（原文件只有 openspec-auto 托管块、无 harness 规则，已补齐并保留该块）"
+        return 0
+    fi
+
     if [ -n "${block}" ]; then
         if [ "$(_harness_strip_managed_block "${dest}")" = "$(cat "${src}")" ]; then
             echo "  ⊘ ${label} 已存在且与本版本一致（含 openspec-auto 托管块），跳过"
