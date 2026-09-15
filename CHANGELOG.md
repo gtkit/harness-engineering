@@ -4,6 +4,13 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.13.2] - 2026-09-15
+
+### Fixed
+- 安装 `.claude/rules/` 前先清掉本模板没有的旧 `harness-*.md`：换 harness 类型（如 go-harness → go-grpc-harness）或模板删掉某个 guide 后，旧规则会一直指向一份已不存在的 guide。`sh` / `ps1` 一致，补反证用例。
+- 更早版本单独写进被跟踪 `.gitignore` 的 `.harness/VERSION`、`.harness/error-journal.md`、`.claude/*` 与标题 `# Harness: Agent 错误记忆（本地开发用，不提交）` 也纳入迁移剔除，本机 7 个项目仍留着这些行。`sh` / `ps1` 一致，测试夹具补上这几行。
+- `harness-refresh apply` 遇到一个项目刷新失败（如 openspec-auto 报托管文件与模板不同）会因 `set -e` 直接中断，后面的项目一个都没刷。现在单个项目失败只记下来，其余项目照常刷新，结束时列出失败项目并以非 0 退出。批量刷新本机 48 个项目时第一个项目就触发了这个问题。补反证用例。
+
 ## [1.13.1] - 2026-09-15
 
 ### Fixed

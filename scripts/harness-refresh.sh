@@ -141,7 +141,7 @@ apply() {
     [ "$force" = 1 ] && init_args=(--force "${init_args[@]+"${init_args[@]}"}")
     local stamp
     stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-    local dir harness commit backup done_count=0
+    local dir harness commit backup done_count=0 failed=""
     while IFS= read -r dir; do
         [ -d "$dir" ] || continue
         harness="$(version_field "$dir" harness)"
@@ -155,12 +155,21 @@ apply() {
         echo "  刷新 ${dir}（${harness} ${commit} → ${CURRENT_COMMIT}）"
         echo "  备份：${backup}"
         echo "============================================"
-        HARNESS_CMD_NAME="$harness" bash "${ROOT_DIR}/scripts/harness-init.sh" "$harness" "$dir" "${init_args[@]+"${init_args[@]}"}"
-        done_count=$((done_count + 1))
+        # 单个项目失败不中断批量：记下来最后一起报，其余项目照常刷新
+        if HARNESS_CMD_NAME="$harness" bash "${ROOT_DIR}/scripts/harness-init.sh" "$harness" "$dir" "${init_args[@]+"${init_args[@]}"}"; then
+            done_count=$((done_count + 1))
+        else
+            failed="${failed}${dir}
+"
+        fi
     done <<EOF
 $(list_projects)
 EOF
     printf '\n已刷新 %d 个项目；覆盖前的本地文件在 %s/.config/harness-engineering/backups/%s/\n' "$done_count" "$HOME" "$stamp"
+    if [ -n "$failed" ]; then
+        printf '\n✗ 以下项目刷新失败（看上方对应输出）：\n%s' "$failed"
+        return 1
+    fi
 }
 
 case "${1:-}" in

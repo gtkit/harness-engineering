@@ -71,8 +71,18 @@ install_harness_skills() {
     _harness_report_copy ".agents/skills/harness-*/" "${force}" \
         "$(_harness_copy_tree "${skills_dir}" "${project_dir}/.agents/skills" "${force}")"
 
-    # Claude Code 的路径限定规则：只在读到匹配文件时把对应 guide 拉进上下文
+    # Claude Code 的路径限定规则：只在读到匹配文件时把对应 guide 拉进上下文。
+    # 先清掉本模板没有的旧 harness-*.md（换 harness 类型或模板删 guide 后留下的），
+    # 否则它们会让 agent 去读一份已不存在的 guide。
     if [ -d "${rules_dir}" ]; then
+        local stale
+        for stale in "${project_dir}"/.claude/rules/harness-*.md; do
+            [ -f "${stale}" ] || continue
+            if [ ! -f "${rules_dir}/$(basename "${stale}")" ]; then
+                rm -f "${stale}"
+                echo "  ✓ 已移除本模板没有的规则 .claude/rules/$(basename "${stale}")"
+            fi
+        done
         _harness_report_copy ".claude/rules/harness-*.md" "${force}" \
             "$(_harness_copy_tree "${rules_dir}" "${project_dir}/.claude/rules" "${force}")"
     fi

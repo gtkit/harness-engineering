@@ -62,16 +62,21 @@ EOF
 }
 
 # 旧版本（1.x）曾把上述本地工具规则连同 "# Harness:" 标题一起误写进 .gitignore，
+# 更早的版本还单独写过 .harness/VERSION、.harness/error-journal.md、.claude/* 与另一条标题；
 # 迁移时需从 .gitignore 里精确剔除这些历史行（通用产物行保留）。
 # 1.7.0 ~ 1.10.0 还写过整目录 tools/（会把业务自己的 tools/ 挡在版本库外），
 # 之后短暂写过 tools/openspec/；两条都从 .gitignore 与 .git/info/exclude 里剔除。
-_HARNESS_LEGACY_GITIGNORE_HEADER="# Harness: 本地工具与 Agent 运行产物"
+_HARNESS_LEGACY_GITIGNORE_LINES="# Harness: 本地工具与 Agent 运行产物
+# Harness: Agent 错误记忆（本地开发用，不提交）
+.harness/VERSION
+.harness/error-journal.md
+.claude/*"
 _HARNESS_LEGACY_TOOLS_PATTERNS="tools/
 tools/openspec/"
 
 _harness_legacy_gitignore_patterns() {
     _harness_exclude_patterns
-    printf '%s\n' "${_HARNESS_LEGACY_TOOLS_PATTERNS}"
+    printf '%s\n' "${_HARNESS_LEGACY_GITIGNORE_LINES}" "${_HARNESS_LEGACY_TOOLS_PATTERNS}"
 }
 
 _harness_append_unique_line() {
@@ -145,10 +150,6 @@ _harness_strip_gitignore_legacy() {
     local removed=0
     local line
     while IFS= read -r line || [ -n "$line" ]; do
-        if [ "$line" = "${_HARNESS_LEGACY_GITIGNORE_HEADER}" ]; then
-            removed=1
-            continue
-        fi
         if [ -n "$line" ] && printf '%s\n' "$removal" | grep -Fxq -- "$line"; then
             removed=1
             continue

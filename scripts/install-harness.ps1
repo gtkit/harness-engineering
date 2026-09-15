@@ -86,6 +86,12 @@ function Get-HarnessLegacyGitignoreHeader {
     return "# Harness: " + (($codePoints | ForEach-Object { [char]$_ }) -join '')
 }
 
+# 更早版本写进 .gitignore 的另一条标题 "# Harness: Agent 错误记忆（本地开发用，不提交）"。
+function Get-HarnessLegacyJournalHeader {
+    $codePoints = @(0x0041, 0x0067, 0x0065, 0x006E, 0x0074, 0x0020, 0x9519, 0x8BEF, 0x8BB0, 0x5FC6, 0xFF08, 0x672C, 0x5730, 0x5F00, 0x53D1, 0x7528, 0xFF0C, 0x4E0D, 0x63D0, 0x4EA4, 0xFF09)
+    return "# Harness: " + (($codePoints | ForEach-Object { [char]$_ }) -join '')
+}
+
 # .git/info/exclude 的中文标题 "# 本地工具与运行产物（仅本地忽略，不进版本库）"。
 function Get-HarnessExcludeHeader {
     $codePoints = @(
@@ -603,8 +609,18 @@ function Invoke-HarnessSetup {
     # 同一份 SKILL.md 双端各装一份：Claude Code 读 .claude/skills，Codex 读 .agents/skills
     Copy-HarnessTree -SourceDir $skillsDir -TargetDir (Join-Path $projectDir ".claude\skills") -Force $forceProjectFiles -Label ".claude/skills/harness-*/"
     Copy-HarnessTree -SourceDir $skillsDir -TargetDir (Join-Path $projectDir ".agents\skills") -Force $forceProjectFiles -Label ".agents/skills/harness-*/"
-    # Claude Code 的路径限定规则：只在读到匹配文件时把对应 guide 拉进上下文
+    # Claude Code 的路径限定规则：只在读到匹配文件时把对应 guide 拉进上下文。
+    # 先清掉本模板没有的旧 harness-*.md（换 harness 类型或模板删 guide 后留下的）。
     if (Test-Path -LiteralPath $rulesDir) {
+        $projectRules = Join-Path $projectDir ".claude\rules"
+        if (Test-Path -LiteralPath $projectRules) {
+            Get-ChildItem -LiteralPath $projectRules -Filter "harness-*.md" -File | ForEach-Object {
+                if (-not (Test-Path -LiteralPath (Join-Path $rulesDir $_.Name))) {
+                    Remove-Item -LiteralPath $_.FullName -Force
+                    Write-Host "  OK removed rule not in this template: .claude/rules/$($_.Name)"
+                }
+            }
+        }
         Copy-HarnessTree -SourceDir $rulesDir -TargetDir (Join-Path $projectDir ".claude\rules") -Force $forceProjectFiles -Label ".claude/rules/harness-*.md"
     }
     Write-Host ""
@@ -659,7 +675,7 @@ function Invoke-HarnessSetup {
     }
 
     # 迁移: 剔除旧版本误写进 .gitignore 的本地工具规则与旧标题(移到 .git/info/exclude)
-    $legacyLines = @(Get-HarnessLegacyGitignoreHeader) + $excludePatterns + $legacyToolsPatterns
+    $legacyLines = @(Get-HarnessLegacyGitignoreHeader, (Get-HarnessLegacyJournalHeader), ".harness/VERSION", ".harness/error-journal.md", ".claude/*") + $excludePatterns + $legacyToolsPatterns
     if (Remove-LinesFromFile -Path $gitignorePath -Lines $legacyLines) {
         Write-Host "  OK removed legacy local-tool rules from .gitignore (migrated to .git/info/exclude)"
     }

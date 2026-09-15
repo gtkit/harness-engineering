@@ -92,6 +92,7 @@ assert_gitignore_baseline() {
     # 本地工具与运行产物、旧 Harness 标题绝不能出现在 .gitignore（应在 .git/info/exclude）
     for pattern in \
         "# Harness: 本地工具与 Agent 运行产物" \
+        "# Harness: Agent 错误记忆（本地开发用，不提交）" \
         ".openspec-auto-backup/" \
         ".openspec-auto/" \
         ".harness/" \
@@ -396,6 +397,10 @@ cat > "${migrate_project}/.gitignore" <<'LEGACY'
 .DS_Store
 *.log
 .harness/
+# Harness: Agent 错误记忆（本地开发用，不提交）
+.harness/VERSION
+.harness/error-journal.md
+.claude/*
 .claude/
 .codex/
 .agents/
@@ -549,8 +554,13 @@ assert_file_not_contains "${heal_project}/CLAUDE.md" "@AGENTS.md"
 assert_file_contains "${heal_project}/AGENTS.md" "## Guide 加载表"
 assert_file_not_contains "${heal_project}/AGENTS.md" "OPENSPEC-AUTO:START"
 
+# 本模板没有的旧规则（换 harness 类型 / 模板删 guide 留下的）重跑时必须清掉，否则 agent 会被指去读不存在的 guide
+printf -- '---\npaths:\n  - "**/*.go"\n---\n读 `.harness/guides/gone.md`\n' > "${managed_project}/.claude/rules/harness-gone.md"
 # hook 注册幂等：重跑两次，两份配置里各只有一条 harness 注册
 run_setup "go-harness" "$managed_project" "$managed_home"
+if [ -f "${managed_project}/.claude/rules/harness-gone.md" ]; then
+    fail "stale rule not present in the template must be removed on rerun"
+fi
 for cfg in .claude/settings.json .codex/hooks.json; do
     count="$(python3 -c "
 import json,sys
@@ -604,5 +614,19 @@ backup_dir="$(find "${refresh_home}/.config/harness-engineering/backups" -mindep
 assert_file_contains "${backup_dir}/AGENTS.md" "LOCAL EDIT"
 test -d "${backup_dir}/guides" || fail "refresh apply backup must include .harness/guides"
 grep -Fq "已刷新" <<<"$apply_out" || fail "refresh apply must report refreshed projects"
+# 单个项目失败不中断批量：清单里塞一个 harness 名不存在的项目，其余项目仍被刷新，整体退出码非 0 并点名失败项目
+broken_project="${tmpdir}/broken-project"
+mkdir -p "${broken_project}/.harness"
+printf 'harness: no-such-harness\nsource-commit: 000000000000\n' > "${broken_project}/.harness/VERSION"
+printf '%s\n' "$broken_project" "$(cat "${tmpdir}/projects.txt")" > "${tmpdir}/projects.txt"
+sed -i '' 's/^source-commit: .*/source-commit: 000000000000/' "${managed_project}/.harness/VERSION"
+if apply_out="$(HOME="$refresh_home" HARNESS_PROJECTS_FILE="${tmpdir}/projects.txt" CODEX_HOME="$refresh_home/.codex" bash "${ROOT_DIR}/scripts/harness-refresh.sh" apply --no-force --no-openspec 2>&1)"; then
+    fail "refresh apply must exit non-zero when a project fails"
+fi
+grep -Fq "刷新失败" <<<"$apply_out" || fail "refresh apply must list the failed project"
+grep -Fq "$broken_project" <<<"$apply_out" || fail "refresh apply must name the failed project"
+if grep -Fq "source-commit: 000000000000" "${managed_project}/.harness/VERSION"; then
+    fail "projects after the failed one must still be refreshed"
+fi
 
 printf 'setup smoke test passed\n'
