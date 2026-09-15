@@ -6,13 +6,23 @@
 
 ## [Unreleased]
 
+> ⚠ 行为变更：工作流命令由 `.claude/commands/harness/*.md`（`/harness:doctor` 等）改为项目级 skills（`/harness-doctor` 等），重跑 setup 会删掉旧的 `.claude/commands/harness/`；Codex 全局 skill 改装到 `~/.agents/skills/<harness>/`，旧位置 `~/.codex/skills/<harness>/` 会被移走。
+
 ### Added
-- 新增仓库根目录 `init.sh`：一条命令完成新项目初始化——目标目录非 git 仓库时 `git init`，运行指定 harness 的 `setup.sh`，再运行 `openspec-auto install`。顺序固定为 harness → openspec-auto（harness 整文件写入口文件，openspec-auto 再追加托管块）。`openspec-auto` 按 `$OPENSPEC_AUTO_BIN` → PATH → `$OPENSPEC_AUTO_BOOTSTRAP_DIR/install.sh` → 同级目录 `../openspec-auto-bootstrap/install.sh` 查找；支持 `--no-openspec`、`--force`，`--` 之后的参数原样传给 `openspec-auto install`。仅 macOS / Linux。
-- `/harness:init-openspec` 改为优先检查并复用 `openspec-auto`：已装（`.openspec-auto/version` 存在）只跑 `openspec-auto doctor .`；未装优先 `openspec-auto install .`，只有它不可用时才回退到 `openspec init --tools claude`。`/harness:doctor` 增加 openspec-auto 的检查项（版本文件、hooks、skill、两份入口文件里的托管块，并运行体检）。
+- 新增六个 PATH 命令：仓库根目录 `bash install.sh` 往 `~/go/bin`（可用 `HARNESS_BIN_DIR` 换目录）写 `go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`、`laravel-harness`、`laravel-fullstack-harness` 六个包装脚本，在项目目录直接敲命令名即完成初始化——目标目录非 git 仓库时 `git init`，运行对应 `setup.sh`，再运行 `openspec-auto install`。openspec-auto 按 `$OPENSPEC_AUTO_BIN` → 仓库目录（`$OPENSPEC_AUTO_BOOTSTRAP_DIR`，缺省同级 `../openspec-auto-bootstrap`）→ PATH 上的 `openspec-auto` 查找，并打印用的是哪一个。包装脚本直接 `exec` 仓库里的 `scripts/harness-init.sh`，改仓库即生效、无需重装，除 bash 外没有别的依赖；支持 `--no-openspec`、`--force`、`--force-project-files`、`--force-guides`、`--version`，`--` 之后的参数原样传给 `openspec-auto install`。macOS / Linux 直接用；Windows 在 Git Bash / WSL 里用法相同，README 的 Windows 一节改为以此为推荐路径，`setup.ps1` / `setup.bat` 保留为只装 harness 的原生入口。
+- 工作流入口改为项目级 skills：`skills/harness-{doctor,init-openspec,research,plan,implement,review}/SKILL.md` 同一份内容双端各装一份到 `.claude/skills/harness-*/`（Claude Code，`/harness-doctor`）与 `.agents/skills/harness-*/`（Codex，`$harness-doctor` 或 `/skills`）。Codex 不再依赖 `AGENTS.md` 里的自然语言别名表，六套 `AGENTS.md` / `CLAUDE.md` 的「Codex 命令化工作流兼容入口」改写为「工作流 skills」。
+- 新增 Claude Code 路径限定规则：每套 harness 的 `rules/harness-<guide>.md` 带 `paths:` glob，装到项目 `.claude/rules/`；Claude 读到匹配文件（如 `internal/repository/**`、`app/Models/**`、`frontend/**`）时把对应 `.harness/guides/<guide>.md` 拉进上下文。guides 仍是唯一真源，规则只是指针。
+- `/harness-init-openspec` 改为优先检查并复用 `openspec-auto`：已装（`.openspec-auto/version` 存在）只跑 `openspec-auto doctor .`；未装优先 `openspec-auto install .`，只有它不可用时才回退到 `openspec init --tools claude`。`/harness-doctor` 增加 skills、rules 与 openspec-auto 的检查项。
+- README 新增「为什么顺序固定为 harness 先、openspec-auto 后」：harness 整文件写入口文件，openspec-auto 追加托管块；反过来 harness 会把只含托管块的入口文件判为"与模板不同"而跳过。
 
 ### Changed
-- setup 比对与刷新 `CLAUDE.md` / `AGENTS.md` 时绕开 openspec-auto 的托管块（`<!-- OPENSPEC-AUTO:START -->` … `<!-- OPENSPEC-AUTO:END -->`）：日常重跑时去掉该块再与模板比对，装过 openspec-auto 的项目不再每次被判为"与模板不同"；`HARNESS_FORCE_PROJECT_FILES=1` 刷新时先写模板再把块原样追加回去，不用再重跑 openspec-auto 补块。此前刷新会把块整个抹掉，且只在结束提示里让用户自己记得补。`sh` / `ps1` 两端一致。
-- `.git/info/exclude` 里的 `tools/` 收窄为 `tools/openspec/`（openspec-auto 实际落地的目录）。整目录忽略 `tools/` 会把业务项目自己的 `tools/` 一并挡在版本库外：`git status` 看不到、`git add` 被拒。重跑 setup 会把已有的 `tools/` 行改写为 `tools/openspec/`，并从旧 `.gitignore` 里剔除历史写入的 `tools/`。三套 smoke 测试基线同步。
+- Codex 全局 skill 改装到 `~/.agents/skills/<harness>/SKILL.md`（Codex 官方的用户级 skill 目录），并移走旧位置 `$CODEX_HOME/skills/<harness>/`，避免同名 skill 双处触发。`sh` / `ps1` 两端一致。
+- setup 比对与刷新 `CLAUDE.md` / `AGENTS.md` 时绕开 openspec-auto 的托管块（`<!-- OPENSPEC-AUTO:START -->` … `<!-- OPENSPEC-AUTO:END -->`）：日常重跑时去掉该块再与模板比对，装过 openspec-auto 的项目不再每次被判为"与模板不同"；强制刷新时先写模板再把块原样追加回去，不用再重跑 openspec-auto 补块。此前刷新会把块整个抹掉。`sh` / `ps1` 两端一致。
+- `.git/info/exclude` 不再写 `tools/`：整目录忽略会把业务项目自己的 `tools/` 挡在版本库外（`git status` 看不到、`git add` 被拒）；openspec-auto 现已全部落在 `.openspec-auto/` 下，也不再需要 `tools/openspec/`。重跑 setup 会从 `.gitignore` 与 `.git/info/exclude` 里剔除历史写入的 `tools/` 与 `tools/openspec/`。三套 smoke 测试基线同步。
+
+### Removed
+- `commands/harness/` 与安装到项目的 `.claude/commands/harness/`（Claude Code 已把 commands 标为旧格式，由 skills 取代）。
+- `docs/superpowers/` 下的设计与实施留痕。
 
 ## [1.10.0] - 2026-08-31
 

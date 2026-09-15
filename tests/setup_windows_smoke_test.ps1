@@ -139,7 +139,6 @@ function Assert-GitignoreSplit {
         "openspec/",
         "AGENTS.md",
         "CLAUDE.md",
-        "tools/openspec/",
         ".learnings/",
         "findings.md",
         "progress.md",
@@ -152,30 +151,39 @@ function Assert-GitignoreSplit {
     }
 
     Assert-PathExists $excludePath
-    # 1.7.0 ~ 1.10.0 写入的整目录 tools/ 必须已收窄，不能再以独立行存在
+    # 旧版本写过的 tools/ 与 tools/openspec/ 必须已剔除
     Assert-LineNotExists $excludePath "tools/"
+    Assert-LineNotExists $excludePath "tools/openspec/"
     Assert-LineExists $excludePath (Get-ExcludeHeader)
     foreach ($rule in $localToolRules) {
         Assert-LineExists $excludePath $rule
     }
 }
 
-function Assert-HarnessCommands {
+function Assert-HarnessSkills {
     param([string]$ProjectDir)
 
-    $commandsDir = Join-Path $ProjectDir ".claude\commands\harness"
-
-    Assert-PathExists (Join-Path $commandsDir "doctor.md")
-    Assert-PathExists (Join-Path $commandsDir "init-openspec.md")
-    Assert-PathExists (Join-Path $commandsDir "research.md")
-    Assert-PathExists (Join-Path $commandsDir "plan.md")
-    Assert-PathExists (Join-Path $commandsDir "implement.md")
-    Assert-PathExists (Join-Path $commandsDir "review.md")
-    Assert-FileContains (Join-Path $commandsDir "doctor.md") "Harness Doctor"
-    Assert-FileContains (Join-Path $commandsDir "research.md") "constraint set"
-    Assert-FileContains (Join-Path $commandsDir "plan.md") "zero-decision"
-    Assert-FileContains (Join-Path $commandsDir "implement.md") "approved plan"
-    Assert-FileContains (Join-Path $commandsDir "review.md") "质量"
+    foreach ($skillsRoot in @((Join-Path $ProjectDir ".claude\skills"), (Join-Path $ProjectDir ".agents\skills"))) {
+        foreach ($name in @("doctor", "init-openspec", "research", "plan", "implement", "review")) {
+            $skillPath = Join-Path $skillsRoot "harness-$name\SKILL.md"
+            Assert-PathExists $skillPath
+            Assert-LineExists $skillPath "name: harness-$name"
+        }
+        Assert-FileContains (Join-Path $skillsRoot "harness-doctor\SKILL.md") "Harness Doctor"
+        Assert-FileContains (Join-Path $skillsRoot "harness-research\SKILL.md") "constraint set"
+        Assert-FileContains (Join-Path $skillsRoot "harness-plan\SKILL.md") "zero-decision"
+        Assert-FileContains (Join-Path $skillsRoot "harness-implement\SKILL.md") "approved plan"
+        Assert-FileContains (Join-Path $skillsRoot "harness-review\SKILL.md") "质量"
+    }
+    if (Test-Path -LiteralPath (Join-Path $ProjectDir ".claude\commands\harness")) {
+        Fail "legacy .claude/commands/harness must be removed in $ProjectDir"
+    }
+    $ruleFiles = @(Get-ChildItem -LiteralPath (Join-Path $ProjectDir ".claude\rules") -File -Filter "harness-*.md" -ErrorAction SilentlyContinue)
+    if ($ruleFiles.Count -eq 0) {
+        Fail "missing .claude/rules/harness-*.md in $ProjectDir"
+    }
+    Assert-FileContains $ruleFiles[0].FullName "paths:"
+    Assert-FileContains $ruleFiles[0].FullName ".harness/guides/"
 }
 
 function Assert-GuideFileExists {
@@ -225,8 +233,8 @@ function Assert-CodexWorkflowAliases {
     param([string]$ProjectDir)
 
     $agentsPath = Join-Path $ProjectDir "AGENTS.md"
-    Assert-FileContains $agentsPath "Codex 命令化工作流兼容入口"
-    Assert-FileContains $agentsPath "harness research: <需求>"
+    Assert-FileContains $agentsPath "工作流 skills（Claude Code 与 Codex 同一套）"
+    Assert-FileContains $agentsPath '$harness-research'
     Assert-FileContains $agentsPath "不把 `harness ...` 当作 shell 命令执行"
 }
 
@@ -398,7 +406,7 @@ try {
         Assert-PathExists (Join-Path $projectDir ".harness\error-journal.md")
         Assert-PathExists (Join-Path $projectDir ".harness\scripts\read-error-journal.ps1")
         Assert-PathExists (Join-Path $projectDir ".harness\scripts\append-error-journal.ps1")
-        Assert-HarnessCommands $projectDir
+        Assert-HarnessSkills $projectDir
         Assert-CodexWorkflowAliases $projectDir
         Assert-InstalledGuidesMatchSource -HarnessDir $module -ProjectDir $projectDir
         if ($module -eq "go-harness" -or $module -eq "fullstack-harness") {
@@ -408,11 +416,11 @@ try {
             Assert-FileContains (Join-Path $projectDir "AGENTS.md") ".harness/guides/workers-and-scheduling.md"
         }
         Assert-PathExists (Join-Path $homeDir ".claude\skills\$module\SKILL.md")
-        Assert-PathExists (Join-Path $homeDir ".codex\skills\$module\SKILL.md")
+        Assert-PathExists (Join-Path $homeDir ".agents\skills\$module\SKILL.md")
         Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "CLAUDE.md"
         Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "AGENTS.md"
-        Assert-FileContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "AGENTS.md"
-        Assert-FileNotContains (Join-Path $homeDir ".codex\skills\$module\SKILL.md") "CLAUDE.md"
+        Assert-FileContains (Join-Path $homeDir ".agents\skills\$module\SKILL.md") "AGENTS.md"
+        Assert-FileNotContains (Join-Path $homeDir ".agents\skills\$module\SKILL.md") "CLAUDE.md"
         Assert-GitignoreSplit -ProjectDir $projectDir -ModuleName $module
 
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "清理杂物"
@@ -444,7 +452,7 @@ try {
     Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $preserveProjectDir -SandboxHome $preserveHomeDir
     Assert-FileContains $architecturePath "LOCAL CHANGE"
 
-    $doctorCommandPath = Join-Path $preserveProjectDir ".claude\commands\harness\doctor.md"
+    $doctorCommandPath = Join-Path $preserveProjectDir ".claude\skills\harness-doctor\SKILL.md"
     Set-Content -LiteralPath $doctorCommandPath -Value "LOCAL COMMAND"
     Invoke-SetupPs1 -HarnessDir "go-harness" -ProjectDir $preserveProjectDir -SandboxHome $preserveHomeDir
     Assert-FileContains $doctorCommandPath "LOCAL COMMAND"
@@ -511,7 +519,7 @@ try {
         Invoke-SetupBat -HarnessDir $module -ProjectDir $batchProjectDir -SandboxHome $batchHomeDir
         Assert-PathExists (Join-Path $batchProjectDir "CLAUDE.md")
         Assert-PathExists (Join-Path $batchProjectDir "AGENTS.md")
-        Assert-HarnessCommands $batchProjectDir
+        Assert-HarnessSkills $batchProjectDir
         Assert-CodexWorkflowAliases $batchProjectDir
         Assert-InstalledGuidesMatchSource -HarnessDir $module -ProjectDir $batchProjectDir
         if ($module -eq "go-harness" -or $module -eq "fullstack-harness") {

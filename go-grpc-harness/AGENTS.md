@@ -52,20 +52,24 @@
 | Go 1.27 现代语法 / 泛型方法 / UUID | `.harness/guides/go-modern.md` |
 | 所有代码任务 | `.harness/guides/architecture.md` + `.harness/guides/go-modern.md` 始终生效 |
 
-## Codex 命令化工作流兼容入口
+## 工作流 skills（Claude Code 与 Codex 同一套）
 
-Claude Code 可以直接使用 `/harness:*` slash commands；Codex 不会自动注册 `.claude/commands/`。当用户在 Codex 中使用以下自然语言别名前缀时，必须把它当作同名 harness command 处理：
+setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Claude Code）和 `.agents/skills/harness-*/`（Codex），内容完全相同：
 
-| Codex 输入前缀 | 对应流程 |
-|---------------|----------|
-| `harness doctor` | 诊断 harness、OpenSpec、命令模板和可选 MCP 状态 |
-| `harness init-openspec` | 初始化或验证 OpenSpec |
-| `harness research: <需求>` | 只做需求研究，不写代码 |
-| `harness plan` | 生成计划，不写代码 |
-| `harness implement` | 按已批准计划实现并验证 |
-| `harness review` | 按 harness 质量门禁审查当前 diff |
+| Claude Code | Codex | 用途 |
+|-------------|-------|------|
+| `/harness-doctor` | `$harness-doctor` | 诊断 harness、OpenSpec、skills 与可选 MCP 状态 |
+| `/harness-init-openspec` | `$harness-init-openspec` | 初始化或验证 OpenSpec（优先复用 openspec-auto） |
+| `/harness-research <需求>` | `$harness-research <需求>` | 只做需求研究，输出约束集、风险、开放问题和可验证成功标准，不写代码 |
+| `/harness-plan` | `$harness-plan` | 基于已批准约束集生成零决策计划，不写代码 |
+| `/harness-implement` | `$harness-implement` | 只按已批准计划分阶段实现并验证 |
+| `/harness-review` | `$harness-review` | 按 harness 质量门禁审查当前 diff |
 
-不把 `harness ...` 当作 shell 命令执行；它是 Codex 的自然语言工作流别名。
+执行规则：
+
+1. 被显式调用或任务明显匹配某个 skill 的 description 时，读取并严格按该 `SKILL.md` 执行。
+2. 简单小改动不强制走完整 RPI；复杂、高风险、跨模块任务优先使用 `research → plan → implement → review`。
+3. `research` 和 `plan` 阶段不得修改代码；`implement` 必须基于用户已批准的计划。
 
 ## 分层架构（不可逾越）
 

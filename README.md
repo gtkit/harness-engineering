@@ -21,16 +21,16 @@
 
 六套互相独立，按项目类型选用一套即可。
 
-安装后还会在项目内安装一组可选的 Claude Code slash commands。普通小改动可以不用；复杂、高风险、跨模块任务可以用它把工作拆成可恢复的 Research → Plan → Implementation 流程：
+安装后还会在项目内装一组可选的工作流 skills，Claude Code 与 Codex 读的是同一份 `SKILL.md`。普通小改动可以不用；复杂、高风险、跨模块任务可以用它把工作拆成可恢复的 Research → Plan → Implementation 流程：
 
-| 命令 | 功能 |
-|-----|------|
-| `/harness:doctor` | 检查 harness、OpenSpec、命令和可选 MCP 工具状态 |
-| `/harness:init-openspec` | 初始化或验证 OpenSpec（优先走 `openspec-auto`） |
-| `/harness:research` | 将需求转成约束集和可验证成功标准 |
-| `/harness:plan` | 生成零决策执行计划和 PBT / 不变量检查点 |
-| `/harness:implement` | 按批准计划分阶段实现并验证 |
-| `/harness:review` | 按 harness 质量门禁审查当前变更 |
+| Claude Code | Codex | 功能 |
+|-----|-----|------|
+| `/harness-doctor` | `$harness-doctor` | 检查 harness、OpenSpec、skills 和可选 MCP 工具状态 |
+| `/harness-init-openspec` | `$harness-init-openspec` | 初始化或验证 OpenSpec（优先走 `openspec-auto`） |
+| `/harness-research` | `$harness-research` | 将需求转成约束集和可验证成功标准 |
+| `/harness-plan` | `$harness-plan` | 生成零决策执行计划和 PBT / 不变量检查点 |
+| `/harness-implement` | `$harness-implement` | 按批准计划分阶段实现并验证 |
+| `/harness-review` | `$harness-review` | 按 harness 质量门禁审查当前变更 |
 
 ---
 
@@ -39,20 +39,22 @@
 ```
 harness-engineering/
 ├── README.md                ← 你正在读的文件
-├── init.sh                  ← 一键：harness setup + openspec-auto install
-├── commands/harness/        ← Claude Code slash commands
-│   ├── doctor.md
-│   ├── init-openspec.md
-│   ├── research.md
-│   ├── plan.md
-│   ├── implement.md
-│   └── review.md
+├── install.sh               ← 往 ~/go/bin 写六个包装命令（go-harness 等）
+├── scripts/harness-init.sh  ← 包装命令的实际逻辑：git init → setup.sh → openspec-auto install
+├── skills/                  ← 六个工作流 skill（Claude Code 与 Codex 同一份）
+│   ├── harness-doctor/SKILL.md
+│   ├── harness-init-openspec/SKILL.md
+│   ├── harness-research/SKILL.md
+│   ├── harness-plan/SKILL.md
+│   ├── harness-implement/SKILL.md
+│   └── harness-review/SKILL.md
 │
 ├── go-harness/              ← 纯 Go 后端业务服务
 │   ├── setup.sh
 │   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
+│   ├── rules/               ← Claude Code 路径限定规则：读到匹配文件时把对应 guide 拉进上下文
 │   └── guides/
 │       ├── go-modern.md
 │       ├── architecture.md
@@ -97,6 +99,7 @@ harness-engineering/
 │   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
+│   ├── rules/
 │   └── guides/
 │       ├── go-modern.md
 │       ├── architecture.md
@@ -118,6 +121,7 @@ harness-engineering/
 │   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
+│   ├── rules/
 │   └── guides/
 │       ├── go-modern.md
 │       ├── pkg-structure.md
@@ -134,6 +138,7 @@ harness-engineering/
 │   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
+│   ├── rules/
 │   └── guides/
 │       ├── architecture.md
 │       ├── http-and-api.md
@@ -150,6 +155,7 @@ harness-engineering/
     ├── SKILL.md
     ├── CLAUDE.md
     ├── AGENTS.md
+    ├── rules/
     └── guides/
         ├── architecture.md
         ├── http-and-api.md
@@ -169,42 +175,85 @@ harness-engineering/
 
 ## 前置要求
 
-- macOS 或 Linux
+- macOS 或 Linux；Windows 用 Git Bash / WSL（见文末）
 - 已安装 Claude Code（`~/.claude/` 目录存在）和/或 OpenAI Codex（`~/.codex/` 目录存在）
 - Bash（macOS 自带的 bash 3.2+ 或 zsh 均可）
+- 接 OpenSpec 工作流需要 [openspec-auto](https://github.com/gtkit/openspec-auto-bootstrap)：clone 到本仓库同级目录即可，或装到 PATH
 
 ---
 
 ## 安装步骤
 
-### 第一步：下载并放到固定位置
+### 第一步：把六个命令装到 PATH
 
-将整个 `harness-engineering/` 文件夹放到你喜欢的位置，比如：
+把仓库放到固定位置后，在仓库根目录执行一次：
 
 ```bash
-mv harness-engineering ~/tools/harness-engineering
+bash install.sh                          # 装到 ~/go/bin
+HARNESS_BIN_DIR=~/.local/bin bash install.sh   # 换目录
 ```
 
-以下所有命令假设你放在了 `~/tools/harness-engineering/`。如果放在别的位置，替换对应路径即可。
+目标目录下会多出 `go-harness`、`go-grpc-harness`、`fullstack-harness`、`go-pkg-harness`、`laravel-harness`、`laravel-fullstack-harness` 六个命令。它们是几行长的包装脚本，直接 `exec` 本仓库的 `scripts/harness-init.sh`：改了仓库里的 guides / 规则 / 安装脚本立即生效，不需要重装；仓库换了位置重跑一次 `install.sh` 即可。除 bash 外没有别的依赖。
+
+不装命令也可以直接跑各目录下的 `setup.sh`，效果与命令加 `--no-openspec` 一致：
+
+```bash
+bash ~/tools/harness-engineering/go-harness/setup.sh
+```
 
 ---
 
-### 第二步：根据项目类型运行对应脚本
+### 第二步：在项目目录里敲命令名
 
-每个项目只需要运行一次。脚本会做四件事：
+每个项目只需要运行一次。缺省目标是当前目录，也可以显式传目录（不存在则创建）：
 
-1. **全局 Skill** 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`（只装一次，所有项目共享）
-2. **项目文件** 安装到当前项目目录（每个项目各一份，完整规则在这里）
-3. **Claude Code Commands** 安装到项目 `.claude/commands/harness/`
-4. **忽略规则** 自动创建/补齐：通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`、`*.out`，以及应用型 harness 的 `.env`）写进 `.gitignore`；本地工具与 Agent 运行产物（整个 `.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`openspec/`、计划文件等）写进 `.git/info/exclude`（仅本地、不进版本库，避免忽略规则本身泄露 AI 工具链）
+```bash
+cd ~/code/your-backend-project
+go-harness                          # 装 go-harness 规则 + openspec-auto 工作流
+go-harness ~/code/new-project       # 指定目录
+go-harness --no-openspec            # 只装 harness
+go-harness --force                  # 强制刷新 CLAUDE.md / AGENTS.md / skills / rules / guides，并给 openspec-auto 传 --force
+go-harness --force-guides           # 只强刷 guides；--force-project-files 只强刷入口文件 / skills / rules / 运行脚本
+go-harness -- --skip-codex-user-config   # -- 之后的参数原样传给 openspec-auto install
+go-harness --version                # 打印本仓库当前 commit / tag
+```
+
+命令会做五件事：
+
+1. 目标目录不是 git 仓库就 `git init`（忽略规则要写进 `.git/info/exclude`）
+2. **全局 Skill** 安装到 `~/.claude/skills/<harness>/` 和 `~/.agents/skills/<harness>/`（只装一次，所有项目共享；`~/.agents/skills` 是 Codex 官方的用户级 skill 目录，旧位置 `~/.codex/skills/<harness>/` 会被移走）
+3. **项目文件** 安装到项目目录：`CLAUDE.md`、`AGENTS.md`、`.harness/`（guides、error-journal、运行脚本）、六个工作流 skill（`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/`）、Claude Code 的路径限定规则 `.claude/rules/harness-*.md`
+4. **忽略规则** 自动创建/补齐：通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`、`*.out`，以及应用型 harness 的 `.env`）写进 `.gitignore`；本地工具与 Agent 运行产物（整个 `.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`.agents/`、`openspec/`、`.openspec-auto/`、计划文件等）写进 `.git/info/exclude`（仅本地、不进版本库，避免忽略规则本身泄露 AI 工具链）
+5. 运行 `openspec-auto install`，接入自动 OpenSpec 工作流（hooks、skill、`CLAUDE.md` / `AGENTS.md` 里的托管块）
+
+### 为什么顺序固定为 harness 先、openspec-auto 后
+
+两个安装器都要写 `CLAUDE.md` 和 `AGENTS.md`，但写法不同：harness 是**整文件写入**（模板就是完整的项目规则），openspec-auto 是**往文件末尾追加一段托管块**（`<!-- OPENSPEC-AUTO:START -->` … `<!-- OPENSPEC-AUTO:END -->`）。
+
+- 先 harness 再 openspec-auto：harness 写出完整规则，openspec-auto 把托管块追加进去，两份内容都在。
+- 反过来先 openspec-auto：`CLAUDE.md` / `AGENTS.md` 已经存在且只有托管块，harness 默认不覆盖已存在的入口文件，会判定为"与模板不同、保留未动"并跳过，项目就只剩 OpenSpec 规则而没有 harness 规则；只有加 `--force` 强刷才能补回来。
+
+harness 这一侧已经做了配合：日常重跑比对入口文件是否为本版本时会忽略托管块，`--force` 刷新时先写模板再把托管块原样追加回去，所以装好之后重复执行任意一个安装器都不会互相破坏。
+
+### openspec-auto 从哪里来、怎么保持最新
+
+命令按下面的顺序找 `openspec-auto`，找到第一个就用，并在输出里打印用的是哪一个：
+
+1. `$OPENSPEC_AUTO_BIN` 指定的可执行文件
+2. openspec-auto-bootstrap 的仓库目录：`$OPENSPEC_AUTO_BOOTSTRAP_DIR`，缺省为本仓库同级的 `../openspec-auto-bootstrap`，直接调用它的 `install.sh`
+3. PATH 上的 `openspec-auto`（通常在 `~/go/bin`，由它仓库里的 `install-cli.sh` 生成，同样是指向仓库的包装脚本）
+
+openspec-auto 与本仓库一样是纯 sh 实现，三条路都是直接运行仓库里的脚本：它的模板或脚本更新后不需要重装，下次运行就是新版。三处都没有时 harness 部分已经装好，命令以非零退出并提示 clone 地址（或加 `--no-openspec`）。
 
 其中：
 
 - Claude Code 全局 skill 是轻量入口，优先把运行时引到项目根目录 `CLAUDE.md`
 - Codex 全局 skill 是轻量入口，把运行时引到项目根目录 `AGENTS.md`
 - 详细专项规范统一放在 `.harness/guides/`
-- Claude Code slash commands 统一放在 `.claude/commands/harness/`
-- Codex 通过 `AGENTS.md` 中的 `harness ...` 自然语言别名走同一套流程
+- 工作流 skills 双端各一份：Claude Code 读 `.claude/skills/harness-*/`，Codex 读 `.agents/skills/harness-*/`，内容相同
+- `.claude/rules/harness-*.md` 是 Claude Code 的路径限定规则：只在 Claude 读到匹配路径的文件时，把对应 guide 拉进上下文；Codex 没有对应机制，仍按 `AGENTS.md` 的 Guide 加载表读 guide
+
+下面按场景说明各 harness 装出的文件；命令名换成对应 harness 即可，`bash …/setup.sh` 是只装 harness 的等价写法。Windows 在 Git Bash / WSL 里用法相同，见文末。
 
 ---
 
@@ -216,8 +265,8 @@ mv harness-engineering ~/tools/harness-engineering
 # 进入你的 Go 项目根目录
 cd ~/code/your-backend-project
 
-# 运行安装脚本
-bash ~/tools/harness-engineering/go-harness/setup.sh
+# 装规则并接 openspec-auto；只装规则用 bash ~/tools/harness-engineering/go-harness/setup.sh
+go-harness
 ```
 
 安装完成后你的项目会多出：
@@ -227,8 +276,10 @@ your-backend-project/
 ├── CLAUDE.md                  ← Claude Code 每次对话自动读取
 ├── AGENTS.md                  ← Codex 每次任务自动读取
 ├── .claude/
-│   └── commands/
-│       └── harness/           ← /harness:* 命令
+│   ├── skills/harness-*/      ← /harness-doctor 等六个工作流 skill
+│   └── rules/harness-*.md     ← 路径限定规则，读到匹配文件时拉进对应 guide
+├── .agents/
+│   └── skills/harness-*/      ← Codex 读的同一份六个 skill（$harness-doctor）
 └── .harness/
     ├── error-journal.md       ← AI 错误记忆文件
     ├── guides/                ← 15 个规范文档
@@ -264,8 +315,8 @@ your-backend-project/
 # 进入你的全栈项目根目录
 cd ~/code/your-fullstack-project
 
-# 运行安装脚本
-bash ~/tools/harness-engineering/fullstack-harness/setup.sh
+# 装规则并接 openspec-auto；只装规则用 bash ~/tools/harness-engineering/fullstack-harness/setup.sh
+fullstack-harness
 ```
 
 安装完成后你的项目会多出：
@@ -275,8 +326,10 @@ your-fullstack-project/
 ├── CLAUDE.md
 ├── AGENTS.md
 ├── .claude/
-│   └── commands/
-│       └── harness/
+│   ├── skills/harness-*/
+│   └── rules/harness-*.md
+├── .agents/
+│   └── skills/harness-*/
 └── .harness/
     ├── error-journal.md
     ├── guides/                ← 18 个规范文档（后端 15 + 前端 3）
@@ -315,8 +368,8 @@ your-fullstack-project/
 # 进入你的 Go 包项目根目录
 cd ~/code/your-go-package
 
-# 运行安装脚本
-bash ~/tools/harness-engineering/go-pkg-harness/setup.sh
+# 装规则并接 openspec-auto；只装规则用 bash ~/tools/harness-engineering/go-pkg-harness/setup.sh
+go-pkg-harness
 ```
 
 安装完成后你的项目会多出：
@@ -328,8 +381,10 @@ your-go-package/
 ├── Makefile                  ← lint / govulncheck / release-patch·release-minor 两步发版
 ├── version.go                ← const Version = "v0.1.0"
 ├── .claude/
-│   └── commands/
-│       └── harness/
+│   ├── skills/harness-*/
+│   └── rules/harness-*.md
+├── .agents/
+│   └── skills/harness-*/
 └── .harness/
     ├── error-journal.md
     └── guides/                ← 9 个规范文档
@@ -365,8 +420,8 @@ your-go-package/
 # 进入你的 Laravel 项目根目录
 cd ~/code/your-laravel-project
 
-# 运行安装脚本
-bash ~/tools/harness-engineering/laravel-harness/setup.sh
+# 装规则并接 openspec-auto；只装规则用 bash ~/tools/harness-engineering/laravel-harness/setup.sh
+laravel-harness
 ```
 
 安装完成后你的项目会多出：
@@ -376,8 +431,10 @@ your-laravel-project/
 ├── CLAUDE.md
 ├── AGENTS.md
 ├── .claude/
-│   └── commands/
-│       └── harness/
+│   ├── skills/harness-*/
+│   └── rules/harness-*.md
+├── .agents/
+│   └── skills/harness-*/
 └── .harness/
     ├── error-journal.md
     └── guides/
@@ -401,8 +458,8 @@ your-laravel-project/
 # 进入你的 Laravel 全栈项目根目录
 cd ~/code/your-laravel-fullstack-project
 
-# 运行安装脚本
-bash ~/tools/harness-engineering/laravel-fullstack-harness/setup.sh
+# 装规则并接 openspec-auto；只装规则用 bash ~/tools/harness-engineering/laravel-fullstack-harness/setup.sh
+laravel-fullstack-harness
 ```
 
 安装完成后你的项目会多出：
@@ -412,8 +469,10 @@ your-laravel-fullstack-project/
 ├── CLAUDE.md
 ├── AGENTS.md
 ├── .claude/
-│   └── commands/
-│       └── harness/
+│   ├── skills/harness-*/
+│   └── rules/harness-*.md
+├── .agents/
+│   └── skills/harness-*/
 └── .harness/
     ├── error-journal.md
     └── guides/
@@ -442,8 +501,8 @@ your-laravel-fullstack-project/
 # 进入你的 gRPC 项目根目录
 cd ~/code/your-grpc-service
 
-# 运行安装脚本
-bash ~/tools/harness-engineering/go-grpc-harness/setup.sh
+# 装规则并接 openspec-auto；只装规则用 bash ~/tools/harness-engineering/go-grpc-harness/setup.sh
+go-grpc-harness
 ```
 
 新项目可以先用脚手架生成骨架，它在末尾会自动调 `setup.sh` 把规则一起装好，骨架与规则同版本交付：
@@ -461,8 +520,10 @@ your-grpc-service/
 ├── CLAUDE.md                  ← Claude Code 每次对话自动读取
 ├── AGENTS.md                  ← Codex 每次任务自动读取
 ├── .claude/
-│   └── commands/
-│       └── harness/           ← /harness:* 命令
+│   ├── skills/harness-*/      ← /harness-doctor 等六个工作流 skill
+│   └── rules/harness-*.md     ← 路径限定规则，读到匹配文件时拉进对应 guide
+├── .agents/
+│   └── skills/harness-*/      ← Codex 读的同一份六个 skill（$harness-doctor）
 └── .harness/
     ├── error-journal.md       ← AI 错误记忆文件
     ├── guides/                ← 15 个规范文档
@@ -509,7 +570,7 @@ your-grpc-service/
 └── laravel-fullstack-harness/ ← 场景 E
     └── SKILL.md
 
-~/.codex/skills/
+~/.agents/skills/            ← Codex 官方的用户级 skill 目录（旧的 ~/.codex/skills/<harness>/ 会被移走）
 ├── go-harness/              ← 场景 A
 │   └── SKILL.md
 ├── go-grpc-harness/         ← 场景 F
@@ -530,7 +591,7 @@ your-grpc-service/
 
 ## 可选命令化 RPI 工作流
 
-这不是强制流程引擎，而是一组轻量命令模板。普通小改动可以直接让 AI 按 harness 规则完成；复杂、高风险、跨模块需求建议走命令化流程，让上下文只专注一件事。
+这不是强制流程引擎，而是六个轻量 skill。普通小改动可以直接让 AI 按 harness 规则完成；复杂、高风险、跨模块需求建议走命令化流程，让上下文只专注一件事。
 
 速查表和典型场景示例见 [Harness Command Workflow 速查](./docs/harness-command-workflow.md)。
 
@@ -538,89 +599,75 @@ your-grpc-service/
 
 ### Claude Code 怎么用
 
-Claude Code 会读取项目里的 `.claude/commands/harness/*.md`，所以可以直接输入 slash command：
+Claude Code 读项目里的 `.claude/skills/harness-*/SKILL.md`，目录名就是命令名：
 
 ```text
-/harness:doctor
+/harness-doctor
 ```
 
 ```text
-/harness:research
+/harness-research
 你的需求描述...
 ```
 
 ```text
-/harness:plan
+/harness-plan
 ```
 
 ```text
-/harness:implement
+/harness-implement
 ```
 
 ```text
-/harness:review
+/harness-review
 ```
 
 ### Codex 怎么用
 
-Codex 不会把 `.claude/commands/` 自动注册成 slash command；它通过 `AGENTS.md` 里的兼容入口识别自然语言别名：
+Codex 读项目里的 `.agents/skills/harness-*/SKILL.md`，与 Claude Code 是同一份文件。显式调用用 `$` 前缀，或输入 `/skills` 从列表里选：
 
 ```text
-harness doctor
+$harness-doctor
 ```
 
 ```text
-harness research: 你的需求描述...
+$harness-research 你的需求描述...
 ```
 
 ```text
-harness plan
+$harness-plan
 ```
 
 ```text
-harness implement
+$harness-implement
 ```
 
 ```text
-harness review
+$harness-review
 ```
-
-执行时 Codex 会先读取对应的 `.claude/commands/harness/<name>.md` 模板；如果模板不存在，会按 `AGENTS.md` 中定义的流程意图执行并提示缺少模板文件。不要把 `harness ...` 当作 shell 命令，它是给 Codex 的自然语言工作流别名。
 
 ### 命令说明
 
 ### 1. 诊断环境
 
 ```text
-/harness:doctor
+/harness-doctor
 ```
 
-检查项目是否已安装 harness、OpenSpec 是否可用、`.claude/commands/harness/` 是否齐全，以及可选 MCP 工具是否可用。
-
-Codex 等价写法：
-
-```text
-harness doctor
-```
+检查项目是否已安装 harness、OpenSpec 与 openspec-auto 是否可用、`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/` 是否齐全，以及可选 MCP 工具是否可用。
 
 ### 2. 初始化 OpenSpec（可选）
 
 ```text
-/harness:init-openspec
+/harness-init-openspec
 ```
 
-用于需要 proposal / spec / task 管理的复杂需求。命令会先检查 `openspec`，缺失时询问是否安装，不会静默覆盖现有 OpenSpec 文件。
-
-Codex 等价写法：
-
-```text
-harness init-openspec
-```
+用于需要 proposal / spec / task 管理的复杂需求。命令优先复用 `openspec-auto`：已装（`.openspec-auto/version` 存在）只跑体检；未装优先 `openspec-auto install .`，它不可用时才回退到 `openspec init --tools claude`。不会静默安装全局工具，也不会覆盖现有 OpenSpec 文件。
 
 ### 3. Research：需求转约束集
 
 ```text
-/harness:research
+/harness-research
 你的需求描述...
 ```
 
@@ -635,16 +682,10 @@ harness init-openspec
 
 这一步只消除不确定性，不写实现代码。
 
-Codex 等价写法：
-
-```text
-harness research: 你的需求描述...
-```
-
 ### 4. Plan：生成零决策计划
 
 ```text
-/harness:plan
+/harness-plan
 ```
 
 把已批准的约束集变成实现阶段可机械执行的计划，包含：
@@ -657,39 +698,23 @@ harness research: 你的需求描述...
 
 计划未获批准前不进入实现。
 
-Codex 等价写法：
-
-```text
-harness plan
-```
-
 ### 5. Implement：分阶段实现
 
 ```text
-/harness:implement
+/harness-implement
 ```
 
 按批准计划选择最小可验证任务执行。每完成一个阶段都要跑对应验证；如果上下文变大，会停在 checkpoint，给出下一次恢复方式。
 
-Codex 等价写法：
-
-```text
-harness implement
-```
-
 ### 6. Review：交付前审查
 
 ```text
-/harness:review
+/harness-review
 ```
 
 按 `.harness/guides/review-checklist.md` 或包级 review guide 检查当前 diff，覆盖 correctness、安全、性能、分层、代码质量门禁、可观测性、兼容性与迁移、测试缺口。
 
-Codex 等价写法：
-
-```text
-harness review
-```
+Codex 侧把 `/` 换成 `$` 即可，六个 skill 一一对应。
 
 ---
 
@@ -802,50 +827,31 @@ cat .harness/VERSION
 
 ### 在新项目中使用
 
-一条命令同时装好 harness 规则和 [openspec-auto](../openspec-auto-bootstrap) 的自动 OpenSpec 工作流：
-
 ```bash
-bash ~/tools/harness-engineering/init.sh go-harness ~/code/new-project
+go-harness ~/code/new-project             # Go 后端 + openspec-auto
+go-grpc-harness ~/code/new-grpc-service   # Go gRPC 微服务（全新项目可先用 go-grpc-harness/scaffold.sh 生成骨架）
+fullstack-harness ~/code/new-fullstack    # Go + Vue 全栈
+go-pkg-harness ~/code/new-package         # Go 扩展包
+laravel-harness ~/code/new-laravel        # Laravel
+laravel-fullstack-harness ~/code/new-lf   # Laravel + Vue 全栈
 ```
 
-`init.sh` 依次做三件事：目标目录不是 git 仓库就 `git init`（忽略规则要写进 `.git/info/exclude`）；运行对应 harness 的 `setup.sh`；再运行 `openspec-auto install`。顺序固定为 harness → openspec-auto：harness 整文件写入 `CLAUDE.md` / `AGENTS.md`，openspec-auto 再往这两个文件追加托管块。
+不传目录就装到当前目录。全局 Skill 已经装过了不会重复，只会安装项目级文件。只装 harness 加 `--no-openspec`，或直接跑对应目录的 `setup.sh`。命令直接运行仓库里的脚本，仓库改了什么，下次运行就是什么。
 
-`openspec-auto` 按 `$OPENSPEC_AUTO_BIN` → PATH 上的 `openspec-auto` → `$OPENSPEC_AUTO_BOOTSTRAP_DIR/install.sh` → 本仓库同级目录 `../openspec-auto-bootstrap/install.sh` 的顺序查找。常用参数：
-
-```bash
-bash ~/tools/harness-engineering/init.sh laravel-harness              # 目标目录缺省为当前目录
-bash ~/tools/harness-engineering/init.sh go-harness . --no-openspec   # 只装 harness
-bash ~/tools/harness-engineering/init.sh go-harness . --force         # 强制刷新 harness 文件并给 openspec-auto 传 --force
-bash ~/tools/harness-engineering/init.sh go-harness . -- --skip-codex-user-config   # -- 之后原样传给 openspec-auto install
-```
-
-只装 harness 也可以直接跑对应的 `setup.sh`：
+如果你要把一个老项目的 `CLAUDE.md` / `AGENTS.md` 刷新到最新模板：
 
 ```bash
-cd ~/code/new-project
-bash ~/tools/harness-engineering/go-harness/setup.sh                  # Go 后端
-bash ~/tools/harness-engineering/go-grpc-harness/setup.sh             # Go gRPC 微服务
-bash ~/tools/harness-engineering/fullstack-harness/setup.sh           # Go + Vue 全栈
-bash ~/tools/harness-engineering/go-pkg-harness/setup.sh              # Go 扩展包
-bash ~/tools/harness-engineering/laravel-harness/setup.sh             # Laravel
-bash ~/tools/harness-engineering/laravel-fullstack-harness/setup.sh   # Laravel + Vue 全栈
+go-harness --force-project-files
+HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.sh   # 直接跑 setup.sh 的等价写法
 ```
 
-全局 Skill 已经装过了不会重复，只会安装项目级文件。
-
-如果你要把一个老项目的 `CLAUDE.md` / `AGENTS.md` 刷新到最新模板，可显式加环境变量：
-
-```bash
-HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.sh
-```
-
-这个开关会刷新项目根目录规则文件和 `.harness/scripts/` 里的运行时脚本，但不会强制覆盖你已经修改过的 `.harness/guides/`。`CLAUDE.md` / `AGENTS.md` 里 openspec-auto 写入的托管块（`OPENSPEC-AUTO:START/END`）在刷新时原样保留；日常重跑 setup 比对入口文件是否为本版本时也会忽略这个块。
+这个开关会刷新项目根目录规则文件、六个工作流 skill、`.claude/rules/` 和 `.harness/scripts/` 里的运行时脚本，但不会强制覆盖你已经修改过的 `.harness/guides/`（那个用 `--force-guides` / `HARNESS_FORCE_GUIDES=1`，`--force` 两者都刷）。`CLAUDE.md` / `AGENTS.md` 里 openspec-auto 写入的托管块（`OPENSPEC-AUTO:START/END`）在刷新时原样保留；日常重跑 setup 比对入口文件是否为本版本时也会忽略这个块。
 
 ---
 
 ## Git 提交建议
 
-默认策略：**所有 harness 产物都不入库，由每个成员各自运行 `setup.sh` / `setup.ps1` 再生**。setup 把忽略规则**分两处**落地：
+默认策略：**所有 harness 产物都不入库，由每个成员各自运行 `go-harness` 等命令（或 `setup.sh` / `setup.ps1`）再生**。setup 把忽略规则**分两处**落地：
 
 `.gitignore`（可入库）——只放通用构建 / 编辑器 / OS 产物：
 
@@ -864,13 +870,12 @@ HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.
 .harness/      # 入口规则、guides、运行时脚本、error-journal、VERSION 整目录
 CLAUDE.md
 AGENTS.md
-.claude/       # 含 commands/harness/、个人 Claude 运行状态
+.claude/       # skills/harness-*、rules/、openspec-auto 的 settings.json、个人 Claude 运行状态
 .codex/
-.agents/
+.agents/       # Codex 读的 skills/harness-*、openspec-auto skill
 openspec/
-.openspec-auto/
+.openspec-auto/         # openspec-auto 的 hooks、工具库、运行状态
 .openspec-auto-backup/
-tools/openspec/   # 只收窄到 openspec-auto 落地的目录，不挡业务自己的 tools/
 .learnings/
 findings.md
 progress.md
@@ -914,20 +919,21 @@ rm -rf ~/.claude/skills/go-pkg-harness
 rm -rf ~/.claude/skills/laravel-harness
 rm -rf ~/.claude/skills/laravel-fullstack-harness
 
-rm -rf ~/.codex/skills/go-harness
-rm -rf ~/.codex/skills/go-grpc-harness
-rm -rf ~/.codex/skills/fullstack-harness
-rm -rf ~/.codex/skills/go-pkg-harness
-rm -rf ~/.codex/skills/laravel-harness
-rm -rf ~/.codex/skills/laravel-fullstack-harness
+rm -rf ~/.agents/skills/go-harness
+rm -rf ~/.agents/skills/go-grpc-harness
+rm -rf ~/.agents/skills/fullstack-harness
+rm -rf ~/.agents/skills/go-pkg-harness
+rm -rf ~/.agents/skills/laravel-harness
+rm -rf ~/.agents/skills/laravel-fullstack-harness
 ```
 
 **Q：guides 改错了想恢复怎么办？**
 
-默认重新跑 `setup.sh` 只会补齐缺失 guide，不会覆盖你已经修改过的内容。想强制恢复模板版本时，显式加环境变量：
+默认重跑只会补齐缺失 guide，不会覆盖你已经修改过的内容。想强制恢复模板版本：
 
 ```bash
-HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/go-harness/setup.sh
+go-harness --force-guides
+HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/go-harness/setup.sh   # 脚本等价写法
 ```
 
 Laravel 系列同理：
@@ -938,11 +944,14 @@ HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/laravel-harness/setup.sh
 
 **Q：项目里的 `CLAUDE.md` / `AGENTS.md` 老了想升级怎么办？**
 
-默认重新跑 `setup.sh` 不会覆盖项目里已存在的入口文件。想刷新到仓库当前模板时，显式加：
+默认重跑不会覆盖项目里已存在的入口文件。想刷新到仓库当前模板时：
 
 ```bash
-HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.sh
+go-harness --force-project-files
+HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.sh   # 脚本等价写法
 ```
+
+`CLAUDE.md` / `AGENTS.md` 里 openspec-auto 的托管块会原样保留。
 
 Laravel / fullstack / go-pkg 也同理，只需要替换对应目录。
 
@@ -953,7 +962,20 @@ Laravel / fullstack / go-pkg 也同理，只需要替换对应目录。
 
 ## Windows 用法
 
-6 个 harness 模块都提供 Windows 原生入口（`init.sh` 的一键流程只有 macOS / Linux 版本，Windows 下分别运行 `setup.ps1` 与 `openspec-auto install`）：
+### 推荐：Git Bash 或 WSL，与 macOS / Linux 完全一致
+
+Claude Code 的原生 Windows 版本本身要求安装 Git for Windows，hook 在 Git Bash 里执行，所以能跑 Claude Code 的 Windows 机器上一定有 bash。在 Git Bash 里执行与 macOS / Linux 相同的命令即可，包括接 openspec-auto 的一键流程：
+
+```bash
+cd /c/path/to/harness-engineering && bash install.sh     # 命令写进 ~/go/bin（Git Bash 的 HOME 就是 C:\Users\<你>）
+cd /c/code/your-backend-project && go-harness            # harness + openspec-auto
+```
+
+openspec-auto 也是 bash + Python 实现，在 Git Bash 里同样按 `python3` → `python` 探测解释器。WSL 里则与 Linux 完全一致。
+
+### 只装 harness：PowerShell / cmd 原生入口
+
+6 个 harness 模块另外提供 Windows 原生入口，装出的内容与 `setup.sh` 一致，但只装 harness；接 openspec-auto 要走上面的 Git Bash 路径。
 
 - `setup.ps1`，用于 PowerShell
 - `setup.bat`，用于 `cmd.exe`
@@ -1007,9 +1029,12 @@ Windows 下同样支持先设置 `HARNESS_FORCE_GUIDES=1`，再执行任一脚�
 
 ## 贡献本仓库（修改 harness 模板）
 
-如果你要改 `setup.sh` / `setup.ps1`、`guides/*.md`、`CLAUDE.md` / `AGENTS.md`、或 `scripts/`，提交前先在本地跑这套门禁，与 CI 保持一致：
+如果你要改 `setup.sh` / `setup.ps1`、`guides/*.md`、`rules/*.md`、`skills/*/SKILL.md`、`CLAUDE.md` / `AGENTS.md` 或 `scripts/`，提交前先在本地跑这套门禁：
 
 ```bash
+# 0. 入口脚本语法
+bash -n install.sh scripts/harness-init.sh
+
 # 1. CLAUDE.md / AGENTS.md 同步检查（修改 AGENTS.md 后必跑）
 bash scripts/sync-claude-from-agents.sh --check
 

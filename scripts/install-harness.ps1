@@ -212,6 +212,42 @@ function Install-HarnessEntryFile {
     $script:harnessStaleProjectFiles += $Label
 }
 
+# 把 SourceDir 下的 .md 文件（含子目录里的 SKILL.md）复制到 TargetDir；已存在默认保留，Force=1 覆盖。
+function Copy-HarnessTree {
+    param(
+        [string]$SourceDir,
+        [string]$TargetDir,
+        [string]$Force,
+        [string]$Label
+    )
+
+    $copied = 0
+    $preserved = 0
+    $files = Get-ChildItem -LiteralPath $SourceDir -File -Recurse -Filter *.md
+    if ($files.Count -eq 0) {
+        throw "No markdown templates found in $SourceDir"
+    }
+    foreach ($file in $files) {
+        $relative = $file.FullName.Substring($SourceDir.Length).TrimStart('\', '/')
+        $destination = Join-Path $TargetDir $relative
+        $destinationDir = Split-Path -Parent $destination
+        New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+        if ($Force -eq "1" -or -not (Test-Path -LiteralPath $destination)) {
+            Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+            $copied++
+        }
+        else {
+            $preserved++
+        }
+    }
+    if ($Force -eq "1") {
+        Write-Host "  OK $Label - refreshed $copied"
+    }
+    else {
+        Write-Host "  OK $Label - added $copied, preserved $preserved"
+    }
+}
+
 # 解析项目的 .git/info/exclude 路径(兼容 worktree/submodule); 非 git 仓库返回 $null。
 function Resolve-HarnessExcludeFile {
     param([string]$ProjectDir)
@@ -312,7 +348,8 @@ function Invoke-HarnessSetup {
 
     $guidesDir = Join-Path $ScriptDir "guides"
     $runtimeScriptsDir = Join-Path (Split-Path -Parent $ScriptDir) "scripts\error-journal"
-    $commandsDir = Join-Path (Split-Path -Parent $ScriptDir) "commands\harness"
+    $skillsDir = Join-Path (Split-Path -Parent $ScriptDir) "skills"
+    $rulesDir = Join-Path $ScriptDir "rules"
     $skillPath = Join-Path $ScriptDir "SKILL.md"
     $claudePath = Join-Path $ScriptDir "CLAUDE.md"
     $agentsPath = Join-Path $ScriptDir "AGENTS.md"
@@ -320,7 +357,7 @@ function Invoke-HarnessSetup {
 
     Assert-HarnessPathExists -Path $guidesDir -Message "Missing guides directory: $guidesDir"
     Assert-HarnessPathExists -Path $runtimeScriptsDir -Message "Missing runtime scripts directory: $runtimeScriptsDir"
-    Assert-HarnessPathExists -Path $commandsDir -Message "Missing harness commands directory: $commandsDir"
+    Assert-HarnessPathExists -Path $skillsDir -Message "Missing harness skills directory: $skillsDir"
     Assert-HarnessPathExists -Path $skillPath -Message "Missing SKILL.md: $skillPath"
     Assert-HarnessPathExists -Path $CodexSkillPath -Message "Missing Codex skill template: $CodexSkillPath"
     Assert-HarnessPathExists -Path $claudePath -Message "Missing CLAUDE.md: $claudePath"
@@ -346,10 +383,17 @@ function Invoke-HarnessSetup {
     Copy-Item -LiteralPath $skillPath -Destination (Join-Path $claudeSkillDir "SKILL.md") -Force
     Write-Host "  OK $claudeSkillDir\SKILL.md"
 
-    $codexSkillDir = Join-Path $codexHome "skills\$ModuleName"
+    # Codex 官方的用户级 skill 目录是 ~/.agents/skills；1.10.0 及更早版本装在 $CODEX_HOME/skills（旧位置），
+    # 两处同名会重复触发，迁移时把旧的删掉。
+    $codexSkillDir = Join-Path $homeDir ".agents\skills\$ModuleName"
     New-Item -ItemType Directory -Path $codexSkillDir -Force | Out-Null
     Set-Utf8NoBomContent -Path (Join-Path $codexSkillDir "SKILL.md") -Value (Get-Content -LiteralPath $CodexSkillPath -Raw)
     Write-Host "  OK $codexSkillDir\SKILL.md"
+    $legacyCodexSkillDir = Join-Path $codexHome "skills\$ModuleName"
+    if (Test-Path -LiteralPath (Join-Path $legacyCodexSkillDir "SKILL.md")) {
+        Remove-Item -LiteralPath $legacyCodexSkillDir -Recurse -Force
+        Write-Host "  OK removed legacy $legacyCodexSkillDir (Codex now reads ~/.agents/skills)"
+    }
     Write-Host ""
 
     Write-Host "--------------------------------------------"
@@ -431,33 +475,27 @@ function Invoke-HarnessSetup {
     Write-Host ""
 
     Write-Host "--------------------------------------------"
-    Write-Host "[Step 3] Install Claude Code commands"
+    Write-Host "[Step 3] Install project skills and rules"
     Write-Host "--------------------------------------------"
     Write-Host ""
 
-    $projectCommandsDir = Join-Path $projectDir ".claude\commands\harness"
-    New-Item -ItemType Directory -Path $projectCommandsDir -Force | Out-Null
-    $commandCopied = 0
-    $commandPreserved = 0
-    $commandFiles = Get-ChildItem -LiteralPath $commandsDir -File -Filter *.md
-    if ($commandFiles.Count -eq 0) {
-        throw "No harness command templates found in $commandsDir"
-    }
-    foreach ($commandFile in $commandFiles) {
-        $destination = Join-Path $projectCommandsDir $commandFile.Name
-        if ($forceProjectFiles -eq "1" -or -not (Test-Path -LiteralPath $destination)) {
-            Copy-Item -LiteralPath $commandFile.FullName -Destination $destination -Force
-            $commandCopied++
+    # 1.10.0 及更早版本装的是 .claude/commands/harness/，Claude Code 已把 commands 标为旧格式
+    $legacyCommandsDir = Join-Path $projectDir ".claude\commands\harness"
+    if (Test-Path -LiteralPath $legacyCommandsDir) {
+        Remove-Item -LiteralPath $legacyCommandsDir -Recurse -Force
+        $legacyCommandsParent = Join-Path $projectDir ".claude\commands"
+        if ((Test-Path -LiteralPath $legacyCommandsParent) -and -not (Get-ChildItem -LiteralPath $legacyCommandsParent -Force)) {
+            Remove-Item -LiteralPath $legacyCommandsParent -Force
         }
-        else {
-            $commandPreserved++
-        }
+        Write-Host "  OK removed legacy .claude/commands/harness/ (replaced by skills)"
     }
-    if ($forceProjectFiles -eq "1") {
-        Write-Host "  OK .claude/commands/harness/ - refreshed $commandCopied commands"
-    }
-    else {
-        Write-Host "  OK .claude/commands/harness/ - added $commandCopied, preserved $commandPreserved"
+
+    # 同一份 SKILL.md 双端各装一份：Claude Code 读 .claude/skills，Codex 读 .agents/skills
+    Copy-HarnessTree -SourceDir $skillsDir -TargetDir (Join-Path $projectDir ".claude\skills") -Force $forceProjectFiles -Label ".claude/skills/harness-*/"
+    Copy-HarnessTree -SourceDir $skillsDir -TargetDir (Join-Path $projectDir ".agents\skills") -Force $forceProjectFiles -Label ".agents/skills/harness-*/"
+    # Claude Code 的路径限定规则：只在读到匹配文件时把对应 guide 拉进上下文
+    if (Test-Path -LiteralPath $rulesDir) {
+        Copy-HarnessTree -SourceDir $rulesDir -TargetDir (Join-Path $projectDir ".claude\rules") -Force $forceProjectFiles -Label ".claude/rules/harness-*.md"
     }
     Write-Host ""
 
@@ -470,8 +508,9 @@ function Invoke-HarnessSetup {
     #   - .gitignore(可入库): 只放通用构建/编辑器/OS 产物。
     #   - .git/info/exclude(仅本地): 本地工具与 Agent 运行产物，避免忽略规则本身泄露 AI 工具链。
     #   go-pkg-harness 是纯扩展包，不产生 .env 运行配置；其余 harness 面向应用/服务，一律忽略 .env。
-    #   tools/ 只收窄到 openspec-auto 实际落地的 tools/openspec/，整目录忽略会挡住业务自己的 tools/。
-    $legacyToolsPattern = "tools/"
+    #   1.7.0 ~ 1.10.0 写过整目录 tools/（会挡住业务自己的 tools/），之后短暂写过 tools/openspec/；
+    #   openspec-auto 现在全部落在 .openspec-auto/ 下，两条旧规则都要剔除。
+    $legacyToolsPatterns = @("tools/", "tools/openspec/")
     $gitignorePatterns = @(
         ".idea/",
         ".vscode/",
@@ -493,7 +532,6 @@ function Invoke-HarnessSetup {
         "openspec/",
         "AGENTS.md",
         "CLAUDE.md",
-        "tools/openspec/",
         ".learnings/",
         "findings.md",
         "progress.md",
@@ -511,7 +549,7 @@ function Invoke-HarnessSetup {
     }
 
     # 迁移: 剔除旧版本误写进 .gitignore 的本地工具规则与旧标题(移到 .git/info/exclude)
-    $legacyLines = @(Get-HarnessLegacyGitignoreHeader) + $excludePatterns + @($legacyToolsPattern)
+    $legacyLines = @(Get-HarnessLegacyGitignoreHeader) + $excludePatterns + $legacyToolsPatterns
     if (Remove-LinesFromFile -Path $gitignorePath -Lines $legacyLines) {
         Write-Host "  OK removed legacy local-tool rules from .gitignore (migrated to .git/info/exclude)"
     }
@@ -542,8 +580,7 @@ function Invoke-HarnessSetup {
 
         $excludeUpdated = $false
         $excludeHeader = Get-HarnessExcludeHeader
-        # 1.7.0 ~ 1.10.0 写入的整目录 tools/ 收窄成 tools/openspec/
-        if (Remove-LinesFromFile -Path $excludeFile -Lines @($legacyToolsPattern)) {
+        if (Remove-LinesFromFile -Path $excludeFile -Lines $legacyToolsPatterns) {
             $excludeUpdated = $true
         }
         if (Add-UniqueLine -Path $excludeFile -Line $excludeHeader) {

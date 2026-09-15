@@ -15,8 +15,8 @@
 | **⑥ 记忆机制（markdown / 持久化）** | **harness 原生** | `.harness/error-journal.md` + `.harness/guides/` 即"模型会忘、仓库不会" |
 | **① 自动化调度（Automations / `/loop` / cron / `/goal`）** | 运行时 | 实现不了，只能在命令模板里引用；且仅 Claude Code 有 |
 | **② 工作树隔离（git worktree / 自动清理）** | 运行时 | 实现不了，只能下达"用隔离环境跑并行子任务"的策略 |
-| **④ 插件与连接器（MCP / Connectors）** | 外部 MCP server | 实现不了；`/harness:doctor` 会检查其可用性 |
-| **⑤ 子 Agent（写代码 Agent / 检查 Agent 协作）** | 运行时派发 | 实现不了真正的并行派发；`/harness:implement`、`/harness:review` 是角色化提示词，是它的"轻量版" |
+| **④ 插件与连接器（MCP / Connectors）** | 外部 MCP server | 实现不了；`/harness-doctor` 会检查其可用性 |
+| **⑤ 子 Agent（写代码 Agent / 检查 Agent 协作）** | 运行时派发 | 实现不了真正的并行派发；`/harness-implement`、`/harness-review` 是角色化提示词，是它的"轻量版" |
 
 直观地说：**harness 占住了图的内核（递归目标的纪律）和两个角（Skill、Memory）；其余四块属于运行时。**
 

@@ -42,8 +42,7 @@ EOF
     fi
 }
 
-# tools/ 只收窄到 openspec-auto 实际落地的 tools/openspec/：整目录忽略 tools/ 会把
-# 业务项目自己的 tools/ 目录一并挡在版本库外，git status 里看不到、git add 会被拒。
+# openspec-auto 现在全部落在 .openspec-auto/ 下，不再需要忽略任何非隐藏的 tools 目录。
 _harness_exclude_patterns() {
     cat <<'EOF'
 .openspec-auto-backup/
@@ -55,7 +54,6 @@ _harness_exclude_patterns() {
 openspec/
 AGENTS.md
 CLAUDE.md
-tools/openspec/
 .learnings/
 findings.md
 progress.md
@@ -65,14 +63,15 @@ EOF
 
 # 旧版本（1.x）曾把上述本地工具规则连同 "# Harness:" 标题一起误写进 .gitignore，
 # 迁移时需从 .gitignore 里精确剔除这些历史行（通用产物行保留）。
-# 1.7.0 ~ 1.10.0 写入的是整目录 tools/，也一并剔除；.git/info/exclude 里已有的
-# 旧 tools/ 行同样收窄成 tools/openspec/。
+# 1.7.0 ~ 1.10.0 还写过整目录 tools/（会把业务自己的 tools/ 挡在版本库外），
+# 之后短暂写过 tools/openspec/；两条都从 .gitignore 与 .git/info/exclude 里剔除。
 _HARNESS_LEGACY_GITIGNORE_HEADER="# Harness: 本地工具与 Agent 运行产物"
-_HARNESS_LEGACY_TOOLS_PATTERN="tools/"
+_HARNESS_LEGACY_TOOLS_PATTERNS="tools/
+tools/openspec/"
 
 _harness_legacy_gitignore_patterns() {
     _harness_exclude_patterns
-    printf '%s\n' "${_HARNESS_LEGACY_TOOLS_PATTERN}"
+    printf '%s\n' "${_HARNESS_LEGACY_TOOLS_PATTERNS}"
 }
 
 _harness_append_unique_line() {
@@ -247,11 +246,17 @@ install_harness() {
     cp "${script_dir}/SKILL.md" "${claude_skill_dir}/SKILL.md"
     echo "  ✓ ${claude_skill_dir}/SKILL.md"
 
-    local codex_home="${CODEX_HOME:-${HOME}/.codex}"
-    local codex_skill_dir="${codex_home}/skills/${module_name}"
+    # Codex 官方的用户级 skill 目录是 ~/.agents/skills；1.10.0 及更早版本装在 $CODEX_HOME/skills（旧位置），
+    # 两处同名会重复触发，迁移时把旧的删掉。
+    local codex_skill_dir="${HOME}/.agents/skills/${module_name}"
     mkdir -p "${codex_skill_dir}"
     cp "${script_dir}/SKILL.codex.md" "${codex_skill_dir}/SKILL.md"
     echo "  ✓ ${codex_skill_dir}/SKILL.md"
+    local legacy_codex_skill_dir="${CODEX_HOME:-${HOME}/.codex}/skills/${module_name}"
+    if [ -f "${legacy_codex_skill_dir}/SKILL.md" ]; then
+        rm -rf "${legacy_codex_skill_dir}"
+        echo "  ✓ 已移除旧位置 ${legacy_codex_skill_dir}（Codex 现读 ~/.agents/skills）"
+    fi
     echo ""
 
     # ==========================================================
@@ -329,13 +334,13 @@ install_harness() {
     echo ""
 
     # ==========================================================
-    # Step 3: Claude Code Commands
+    # Step 3: 项目级 skills（Claude Code + Codex）与 Claude 路径限定 rules
     # ==========================================================
     echo "--------------------------------------------"
-    echo "[Step 3] 安装 Claude Code Commands"
+    echo "[Step 3] 安装项目级 skills 与 rules"
     echo "--------------------------------------------"
     echo ""
-    install_harness_commands "${harness_root}" "${project_dir}" "${force_project_files}"
+    install_harness_skills "${harness_root}" "${script_dir}" "${project_dir}" "${force_project_files}"
     echo ""
 
     # ==========================================================
@@ -387,9 +392,13 @@ EOF
 
         local exclude_updated=0
         local exclude_header="# 本地工具与运行产物（仅本地忽略，不进版本库）"
-        if _harness_remove_exact_line "${exclude_file}" "${_HARNESS_LEGACY_TOOLS_PATTERN}"; then
-            exclude_updated=1
-        fi
+        while IFS= read -r pattern; do
+            if _harness_remove_exact_line "${exclude_file}" "${pattern}"; then
+                exclude_updated=1
+            fi
+        done <<EOF
+${_HARNESS_LEGACY_TOOLS_PATTERNS}
+EOF
         if ! grep -Fxq "${exclude_header}" "${exclude_file}" 2>/dev/null; then
             _harness_ensure_trailing_newline "${exclude_file}"
             printf '%s\n' "${exclude_header}" >> "${exclude_file}"
@@ -454,7 +463,8 @@ EOF
     echo "    ${project_dir}/CLAUDE.md"
     echo "    ${project_dir}/AGENTS.md"
     echo "    ${project_dir}/.harness/  (error-journal.md / guides/ ${guide_count} 篇 / scripts/)"
-    echo "    ${project_dir}/.claude/commands/harness/"
+    echo "    ${project_dir}/.claude/skills/harness-*/  ${project_dir}/.agents/skills/harness-*/"
+    echo "    ${project_dir}/.claude/rules/harness-*.md"
     echo ""
     echo "  全局 Skill 只是入口；项目规则维护在 CLAUDE.md、AGENTS.md 和 .harness/guides/。"
     echo ""

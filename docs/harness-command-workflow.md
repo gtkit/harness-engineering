@@ -1,17 +1,17 @@
 # Harness Command Workflow 速查
 
-这组命令是可选的复杂任务编排入口。简单改字段、补小 bug、改文案时，直接让 AI 按 harness 规则改即可；跨模块、高风险、需求不清晰或需要先确认方案时，再使用命令化流程。
+这组 skill 是可选的复杂任务编排入口，Claude Code 与 Codex 装的是同一份 `SKILL.md`（分别在 `.claude/skills/harness-*/` 与 `.agents/skills/harness-*/`），Claude Code 用 `/harness-xxx` 调用，Codex 用 `$harness-xxx` 或 `/skills` 选择。简单改字段、补小 bug、改文案时，直接让 AI 按 harness 规则改即可；跨模块、高风险、需求不清晰或需要先确认方案时，再使用命令化流程。
 
 ## 命令对照
 
 | 目的 | Claude Code | Codex |
 |-----|-------------|-------|
-| 检查环境 | `/harness:doctor` | `harness doctor` |
-| 初始化 OpenSpec | `/harness:init-openspec` | `harness init-openspec` |
-| 研究需求和约束 | `/harness:research` | `harness research: ...` |
-| 生成执行计划 | `/harness:plan` | `harness plan` |
-| 按计划实现 | `/harness:implement` | `harness implement` |
-| 交付前审查 | `/harness:review` | `harness review` |
+| 检查环境 | `/harness-doctor` | `$harness-doctor` |
+| 初始化 OpenSpec | `/harness-init-openspec` | `$harness-init-openspec` |
+| 研究需求和约束 | `/harness-research` | `$harness-research ...` |
+| 生成执行计划 | `/harness-plan` | `$harness-plan` |
+| 按计划实现 | `/harness-implement` | `$harness-implement` |
+| 交付前审查 | `/harness-review` | `$harness-review` |
 
 ## 什么时候不用命令
 
@@ -33,30 +33,30 @@
 Claude Code:
 
 ```text
-/harness:doctor
+/harness-doctor
 ```
 
 Codex:
 
 ```text
-harness doctor
+$harness-doctor
 ```
 
-适合刚执行 setup 后确认 `AGENTS.md`、`CLAUDE.md`、`.harness/guides/`、`.claude/commands/harness/` 是否齐全。
+适合刚执行 setup 后确认 `AGENTS.md`、`CLAUDE.md`、`.harness/guides/`、`.claude/skills/harness-*/`、`.agents/skills/harness-*/` 是否齐全。
 
 ### 场景 2：复杂功能先研究
 
 Claude Code:
 
 ```text
-/harness:research
+/harness-research
 我要新增订单退款能力，涉及 API、数据库、支付回调、后台页面和权限控制。先不要写代码，先整理约束、风险、开放问题和成功标准。
 ```
 
 Codex:
 
 ```text
-harness research: 我要新增订单退款能力，涉及 API、数据库、支付回调、后台页面和权限控制。先不要写代码，先整理约束、风险、开放问题和成功标准。
+$harness-research 我要新增订单退款能力，涉及 API、数据库、支付回调、后台页面和权限控制。先不要写代码，先整理约束、风险、开放问题和成功标准。
 ```
 
 输出应停在约束集和问题清单，不进入实现。
@@ -66,13 +66,13 @@ harness research: 我要新增订单退款能力，涉及 API、数据库、支�
 Claude Code:
 
 ```text
-/harness:plan
+/harness-plan
 ```
 
 Codex:
 
 ```text
-harness plan
+$harness-plan
 ```
 
 适合在你确认 research 结果后，把需求拆成文件清单、顺序任务、每步验证、回滚说明和测试目标。
@@ -82,13 +82,13 @@ harness plan
 Claude Code:
 
 ```text
-/harness:implement
+/harness-implement
 ```
 
 Codex:
 
 ```text
-harness implement
+$harness-implement
 ```
 
 只在计划已经批准后使用。实现过程应小步提交、每步验证，不能临场重新做架构决策。
@@ -98,13 +98,13 @@ harness implement
 Claude Code:
 
 ```text
-/harness:review
+/harness-review
 ```
 
 Codex:
 
 ```text
-harness review
+$harness-review
 ```
 
 适合交付前检查当前 diff，重点看正确性、安全、性能、分层、代码质量门禁、测试缺口和兼容性。
@@ -114,13 +114,13 @@ harness review
 Claude Code:
 
 ```text
-/harness:init-openspec
+/harness-init-openspec
 ```
 
 Codex:
 
 ```text
-harness init-openspec
+$harness-init-openspec
 ```
 
 只有需要 proposal / spec / task 管理的大需求才用。命令优先检查并复用 `openspec-auto`（仓库内 hooks + skill + 托管块的自动工作流），项目用 `init.sh` 初始化时它已经装好，此时命令只跑体检；缺少 OpenSpec CLI 时，必须先确认安装方式，不允许静默安装全局工具。

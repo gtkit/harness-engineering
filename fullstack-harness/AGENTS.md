@@ -28,26 +28,24 @@
 3. **按结构组织**：后端按模块化分层（bootstrap → runtime/module → module/application → repository），前端按 views→composables→api
 4. **检查合规**：运行传感器 + 自审 + 交叉验证 + 合规摘要
 
-## Codex 命令化工作流兼容入口
+## 工作流 skills（Claude Code 与 Codex 同一套）
 
-Claude Code 可以直接使用 `/harness:*` slash commands；Codex 不会自动注册 `.claude/commands/`。当用户在 Codex 中使用以下自然语言别名前缀时，必须把它当作同名 harness command 处理：
+setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Claude Code）和 `.agents/skills/harness-*/`（Codex），内容完全相同：
 
-| Codex 输入前缀 | 对应流程 |
-|---------------|----------|
-| `harness doctor` / `harness doctor: <focus>` | 诊断 harness、OpenSpec、命令模板和可选 MCP 状态 |
-| `harness init-openspec` | 初始化或验证 OpenSpec；安装全局工具前必须先确认 |
-| `harness research: <需求>` | 只做需求研究，输出约束集、风险、开放问题和可验证成功标准，不写代码 |
-| `harness plan` / `harness plan: <proposal_id>` | 基于已批准约束集生成零决策计划，不写代码 |
-| `harness implement` / `harness implement: <proposal_id>` | 只按已批准计划分阶段实现并验证 |
-| `harness review` / `harness review: <scope>` | 按 harness 质量门禁审查当前 diff |
+| Claude Code | Codex | 用途 |
+|-------------|-------|------|
+| `/harness-doctor` | `$harness-doctor` | 诊断 harness、OpenSpec、skills 与可选 MCP 状态 |
+| `/harness-init-openspec` | `$harness-init-openspec` | 初始化或验证 OpenSpec（优先复用 openspec-auto） |
+| `/harness-research <需求>` | `$harness-research <需求>` | 只做需求研究，输出约束集、风险、开放问题和可验证成功标准，不写代码 |
+| `/harness-plan` | `$harness-plan` | 基于已批准约束集生成零决策计划，不写代码 |
+| `/harness-implement` | `$harness-implement` | 只按已批准计划分阶段实现并验证 |
+| `/harness-review` | `$harness-review` | 按 harness 质量门禁审查当前 diff |
 
 执行规则：
 
-1. 如果 `.claude/commands/harness/<name>.md` 存在，先读取对应模板并严格按模板执行。
-2. 如果命令模板不存在，仍按上表的流程意图执行，但必须说明缺少模板文件。
-3. 不把 `harness ...` 当作 shell 命令执行；它是 Codex 的自然语言工作流别名。
-4. 简单小改动不强制走完整 RPI；复杂、高风险、跨模块任务优先使用 `research → plan → implement → review`。
-5. `research` 和 `plan` 阶段不得修改代码；`implement` 必须基于用户已批准的计划。
+1. 被显式调用或任务明显匹配某个 skill 的 description 时，读取并严格按该 `SKILL.md` 执行。
+2. 简单小改动不强制走完整 RPI；复杂、高风险、跨模块任务优先使用 `research → plan → implement → review`。
+3. `research` 和 `plan` 阶段不得修改代码；`implement` 必须基于用户已批准的计划。
 
 ## 外科式修改（Surgical Changes）
 
