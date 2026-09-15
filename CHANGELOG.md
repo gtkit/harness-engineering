@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### Added
+- 新增仓库根目录 `init.sh`：一条命令完成新项目初始化——目标目录非 git 仓库时 `git init`，运行指定 harness 的 `setup.sh`，再运行 `openspec-auto install`。顺序固定为 harness → openspec-auto（harness 整文件写入口文件，openspec-auto 再追加托管块）。`openspec-auto` 按 `$OPENSPEC_AUTO_BIN` → PATH → `$OPENSPEC_AUTO_BOOTSTRAP_DIR/install.sh` → 同级目录 `../openspec-auto-bootstrap/install.sh` 查找；支持 `--no-openspec`、`--force`，`--` 之后的参数原样传给 `openspec-auto install`。仅 macOS / Linux。
+- `/harness:init-openspec` 改为优先检查并复用 `openspec-auto`：已装（`.openspec-auto/version` 存在）只跑 `openspec-auto doctor .`；未装优先 `openspec-auto install .`，只有它不可用时才回退到 `openspec init --tools claude`。`/harness:doctor` 增加 openspec-auto 的检查项（版本文件、hooks、skill、两份入口文件里的托管块，并运行体检）。
+
+### Changed
+- setup 比对与刷新 `CLAUDE.md` / `AGENTS.md` 时绕开 openspec-auto 的托管块（`<!-- OPENSPEC-AUTO:START -->` … `<!-- OPENSPEC-AUTO:END -->`）：日常重跑时去掉该块再与模板比对，装过 openspec-auto 的项目不再每次被判为"与模板不同"；`HARNESS_FORCE_PROJECT_FILES=1` 刷新时先写模板再把块原样追加回去，不用再重跑 openspec-auto 补块。此前刷新会把块整个抹掉，且只在结束提示里让用户自己记得补。`sh` / `ps1` 两端一致。
+- `.git/info/exclude` 里的 `tools/` 收窄为 `tools/openspec/`（openspec-auto 实际落地的目录）。整目录忽略 `tools/` 会把业务项目自己的 `tools/` 一并挡在版本库外：`git status` 看不到、`git add` 被拒。重跑 setup 会把已有的 `tools/` 行改写为 `tools/openspec/`，并从旧 `.gitignore` 里剔除历史写入的 `tools/`。三套 smoke 测试基线同步。
+
 ## [1.10.0] - 2026-08-31
 
 ### Changed

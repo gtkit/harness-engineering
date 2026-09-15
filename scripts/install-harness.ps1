@@ -128,6 +128,90 @@ function Remove-LinesFromFile {
     return $true
 }
 
+# openspec-auto 往 CLAUDE.md / AGENTS.md 注入的托管块起止标记。harness 比对与刷新时绕开它：
+# 比对忽略该块(否则装过 openspec-auto 的项目每次重跑都被判为"与模板不同")，
+# 强制刷新先写模板再把块原样追加回去。与 scripts/install-harness.sh 行为一致。
+$script:HarnessOpenSpecBlockStart = "<!-- OPENSPEC-AUTO:START -->"
+$script:HarnessOpenSpecBlockEnd = "<!-- OPENSPEC-AUTO:END -->"
+
+# 返回文件中的托管块文本(含起止标记行, 以 "`n" 连接)；没有块返回空串。
+function Get-HarnessManagedBlock {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return ""
+    }
+    $lines = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8) -split "\r?\n"
+    $block = @()
+    $inside = $false
+    foreach ($line in $lines) {
+        if ($line -ceq $script:HarnessOpenSpecBlockStart) { $inside = $true }
+        if ($inside) { $block += $line }
+        if ($line -ceq $script:HarnessOpenSpecBlockEnd) { $inside = $false }
+    }
+    return ($block -join "`n")
+}
+
+# 返回去掉托管块后的文件文本(去掉尾部空行)，用于与模板比对。
+function Get-HarnessContentWithoutManagedBlock {
+    param([string]$Path)
+
+    $lines = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8) -split "\r?\n"
+    $kept = @()
+    $inside = $false
+    foreach ($line in $lines) {
+        if ($line -ceq $script:HarnessOpenSpecBlockStart) { $inside = $true; continue }
+        if ($line -ceq $script:HarnessOpenSpecBlockEnd) { $inside = $false; continue }
+        if (-not $inside) { $kept += $line }
+    }
+    return (($kept -join "`n").TrimEnd("`r", "`n"))
+}
+
+# 安装 CLAUDE.md / AGENTS.md：不存在则复制；强制刷新时保留托管块；否则比对(忽略托管块)并提示。
+function Install-HarnessEntryFile {
+    param(
+        [string]$Source,
+        [string]$Destination,
+        [string]$Label,
+        [string]$Force
+    )
+
+    if (-not (Test-Path -LiteralPath $Destination)) {
+        Copy-Item -LiteralPath $Source -Destination $Destination
+        Write-Host "  OK $Label"
+        return
+    }
+
+    $block = Get-HarnessManagedBlock -Path $Destination
+    if ($Force -eq "1") {
+        Copy-Item -LiteralPath $Source -Destination $Destination -Force
+        if ($block) {
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::AppendAllText($Destination, "`n" + $block + "`n", $utf8NoBom)
+            Write-Host "  OK $Label (refreshed, openspec-auto managed block preserved)"
+        }
+        else {
+            Write-Host "  OK $Label (refreshed)"
+        }
+        return
+    }
+
+    if ($block) {
+        $template = ([System.IO.File]::ReadAllText($Source, [System.Text.Encoding]::UTF8)).TrimEnd("`r", "`n")
+        if ((Get-HarnessContentWithoutManagedBlock -Path $Destination) -ceq $template) {
+            Write-Host "  SKIP $Label already exists and matches this version (with openspec-auto managed block)"
+            return
+        }
+    }
+    elseif (Test-HarnessSameContent -PathA $Source -PathB $Destination) {
+        Write-Host "  SKIP $Label already exists and matches this version"
+        return
+    }
+
+    Write-Host "  WARN $Label already exists and differs from this version template; left untouched"
+    $script:harnessStaleProjectFiles += $Label
+}
+
 # 解析项目的 .git/info/exclude 路径(兼容 worktree/submodule); 非 git 仓库返回 $null。
 function Resolve-HarnessExcludeFile {
     param([string]$ProjectDir)
@@ -273,41 +357,8 @@ function Invoke-HarnessSetup {
     Write-Host "--------------------------------------------"
     Write-Host ""
 
-    $projectClaudePath = Join-Path $projectDir "CLAUDE.md"
-    if ($forceProjectFiles -eq "1" -or -not (Test-Path -LiteralPath $projectClaudePath)) {
-        Copy-Item -LiteralPath $claudePath -Destination $projectClaudePath
-        if ($forceProjectFiles -eq "1") {
-            Write-Host "  OK CLAUDE.md (refreshed)"
-        }
-        else {
-            Write-Host "  OK CLAUDE.md"
-        }
-    }
-    elseif (Test-HarnessSameContent -PathA $claudePath -PathB $projectClaudePath) {
-        Write-Host "  SKIP CLAUDE.md already exists and matches this version"
-    }
-    else {
-        Write-Host "  WARN CLAUDE.md already exists and differs from this version template; left untouched"
-        $script:harnessStaleProjectFiles += "CLAUDE.md"
-    }
-
-    $projectAgentsPath = Join-Path $projectDir "AGENTS.md"
-    if ($forceProjectFiles -eq "1" -or -not (Test-Path -LiteralPath $projectAgentsPath)) {
-        Copy-Item -LiteralPath $agentsPath -Destination $projectAgentsPath
-        if ($forceProjectFiles -eq "1") {
-            Write-Host "  OK AGENTS.md (refreshed)"
-        }
-        else {
-            Write-Host "  OK AGENTS.md"
-        }
-    }
-    elseif (Test-HarnessSameContent -PathA $agentsPath -PathB $projectAgentsPath) {
-        Write-Host "  SKIP AGENTS.md already exists and matches this version"
-    }
-    else {
-        Write-Host "  WARN AGENTS.md already exists and differs from this version template; left untouched"
-        $script:harnessStaleProjectFiles += "AGENTS.md"
-    }
+    Install-HarnessEntryFile -Source $claudePath -Destination (Join-Path $projectDir "CLAUDE.md") -Label "CLAUDE.md" -Force $forceProjectFiles
+    Install-HarnessEntryFile -Source $agentsPath -Destination (Join-Path $projectDir "AGENTS.md") -Label "AGENTS.md" -Force $forceProjectFiles
 
     $projectHarnessDir = Join-Path $projectDir ".harness"
     $projectGuidesDir = Join-Path $projectHarnessDir "guides"
@@ -419,6 +470,8 @@ function Invoke-HarnessSetup {
     #   - .gitignore(可入库): 只放通用构建/编辑器/OS 产物。
     #   - .git/info/exclude(仅本地): 本地工具与 Agent 运行产物，避免忽略规则本身泄露 AI 工具链。
     #   go-pkg-harness 是纯扩展包，不产生 .env 运行配置；其余 harness 面向应用/服务，一律忽略 .env。
+    #   tools/ 只收窄到 openspec-auto 实际落地的 tools/openspec/，整目录忽略会挡住业务自己的 tools/。
+    $legacyToolsPattern = "tools/"
     $gitignorePatterns = @(
         ".idea/",
         ".vscode/",
@@ -440,7 +493,7 @@ function Invoke-HarnessSetup {
         "openspec/",
         "AGENTS.md",
         "CLAUDE.md",
-        "tools/",
+        "tools/openspec/",
         ".learnings/",
         "findings.md",
         "progress.md",
@@ -458,7 +511,7 @@ function Invoke-HarnessSetup {
     }
 
     # 迁移: 剔除旧版本误写进 .gitignore 的本地工具规则与旧标题(移到 .git/info/exclude)
-    $legacyLines = @(Get-HarnessLegacyGitignoreHeader) + $excludePatterns
+    $legacyLines = @(Get-HarnessLegacyGitignoreHeader) + $excludePatterns + @($legacyToolsPattern)
     if (Remove-LinesFromFile -Path $gitignorePath -Lines $legacyLines) {
         Write-Host "  OK removed legacy local-tool rules from .gitignore (migrated to .git/info/exclude)"
     }
@@ -489,6 +542,10 @@ function Invoke-HarnessSetup {
 
         $excludeUpdated = $false
         $excludeHeader = Get-HarnessExcludeHeader
+        # 1.7.0 ~ 1.10.0 写入的整目录 tools/ 收窄成 tools/openspec/
+        if (Remove-LinesFromFile -Path $excludeFile -Lines @($legacyToolsPattern)) {
+            $excludeUpdated = $true
+        }
         if (Add-UniqueLine -Path $excludeFile -Line $excludeHeader) {
             $excludeUpdated = $true
         }
@@ -538,8 +595,8 @@ function Invoke-HarnessSetup {
         Write-Host '    $env:HARNESS_FORCE_PROJECT_FILES=1; $env:HARNESS_FORCE_GUIDES=1'
         Write-Host ("    powershell -NoProfile -ExecutionPolicy Bypass -File " + (Join-Path $ScriptDir "setup.ps1"))
         Write-Host ""
-        Write-Host "  Note: refreshing CLAUDE.md / AGENTS.md overwrites the whole file. If they carry"
-        Write-Host "  managed blocks written by other tools (e.g. openspec-auto), re-run that installer afterwards."
+        Write-Host "  Note: refreshing CLAUDE.md / AGENTS.md overwrites the whole file; the openspec-auto"
+        Write-Host "  managed block (OPENSPEC-AUTO:START/END) is preserved, any other local edits are lost."
         Write-Host ""
     }
 }

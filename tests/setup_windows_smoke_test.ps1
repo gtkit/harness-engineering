@@ -139,7 +139,7 @@ function Assert-GitignoreSplit {
         "openspec/",
         "AGENTS.md",
         "CLAUDE.md",
-        "tools/",
+        "tools/openspec/",
         ".learnings/",
         "findings.md",
         "progress.md",
@@ -152,6 +152,8 @@ function Assert-GitignoreSplit {
     }
 
     Assert-PathExists $excludePath
+    # 1.7.0 ~ 1.10.0 写入的整目录 tools/ 必须已收窄，不能再以独立行存在
+    Assert-LineNotExists $excludePath "tools/"
     Assert-LineExists $excludePath (Get-ExcludeHeader)
     foreach ($rule in $localToolRules) {
         Assert-LineExists $excludePath $rule

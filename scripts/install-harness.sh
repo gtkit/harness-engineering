@@ -42,6 +42,8 @@ EOF
     fi
 }
 
+# tools/ 只收窄到 openspec-auto 实际落地的 tools/openspec/：整目录忽略 tools/ 会把
+# 业务项目自己的 tools/ 目录一并挡在版本库外，git status 里看不到、git add 会被拒。
 _harness_exclude_patterns() {
     cat <<'EOF'
 .openspec-auto-backup/
@@ -53,7 +55,7 @@ _harness_exclude_patterns() {
 openspec/
 AGENTS.md
 CLAUDE.md
-tools/
+tools/openspec/
 .learnings/
 findings.md
 progress.md
@@ -63,7 +65,15 @@ EOF
 
 # 旧版本（1.x）曾把上述本地工具规则连同 "# Harness:" 标题一起误写进 .gitignore，
 # 迁移时需从 .gitignore 里精确剔除这些历史行（通用产物行保留）。
+# 1.7.0 ~ 1.10.0 写入的是整目录 tools/，也一并剔除；.git/info/exclude 里已有的
+# 旧 tools/ 行同样收窄成 tools/openspec/。
 _HARNESS_LEGACY_GITIGNORE_HEADER="# Harness: 本地工具与 Agent 运行产物"
+_HARNESS_LEGACY_TOOLS_PATTERN="tools/"
+
+_harness_legacy_gitignore_patterns() {
+    _harness_exclude_patterns
+    printf '%s\n' "${_HARNESS_LEGACY_TOOLS_PATTERN}"
+}
 
 _harness_append_unique_line() {
     local file="$1"
@@ -85,13 +95,52 @@ _harness_ensure_trailing_newline() {
     fi
 }
 
+# 精确删除文件中与 line 完全相同的行；有删除返回 0，否则返回 1。
+_harness_remove_exact_line() {
+    local file="$1"
+    local line="$2"
+    [ -f "$file" ] || return 1
+    grep -Fxq -- "$line" "$file" || return 1
+    local tmp
+    tmp="$(mktemp)"
+    grep -Fxv -- "$line" "$file" > "$tmp" || true
+    mv "$tmp" "$file"
+}
+
+# openspec-auto 往 CLAUDE.md / AGENTS.md 注入的托管块。harness 整文件比对与刷新时把它
+# 摘出来单独处理：比对时忽略它（否则装过 openspec-auto 的项目每次重跑都被判为"与模板不同"），
+# 强制刷新时先写模板再把块原样追加回去，不用再重跑 openspec-auto 补块。
+_HARNESS_OPENSPEC_BLOCK_START="<!-- OPENSPEC-AUTO:START -->"
+_HARNESS_OPENSPEC_BLOCK_END="<!-- OPENSPEC-AUTO:END -->"
+
+# 输出文件中的托管块（含起止标记行）；没有块时无输出。
+_harness_extract_managed_block() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    awk -v s="${_HARNESS_OPENSPEC_BLOCK_START}" -v e="${_HARNESS_OPENSPEC_BLOCK_END}" '
+        $0 == s { inside = 1 }
+        inside { print }
+        $0 == e { inside = 0 }
+    ' "$file"
+}
+
+# 输出去掉托管块（及其前置空行）后的文件内容，用于与模板比对。
+_harness_strip_managed_block() {
+    local file="$1"
+    awk -v s="${_HARNESS_OPENSPEC_BLOCK_START}" -v e="${_HARNESS_OPENSPEC_BLOCK_END}" '
+        $0 == s { inside = 1; next }
+        $0 == e { inside = 0; next }
+        !inside { print }
+    ' "$file" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+}
+
 # 从 .gitignore 中剔除历史误写入的本地工具规则与旧标题；有剔除返回 0，否则返回 1。
 _harness_strip_gitignore_legacy() {
     local file="$1"
     [ -f "$file" ] || return 1
 
     local removal
-    removal="$(_harness_exclude_patterns)"
+    removal="$(_harness_legacy_gitignore_patterns)"
     local tmp
     tmp="$(mktemp)"
     local removed=0
@@ -338,6 +387,9 @@ EOF
 
         local exclude_updated=0
         local exclude_header="# 本地工具与运行产物（仅本地忽略，不进版本库）"
+        if _harness_remove_exact_line "${exclude_file}" "${_HARNESS_LEGACY_TOOLS_PATTERN}"; then
+            exclude_updated=1
+        fi
         if ! grep -Fxq "${exclude_header}" "${exclude_file}" 2>/dev/null; then
             _harness_ensure_trailing_newline "${exclude_file}"
             printf '%s\n' "${exclude_header}" >> "${exclude_file}"
@@ -422,30 +474,50 @@ EOF
         echo "  确认无需保留本地内容后，再用下面的命令强制刷新："
         echo "    HARNESS_FORCE_PROJECT_FILES=1 HARNESS_FORCE_GUIDES=1 bash ${script_dir}/setup.sh"
         echo ""
-        echo "  注意：刷新 CLAUDE.md / AGENTS.md 是整文件覆盖。若这两个文件里有"
-        echo "  openspec-auto 等其他工具写入的托管块，覆盖后需重新执行对应安装器补回。"
+        echo "  注意：刷新 CLAUDE.md / AGENTS.md 是整文件覆盖；文件里的 openspec-auto 托管块"
+        echo "  （OPENSPEC-AUTO:START/END）会原样保留，其余本地改动会丢失。"
         echo ""
     fi
 }
 
 # _harness_install_project_file <src> <dest> <label> <force>
+# 只用于 CLAUDE.md / AGENTS.md：这两个文件可能带 openspec-auto 托管块，比对与刷新都要绕开它。
 _harness_install_project_file() {
     local src="$1"
     local dest="$2"
     local label="$3"
     local force="$4"
 
-    if [ "${force}" = "1" ] || [ ! -f "${dest}" ]; then
+    if [ ! -f "${dest}" ]; then
         cp "${src}" "${dest}"
-        if [ "${force}" = "1" ]; then
-            echo "  ✓ ${label}（已刷新）"
+        echo "  ✓ ${label}"
+        return 0
+    fi
+
+    local block
+    block="$(_harness_extract_managed_block "${dest}")"
+
+    if [ "${force}" = "1" ]; then
+        cp "${src}" "${dest}"
+        if [ -n "${block}" ]; then
+            printf '\n%s\n' "${block}" >> "${dest}"
+            echo "  ✓ ${label}（已刷新，openspec-auto 托管块已保留）"
         else
-            echo "  ✓ ${label}"
+            echo "  ✓ ${label}（已刷新）"
+        fi
+        return 0
+    fi
+
+    if [ -n "${block}" ]; then
+        if [ "$(_harness_strip_managed_block "${dest}")" = "$(cat "${src}")" ]; then
+            echo "  ⊘ ${label} 已存在且与本版本一致（含 openspec-auto 托管块），跳过"
+            return 0
         fi
     elif cmp -s "${src}" "${dest}"; then
         echo "  ⊘ ${label} 已存在且与本版本一致，跳过"
-    else
-        echo "  ⚠ ${label} 已存在且内容与本版本模板不同，保留未动"
-        _HARNESS_STALE_PROJECT_FILES="${_HARNESS_STALE_PROJECT_FILES}${label} "
+        return 0
     fi
+
+    echo "  ⚠ ${label} 已存在且内容与本版本模板不同，保留未动"
+    _HARNESS_STALE_PROJECT_FILES="${_HARNESS_STALE_PROJECT_FILES}${label} "
 }

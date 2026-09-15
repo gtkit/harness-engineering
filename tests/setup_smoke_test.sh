@@ -125,6 +125,8 @@ assert_exclude_baseline() {
     local file="$1"
 
     test -f "$file" || fail "expected .git/info/exclude at ${file}"
+    # 1.7.0 ~ 1.10.0 写入的整目录 tools/ 必须已收窄，不能再以独立行存在
+    assert_line_not_exists "$file" "tools/"
     for line in \
         "# 本地工具与运行产物（仅本地忽略，不进版本库）" \
         ".openspec-auto-backup/" \
@@ -136,7 +138,7 @@ assert_exclude_baseline() {
         "openspec/" \
         "AGENTS.md" \
         "CLAUDE.md" \
-        "tools/" \
+        "tools/openspec/" \
         ".learnings/" \
         "findings.md" \
         "progress.md" \

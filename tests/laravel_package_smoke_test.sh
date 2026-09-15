@@ -65,7 +65,7 @@ assert_gitignore_baseline() {
         "openspec/" \
         "AGENTS.md" \
         "CLAUDE.md" \
-        "tools/" \
+        "tools/openspec/" \
         ".learnings/" \
         "findings.md" \
         "progress.md" \
@@ -90,7 +90,7 @@ assert_exclude_baseline() {
         "openspec/" \
         "AGENTS.md" \
         "CLAUDE.md" \
-        "tools/" \
+        "tools/openspec/" \
         ".learnings/" \
         "findings.md" \
         "progress.md" \

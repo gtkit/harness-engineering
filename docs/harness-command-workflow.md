@@ -123,7 +123,7 @@ Codex:
 harness init-openspec
 ```
 
-只有需要 proposal / spec / task 管理的大需求才用。缺少 OpenSpec CLI 时，必须先确认安装方式，不允许静默安装全局工具。
+只有需要 proposal / spec / task 管理的大需求才用。命令优先检查并复用 `openspec-auto`（仓库内 hooks + skill + 托管块的自动工作流），项目用 `init.sh` 初始化时它已经装好，此时命令只跑体检；缺少 OpenSpec CLI 时，必须先确认安装方式，不允许静默安装全局工具。
 
 ## 推荐路径
 

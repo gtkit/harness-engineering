@@ -36,6 +36,11 @@ Run this before a complex task or after installing a harness.
 4. Check optional OpenSpec:
    - `openspec --version`
    - `openspec/` directory
+   - `openspec-auto` repo-local workflow, if installed:
+     - `.openspec-auto/version`
+     - `.claude/hooks/openspec_*.py` and `.claude/skills/openspec-auto/SKILL.md`
+     - `OPENSPEC-AUTO:START` managed block present in both `CLAUDE.md` and `AGENTS.md`
+     - run `openspec-auto doctor .` (or `bash tools/openspec/healthcheck.sh .`) and report its result
 5. Check optional MCP tools if visible in the current runtime:
    - Codex MCP
    - Gemini MCP

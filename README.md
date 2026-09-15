@@ -26,7 +26,7 @@
 | 命令 | 功能 |
 |-----|------|
 | `/harness:doctor` | 检查 harness、OpenSpec、命令和可选 MCP 工具状态 |
-| `/harness:init-openspec` | 初始化或验证 OpenSpec |
+| `/harness:init-openspec` | 初始化或验证 OpenSpec（优先走 `openspec-auto`） |
 | `/harness:research` | 将需求转成约束集和可验证成功标准 |
 | `/harness:plan` | 生成零决策执行计划和 PBT / 不变量检查点 |
 | `/harness:implement` | 按批准计划分阶段实现并验证 |
@@ -39,6 +39,7 @@
 ```
 harness-engineering/
 ├── README.md                ← 你正在读的文件
+├── init.sh                  ← 一键：harness setup + openspec-auto install
 ├── commands/harness/        ← Claude Code slash commands
 │   ├── doctor.md
 │   ├── init-openspec.md
@@ -112,21 +113,21 @@ harness-engineering/
 │       ├── review-checklist.md
 │       └── error-journal-template.md
 │
-└── go-pkg-harness/          ← Go 扩展包 / 第三方库
-    ├── setup.sh
-    ├── SKILL.md
-    ├── CLAUDE.md
-    ├── AGENTS.md
-    └── guides/
-        ├── go-modern.md
-        ├── pkg-structure.md
-        ├── pkg-errors.md
-        ├── pkg-testing.md
-        ├── pkg-docs.md
-        ├── pkg-generics.md
-        ├── pkg-release-and-supply-chain.md
-        ├── pkg-review.md
-        └── error-journal-template.md
+├── go-pkg-harness/          ← Go 扩展包 / 第三方库
+│   ├── setup.sh
+│   ├── SKILL.md
+│   ├── CLAUDE.md
+│   ├── AGENTS.md
+│   └── guides/
+│       ├── go-modern.md
+│       ├── pkg-structure.md
+│       ├── pkg-errors.md
+│       ├── pkg-testing.md
+│       ├── pkg-docs.md
+│       ├── pkg-generics.md
+│       ├── pkg-release-and-supply-chain.md
+│       ├── pkg-review.md
+│       └── error-journal-template.md
 │
 ├── laravel-harness/         ← 纯 Laravel 项目
 │   ├── setup.sh
@@ -801,9 +802,29 @@ cat .harness/VERSION
 
 ### 在新项目中使用
 
+一条命令同时装好 harness 规则和 [openspec-auto](../openspec-auto-bootstrap) 的自动 OpenSpec 工作流：
+
+```bash
+bash ~/tools/harness-engineering/init.sh go-harness ~/code/new-project
+```
+
+`init.sh` 依次做三件事：目标目录不是 git 仓库就 `git init`（忽略规则要写进 `.git/info/exclude`）；运行对应 harness 的 `setup.sh`；再运行 `openspec-auto install`。顺序固定为 harness → openspec-auto：harness 整文件写入 `CLAUDE.md` / `AGENTS.md`，openspec-auto 再往这两个文件追加托管块。
+
+`openspec-auto` 按 `$OPENSPEC_AUTO_BIN` → PATH 上的 `openspec-auto` → `$OPENSPEC_AUTO_BOOTSTRAP_DIR/install.sh` → 本仓库同级目录 `../openspec-auto-bootstrap/install.sh` 的顺序查找。常用参数：
+
+```bash
+bash ~/tools/harness-engineering/init.sh laravel-harness              # 目标目录缺省为当前目录
+bash ~/tools/harness-engineering/init.sh go-harness . --no-openspec   # 只装 harness
+bash ~/tools/harness-engineering/init.sh go-harness . --force         # 强制刷新 harness 文件并给 openspec-auto 传 --force
+bash ~/tools/harness-engineering/init.sh go-harness . -- --skip-codex-user-config   # -- 之后原样传给 openspec-auto install
+```
+
+只装 harness 也可以直接跑对应的 `setup.sh`：
+
 ```bash
 cd ~/code/new-project
 bash ~/tools/harness-engineering/go-harness/setup.sh                  # Go 后端
+bash ~/tools/harness-engineering/go-grpc-harness/setup.sh             # Go gRPC 微服务
 bash ~/tools/harness-engineering/fullstack-harness/setup.sh           # Go + Vue 全栈
 bash ~/tools/harness-engineering/go-pkg-harness/setup.sh              # Go 扩展包
 bash ~/tools/harness-engineering/laravel-harness/setup.sh             # Laravel
@@ -818,7 +839,7 @@ bash ~/tools/harness-engineering/laravel-fullstack-harness/setup.sh   # Laravel 
 HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.sh
 ```
 
-这个开关会刷新项目根目录规则文件和 `.harness/scripts/` 里的运行时脚本，但不会强制覆盖你已经修改过的 `.harness/guides/`。
+这个开关会刷新项目根目录规则文件和 `.harness/scripts/` 里的运行时脚本，但不会强制覆盖你已经修改过的 `.harness/guides/`。`CLAUDE.md` / `AGENTS.md` 里 openspec-auto 写入的托管块（`OPENSPEC-AUTO:START/END`）在刷新时原样保留；日常重跑 setup 比对入口文件是否为本版本时也会忽略这个块。
 
 ---
 
@@ -849,7 +870,7 @@ AGENTS.md
 openspec/
 .openspec-auto/
 .openspec-auto-backup/
-tools/
+tools/openspec/   # 只收窄到 openspec-auto 落地的目录，不挡业务自己的 tools/
 .learnings/
 findings.md
 progress.md
@@ -887,12 +908,14 @@ task_plan.md
 
 ```bash
 rm -rf ~/.claude/skills/go-harness
+rm -rf ~/.claude/skills/go-grpc-harness
 rm -rf ~/.claude/skills/fullstack-harness
 rm -rf ~/.claude/skills/go-pkg-harness
 rm -rf ~/.claude/skills/laravel-harness
 rm -rf ~/.claude/skills/laravel-fullstack-harness
 
 rm -rf ~/.codex/skills/go-harness
+rm -rf ~/.codex/skills/go-grpc-harness
 rm -rf ~/.codex/skills/fullstack-harness
 rm -rf ~/.codex/skills/go-pkg-harness
 rm -rf ~/.codex/skills/laravel-harness
@@ -930,7 +953,7 @@ Laravel / fullstack / go-pkg 也同理，只需要替换对应目录。
 
 ## Windows 用法
 
-现在 5 个 harness 模块都提供 Windows 原生入口：
+6 个 harness 模块都提供 Windows 原生入口（`init.sh` 的一键流程只有 macOS / Linux 版本，Windows 下分别运行 `setup.ps1` 与 `openspec-auto install`）：
 
 - `setup.ps1`，用于 PowerShell
 - `setup.bat`，用于 `cmd.exe`
@@ -942,6 +965,9 @@ Laravel / fullstack / go-pkg 也同理，只需要替换对应目录。
 ```powershell
 cd .\your-backend-project
 powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\go-harness\setup.ps1
+
+cd .\your-grpc-service
+powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\go-grpc-harness\setup.ps1
 
 cd .\your-fullstack-project
 powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\fullstack-harness\setup.ps1
