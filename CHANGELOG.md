@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-09-15
+
 ### Changed
 - `go-pkg-harness` 的发版流程改为自动定版 CHANGELOG：`make release-patch` / `release-minor` 先找 `## [新版本] - YYYY-MM-DD` 条目，没有就把 `## [Unreleased]` 下的内容就地定版成该版本（保留空的 `## [Unreleased]` 标题），提取为标签说明，并把 `CHANGELOG.md` 连同 `version.go` 一起放进发版提交。此前要求发版前手工写好带确切版本号的条目，而版本号是发版命令自己算出来的（current + 1），等于要求先心算下一个版本号——harness-engineering 自己发 1.14.0 / 1.14.1 时就是手工在补这一步。
 - 版本标题带不带 `v` 前缀都能识别（`## [1.3.0]` 与 `## [v1.3.0]`），自动定版时跟随文件里已有条目的写法。此前只认带 `v` 的形式，而 Keep a Changelog 的标准写法和多数项目用的都是不带 `v` 的，那些项目的确切版本条目一直匹配不上。
