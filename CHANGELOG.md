@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+- `go-pkg-harness` 的 Makefile 模板新增 `-include Makefile.vars`：各包自己的变量取值写进同目录的 `Makefile.vars`（入库，与团队共享），在模板的 `?=` 默认值之前加载。此前定制只能直接改 Makefile，而 Makefile 是模板文件、刷新时整体覆盖——本机 33 个库里有 15 个正因为把定制写进了 Makefile 而无法升级到统一模板。有了这个出口，模板可以随时整体刷新，定制不受影响。
+- `go-pkg-harness` 的 Makefile 模板新增 `GOSEC_EXCLUDE` 扩展点（默认空，不跳过任何规则），`check` 与发版门禁的 gosec 调用都会带上。这是把 `go-pay` 已经在用的实践回流进模板——它此前因为独有这个配置而无法升级到统一模板。注释里写明约定：每条排除都要说明为什么这条规则在本包里不成立，没有书面理由的排除等于把安全检查关掉。
+
 ## [1.15.0] - 2026-09-15
 
 ### Changed

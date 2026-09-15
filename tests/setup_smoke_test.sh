@@ -279,6 +279,11 @@ assert_go_pkg_project_files() {
     assert_file_contains "${project_dir}/Makefile" "/^## \\[Unreleased\\]/ { f = 1; next }"
     assert_file_contains "${project_dir}/Makefile" "then git add CHANGELOG.md; fi"
     assert_file_contains "${project_dir}/Makefile" "REQUIRE_CHANGELOG ?= 1"
+    # gosec 排除是扩展点而非默认放行：默认空，各包按需设置并在注释里写明理由
+    assert_file_contains "${project_dir}/Makefile" "GOSEC_EXCLUDE     ?="
+    # 各包的定制走 Makefile.vars，模板本身可以随时整体刷新
+    assert_file_contains "${project_dir}/Makefile" "include Makefile.vars"
+    assert_file_contains "${project_dir}/Makefile" "-exclude=\$(GOSEC_EXCLUDE)"
     assert_file_contains "${project_dir}/Makefile" "工作区不干净"
     assert_file_contains "${project_dir}/Makefile" "go mod tidy -diff"
     # MAJOR 只 bump tag 不改 module path 是错误发布，脚本必须拒绝

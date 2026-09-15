@@ -6,7 +6,15 @@
 
 LINT_TARGETS ?= ./...
 
-# ---- 发版配置（各包按需覆盖）----
+# ---- 发版配置 ----
+# 本文件是模板，刷新 harness 时会被整体覆盖：**不要在这里改配置值**。
+# 各包自己的取值写进同目录的 Makefile.vars（入库，与团队共享），用 = 直接赋值即可——
+# 它在下面这些 ?= 默认值之前加载，已定义的变量不会被默认值覆盖。
+# 例：
+#     # gosec：examples/ 里是示例连接串，不是真实凭据
+#     GOSEC_EXCLUDE = G101
+-include Makefile.vars
+
 # BUMP               发版语义级别：patch（默认）/ minor
 # RELEASE_REMOTE     发版推送的 remote 名
 # COVERAGE_MIN       覆盖率下限（百分比整数），0 表示不检查。默认 0：发版流程不是发现
@@ -15,11 +23,15 @@ LINT_TARGETS ?= ./...
 #                    ## [Unreleased]，发版时自动定版为 ## [新版本] - 今天并提取为标签说明。
 #                    版本标题带不带 v 前缀都认，自动定版时跟随文件里已有条目的写法
 # EXTRA_TEST_TARGET  发版前额外执行的 make 目标名（如集成测试），留空则跳过
+# GOSEC_EXCLUDE      gosec 跳过的规则号，逗号分隔，留空则不跳过任何规则。
+#                    每条排除都要在上面的注释里写明理由（为什么这条在本包里不成立），
+#                    没有书面理由的排除等于把安全检查关掉
 BUMP              ?= patch
 RELEASE_REMOTE    ?= gtkit
 COVERAGE_MIN      ?= 0
 REQUIRE_CHANGELOG ?= 1
 EXTRA_TEST_TARGET ?=
+GOSEC_EXCLUDE     ?=
 
 tool: ## 只读静态检查（不修改代码，格式化用 make fmt）
 	@ echo "▶️ golangci-lint run"
@@ -38,7 +50,7 @@ fmt: ## 按 gofumpt 格式化代码（唯一允许写文件的格式化入口）
 ## govulncheck 检查漏洞 go install golang.org/x/vuln/cmd/govulncheck@latest
 check:
 	govulncheck ./...
-	gosec ./...
+	gosec $(if $(GOSEC_EXCLUDE),-exclude=$(GOSEC_EXCLUDE)) ./...
 tag:
 	@set -e; \
 	if [ -n "$$(git status --porcelain)" ]; then \
@@ -71,7 +83,7 @@ tag:
 	fi; \
 	echo "▶️ benchmark"; go test -bench=. -benchmem -count=3 -run='^$$' ./... >/dev/null; \
 	echo "▶️ govulncheck"; govulncheck ./...; \
-	echo "▶️ gosec"; gosec -quiet ./...; \
+	echo "▶️ gosec"; gosec -quiet $(if $(GOSEC_EXCLUDE),-exclude=$(GOSEC_EXCLUDE)) ./...; \
 	current=$$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' version.go | head -n1 | tr -d 'v'); \
 	if [ -z "$$current" ]; then echo "✗ version.go 中未找到版本号"; exit 1; fi; \
 	maj=$$(echo $$current | cut -d. -f1); \
