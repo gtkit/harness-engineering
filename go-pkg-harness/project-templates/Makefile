@@ -9,12 +9,15 @@ LINT_TARGETS ?= ./...
 # ---- 发版配置（各包按需覆盖）----
 # BUMP               发版语义级别：patch（默认）/ minor
 # RELEASE_REMOTE     发版推送的 remote 名
-# COVERAGE_MIN       覆盖率下限（百分比整数），0 表示不检查
-# REQUIRE_CHANGELOG  1 表示 CHANGELOG.md 必须有对应版本条目，否则拒绝发版
+# COVERAGE_MIN       覆盖率下限（百分比整数），0 表示不检查。默认 0：发版流程不是发现
+#                    覆盖率不足的合适时机，那时改代码为时已晚；要卡就设成具体数字
+# REQUIRE_CHANGELOG  1 表示必须有可用的发布说明，否则拒绝发版。日常把变更写进
+#                    ## [Unreleased]，发版时自动定版为 ## [新版本] - 今天并提取为标签说明。
+#                    版本标题带不带 v 前缀都认，自动定版时跟随文件里已有条目的写法
 # EXTRA_TEST_TARGET  发版前额外执行的 make 目标名（如集成测试），留空则跳过
 BUMP              ?= patch
 RELEASE_REMOTE    ?= gtkit
-COVERAGE_MIN      ?= 80
+COVERAGE_MIN      ?= 0
 REQUIRE_CHANGELOG ?= 1
 EXTRA_TEST_TARGET ?=
 
@@ -80,16 +83,26 @@ tag:
 	  major) echo "✗ 本脚本不处理 MAJOR：只 bump tag 而不改 module path 是错误发布。破坏性变更留在当前 major 线以 MINOR 发布（make release-minor），并在 CHANGELOG 用 ⚠ 标注迁移说明"; exit 1 ;; \
 	  *) echo "✗ BUMP 必须为 patch 或 minor（当前: $(BUMP)）"; exit 1 ;; \
 	esac; \
-	notes=""; \
-	if grep -qE "^## \[$$new\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md 2>/dev/null; then \
-		notes=$$(awk -v h="## [$$new] -" 'index($$0, h) == 1 { f = 1; next } f && /^## / { exit } f && /^### / { next } f { print }' CHANGELOG.md | sed -e '/./,$$!d'); \
-	elif [ "$(REQUIRE_CHANGELOG)" = "1" ]; then \
-		echo "✗ CHANGELOG.md 缺少版本条目：## [$$new] - YYYY-MM-DD，发版前请先补齐"; exit 1; \
+	notes=""; changelog_bumped=0; today=$$(date +%Y-%m-%d); plain=$$(echo "$$new" | tr -d 'v'); \
+	if grep -qE "^## \[v?$$plain\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md 2>/dev/null; then \
+		notes=$$(awk -v h1="## [$$new] -" -v h2="## [$$plain] -" 'index($$0, h1) == 1 || index($$0, h2) == 1 { f = 1; next } f && /^## / { exit } f && /^### / { next } f { print }' CHANGELOG.md | sed -e '/./,$$!d'); \
+	else \
+		unreleased=$$(awk '/^## \[Unreleased\]/ { f = 1; next } f && /^## / { exit } f && /^### / { next } f { print }' CHANGELOG.md 2>/dev/null | sed -e '/./,$$!d'); \
+		if [ -n "$$unreleased" ]; then \
+			if grep -qE "^## \[v[0-9]" CHANGELOG.md; then head_ver="$$new"; else head_ver="$$plain"; fi; \
+			awk -v line="## [$$head_ver] - $$today" '{ print } !d && /^## \[Unreleased\]/ { print ""; print line; d = 1 }' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md; \
+			notes="$$unreleased"; changelog_bumped=1; \
+			printf "▶️ CHANGELOG：[Unreleased] 已定版为 [%s] - %s\n" "$$head_ver" "$$today"; \
+		elif [ "$(REQUIRE_CHANGELOG)" = "1" ]; then \
+			echo "✗ 没有可用的发布说明：CHANGELOG.md 里既没有 ## [$$plain] - YYYY-MM-DD 条目，## [Unreleased] 下也没有内容"; \
+			echo "  把本次变更写进 ## [Unreleased]，发版时会自动定版成 ## [$$plain] - $$today 并提取为标签说明"; exit 1; \
+		fi; \
 	fi; \
 	printf "Bump (%s): v%s -> %s\n" "$(BUMP)" "$$current" "$$new"; \
 	sed -E -i.bak 's/(const Version = ")([^"]+)(")/\1'"$$new"'\3/' version.go; \
 	rm -f version.go.bak; \
 	git add version.go; \
+	if [ "$$changelog_bumped" = "1" ]; then git add CHANGELOG.md; fi; \
 	git commit -m "chore(release): 发布 $$new"; \
 	if [ -n "$$notes" ]; then \
 		git tag -a "$$new" -m "$$(printf '版本 %s\n\n主要变更：\n%s\n' "$$new" "$$notes")"; \

@@ -272,7 +272,12 @@ assert_go_pkg_project_files() {
     assert_file_contains "${project_dir}/Makefile" "push-tag:"
     assert_file_contains "${project_dir}/Makefile" "fmt:"
     assert_file_contains "${project_dir}/Makefile" "BUMP              ?= patch"
-    assert_file_contains "${project_dir}/Makefile" "COVERAGE_MIN      ?= 80"
+    # 覆盖率默认不卡：发版流程不是发现覆盖率不足的合适时机，要卡由各包自己设具体数字
+    assert_file_contains "${project_dir}/Makefile" "COVERAGE_MIN      ?= 0"
+    # 发布说明来源：优先确切版本条目（带不带 v 都认），否则把 [Unreleased] 就地定版并一起提交
+    assert_file_contains "${project_dir}/Makefile" "^## \\[v?\$\$plain\\] - "
+    assert_file_contains "${project_dir}/Makefile" "/^## \\[Unreleased\\]/ { f = 1; next }"
+    assert_file_contains "${project_dir}/Makefile" "then git add CHANGELOG.md; fi"
     assert_file_contains "${project_dir}/Makefile" "REQUIRE_CHANGELOG ?= 1"
     assert_file_contains "${project_dir}/Makefile" "工作区不干净"
     assert_file_contains "${project_dir}/Makefile" "go mod tidy -diff"
