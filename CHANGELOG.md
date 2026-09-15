@@ -15,6 +15,10 @@
 - `/harness-init-openspec` 改为优先检查并复用 `openspec-auto`：已装（`.openspec-auto/version` 存在）只跑 `openspec-auto doctor .`；未装优先 `openspec-auto install .`，只有它不可用时才回退到 `openspec init --tools claude`。`/harness-doctor` 增加 skills、rules 与 openspec-auto 的检查项。
 - README 新增「为什么顺序固定为 harness 先、openspec-auto 后」：harness 整文件写入口文件，openspec-auto 追加托管块；反过来 harness 会把只含托管块的入口文件判为"与模板不同"而跳过。
 
+- 新增 SessionStart hook：setup 把 `scripts/hooks/session_start.py` 装到项目 `.harness/hooks/`，并注册进 `.claude/settings.json` 与 `.codex/hooks.json`（同一份脚本，命令按 `python3` → `python` 探测解释器）。会话开始时注入两件事：`.harness/error-journal.md` 里 `Status: open` 的条目摘要（最多 10 条），以及 `.harness/VERSION` 记录的模板 commit 与模板仓库当前 HEAD 不一致时的刷新提示；都没有时不输出。"任务开始前先读错误记忆"从依赖模型自觉变成每次会话必然发生。注册用 Python 改 JSON，本机没有 Python 时跳过并提示。`.harness/VERSION` 新增 `source-path` 记录模板仓库位置供对比。`sh` / `ps1` 两端一致。
+- 新增 `shared/guides/`：多套 harness 共用的 guide 只保留一份——`go/` 下 9 篇（db-patterns、migration、llm-integration、payment、workers-and-scheduling、worker-and-cache、observability、pkg-design、error-journal-template）由 go-harness、go-grpc-harness、fullstack-harness 共用，`laravel/` 下 7 篇由两套 Laravel harness 共用。各 harness 用 `shared-guides.txt` 声明拉取哪些，自己 `guides/` 里同名文件优先；setup 先把两层拼到暂存目录再安装，装进项目的文件清单不变。此前 go-harness 与 fullstack-harness 有 10 篇字节级相同、go-grpc-harness 的 8 篇只多两行 BASE 出处注释却各自维护，漂移已经发生（grpc 的 internal-pkg、ci-sensors 有真实差异，保留在它自己的 guides/）。两套 smoke 测试的"guide 必须被入口文件引用"检查纳入清单条目。
+- 新增 `harness-refresh` 命令（`install.sh` 一并写进 PATH）：项目清单在 `~/.config/harness-engineering/projects.txt`（`HARNESS_PROJECTS_FILE` 可换）；不带参数只读报告每个项目的 harness 名、已装 commit、是否落后于模板 HEAD、`CLAUDE.md` / `AGENTS.md` 是否与模板不同（忽略 openspec-auto 托管块）；`add <dir>...` 登记项目；`apply [--all] [--no-openspec] [-- …]` 对落后（或全部）项目逐个执行 `<harness> <dir> --force`。
+
 ### Changed
 - Codex 全局 skill 改装到 `~/.agents/skills/<harness>/SKILL.md`（Codex 官方的用户级 skill 目录），并移走旧位置 `$CODEX_HOME/skills/<harness>/`，避免同名 skill 双处触发。`sh` / `ps1` 两端一致。
 - setup 比对与刷新 `CLAUDE.md` / `AGENTS.md` 时绕开 openspec-auto 的托管块（`<!-- OPENSPEC-AUTO:START -->` … `<!-- OPENSPEC-AUTO:END -->`）：日常重跑时去掉该块再与模板比对，装过 openspec-auto 的项目不再每次被判为"与模板不同"；强制刷新时先写模板再把块原样追加回去，不用再重跑 openspec-auto 补块。此前刷新会把块整个抹掉。`sh` / `ps1` 两端一致。

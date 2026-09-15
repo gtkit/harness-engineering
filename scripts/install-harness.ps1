@@ -248,6 +248,86 @@ function Copy-HarnessTree {
     }
 }
 
+# guide 来源分两层：shared-guides.txt 列出的公共 guide（shared/guides/ 下），叠加本 harness 自己的
+# guides/*.md（同名以自己的为准）。先拼到暂存目录，后面的复制逻辑只看这一个目录。
+function Stage-HarnessGuides {
+    param(
+        [string]$HarnessRoot,
+        [string]$ScriptDir,
+        [string]$StagedDir
+    )
+
+    New-Item -ItemType Directory -Path $StagedDir -Force | Out-Null
+    $manifest = Join-Path $ScriptDir "shared-guides.txt"
+    if (Test-Path -LiteralPath $manifest) {
+        foreach ($raw in Get-Content -LiteralPath $manifest) {
+            $rel = ($raw -split '#')[0].Trim()
+            if (-not $rel) { continue }
+            $source = Join-Path (Join-Path $HarnessRoot "shared\guides") ($rel -replace '/', '\')
+            if (-not (Test-Path -LiteralPath $source)) {
+                throw "shared-guides.txt references missing file: shared/guides/$rel"
+            }
+            Copy-Item -LiteralPath $source -Destination (Join-Path $StagedDir (Split-Path -Leaf $source)) -Force
+        }
+    }
+    $ownGuides = Join-Path $ScriptDir "guides"
+    if (Test-Path -LiteralPath $ownGuides) {
+        foreach ($file in Get-ChildItem -LiteralPath $ownGuides -File -Filter *.md) {
+            Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $StagedDir $file.Name) -Force
+        }
+    }
+}
+
+# SessionStart hook 命令：同一份注册进 Claude Code 的 .claude/settings.json 与 Codex 的 .codex/hooks.json。
+# 与 scripts/install-harness.sh 的 _HARNESS_HOOK_COMMAND 保持一致；注册用 python 改 JSON，没有 python 就跳过。
+$script:HarnessHookCommand = 'ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; PY="$(command -v python3 || command -v python)"; "$PY" "$ROOT/.harness/hooks/session_start.py"'
+
+function Get-HarnessPython {
+    foreach ($name in @("python3", "python")) {
+        $cmd = Get-Command $name -ErrorAction SilentlyContinue
+        if ($cmd) { return $cmd.Source }
+    }
+    return $null
+}
+
+function Register-HarnessHook {
+    param(
+        [string]$ConfigPath,
+        [string]$Python
+    )
+
+    $script = @'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+command = sys.argv[2]
+data = json.loads(path.read_text()) if path.is_file() and path.read_text().strip() else {}
+hooks = data.setdefault("hooks", {})
+entries = hooks.setdefault("SessionStart", [])
+kept = []
+for entry in entries:
+    remaining = [h for h in entry.get("hooks", []) if "/.harness/hooks/" not in h.get("command", "")]
+    if remaining:
+        entry["hooks"] = remaining
+        kept.append(entry)
+kept.append({"matcher": ".*", "hooks": [{"type": "command", "command": command, "timeout": 15}]})
+hooks["SessionStart"] = kept
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+'@
+    $scriptPath = Join-Path ([System.IO.Path]::GetTempPath()) ("harness-hook-" + [System.Guid]::NewGuid().ToString("N") + ".py")
+    Set-Utf8NoBomContent -Path $scriptPath -Value $script
+    try {
+        & $Python $scriptPath $ConfigPath $script:HarnessHookCommand
+        if ($LASTEXITCODE -ne 0) { throw "hook registration failed for $ConfigPath" }
+    }
+    finally {
+        Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # 解析项目的 .git/info/exclude 路径(兼容 worktree/submodule); 非 git 仓库返回 $null。
 function Resolve-HarnessExcludeFile {
     param([string]$ProjectDir)
@@ -318,6 +398,7 @@ function Write-HarnessVersion {
 
     $lines = @(
         "harness: $ModuleName",
+        "source-path: $repoRoot",
         "source-commit: $sourceCommit"
     )
     if (-not [string]::IsNullOrEmpty($sourceTag)) {
@@ -346,7 +427,11 @@ function Invoke-HarnessSetup {
     $homeDir = Get-HarnessHomeDir
     $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $homeDir ".codex" }
 
-    $guidesDir = Join-Path $ScriptDir "guides"
+    $harnessRoot = Split-Path -Parent $ScriptDir
+    $ownGuidesDir = Join-Path $ScriptDir "guides"
+    $guidesDir = Join-Path ([System.IO.Path]::GetTempPath()) ("harness-guides-" + [System.Guid]::NewGuid().ToString("N"))
+    Stage-HarnessGuides -HarnessRoot $harnessRoot -ScriptDir $ScriptDir -StagedDir $guidesDir
+    $hookScriptPath = Join-Path $harnessRoot "scripts\hooks\session_start.py"
     $runtimeScriptsDir = Join-Path (Split-Path -Parent $ScriptDir) "scripts\error-journal"
     $skillsDir = Join-Path (Split-Path -Parent $ScriptDir) "skills"
     $rulesDir = Join-Path $ScriptDir "rules"
@@ -355,14 +440,17 @@ function Invoke-HarnessSetup {
     $agentsPath = Join-Path $ScriptDir "AGENTS.md"
     $errorJournalTemplatePath = Join-Path $guidesDir "error-journal-template.md"
 
-    Assert-HarnessPathExists -Path $guidesDir -Message "Missing guides directory: $guidesDir"
+    if (-not (Test-Path -LiteralPath $ownGuidesDir) -and -not (Test-Path -LiteralPath (Join-Path $ScriptDir "shared-guides.txt"))) {
+        throw "Missing guides directory and shared-guides.txt under $ScriptDir"
+    }
+    Assert-HarnessPathExists -Path $hookScriptPath -Message "Missing hook script: $hookScriptPath"
     Assert-HarnessPathExists -Path $runtimeScriptsDir -Message "Missing runtime scripts directory: $runtimeScriptsDir"
     Assert-HarnessPathExists -Path $skillsDir -Message "Missing harness skills directory: $skillsDir"
     Assert-HarnessPathExists -Path $skillPath -Message "Missing SKILL.md: $skillPath"
     Assert-HarnessPathExists -Path $CodexSkillPath -Message "Missing Codex skill template: $CodexSkillPath"
     Assert-HarnessPathExists -Path $claudePath -Message "Missing CLAUDE.md: $claudePath"
     Assert-HarnessPathExists -Path $agentsPath -Message "Missing AGENTS.md: $agentsPath"
-    Assert-HarnessPathExists -Path $errorJournalTemplatePath -Message "Missing error-journal-template.md: $errorJournalTemplatePath"
+    Assert-HarnessPathExists -Path $errorJournalTemplatePath -Message "Missing error-journal-template.md (own guides/ or shared manifest): $errorJournalTemplatePath"
 
     Write-Host ""
     Write-Host "============================================"
@@ -462,6 +550,19 @@ function Invoke-HarnessSetup {
     }
     else {
         Write-Host "  OK .harness/scripts/ - added $runtimeCopied, preserved $runtimePreserved"
+    }
+
+    $projectHooksDir = Join-Path $projectHarnessDir "hooks"
+    New-Item -ItemType Directory -Path $projectHooksDir -Force | Out-Null
+    Copy-Item -LiteralPath $hookScriptPath -Destination (Join-Path $projectHooksDir "session_start.py") -Force
+    $hookPython = Get-HarnessPython
+    if ($hookPython) {
+        Register-HarnessHook -ConfigPath (Join-Path $projectDir ".claude\settings.json") -Python $hookPython
+        Register-HarnessHook -ConfigPath (Join-Path $projectDir ".codex\hooks.json") -Python $hookPython
+        Write-Host "  OK .harness/hooks/session_start.py registered in .claude/settings.json and .codex/hooks.json"
+    }
+    else {
+        Write-Host "  WARN no python3 / python found; SessionStart hook not registered (script placed in .harness/hooks/, re-run setup after installing Python)"
     }
 
     $projectErrorJournalPath = Join-Path $projectHarnessDir "error-journal.md"
@@ -609,6 +710,7 @@ function Invoke-HarnessSetup {
     Write-Host "--------------------------------------------"
     Write-Host ""
     Write-HarnessVersion -ProjectDir $projectDir -ModuleName $ModuleName -ScriptDir $ScriptDir
+    Remove-Item -LiteralPath $guidesDir -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host ""
 
     Write-Host "============================================"

@@ -201,12 +201,27 @@ function Assert-AllGuidesAreReferenced {
     $agentsPath = Join-Path (Join-Path $RootDir $HarnessDir) "AGENTS.md"
     $guidesDir = Join-Path (Join-Path $RootDir $HarnessDir) "guides"
 
-    Get-ChildItem -LiteralPath $guidesDir -File -Filter *.md | ForEach-Object {
-        if ($_.Name -eq "error-journal-template.md") {
-            return
-        }
+    if (Test-Path -LiteralPath $guidesDir) {
+        Get-ChildItem -LiteralPath $guidesDir -File -Filter *.md | ForEach-Object {
+            if ($_.Name -eq "error-journal-template.md") {
+                return
+            }
 
-        Assert-FileContains $agentsPath $_.Name
+            Assert-FileContains $agentsPath $_.Name
+        }
+    }
+
+    # shared-guides.txt 拉进来的公共 guide 同样必须存在并被入口文件引用
+    $manifest = Join-Path (Join-Path $RootDir $HarnessDir) "shared-guides.txt"
+    if (Test-Path -LiteralPath $manifest) {
+        foreach ($raw in Get-Content -LiteralPath $manifest) {
+            $rel = ($raw -split '#')[0].Trim()
+            if (-not $rel) { continue }
+            Assert-PathExists (Join-Path (Join-Path $RootDir "shared\guides") ($rel -replace '/', '\'))
+            $name = Split-Path -Leaf $rel
+            if ($name -eq "error-journal-template.md") { continue }
+            Assert-FileContains $agentsPath $name
+        }
     }
 }
 

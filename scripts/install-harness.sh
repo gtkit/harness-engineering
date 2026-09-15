@@ -178,6 +178,66 @@ _harness_resolve_exclude_file() {
     fi
 }
 
+# _harness_stage_guides <harness_root> <script_dir> <staged_dir>
+_harness_stage_guides() {
+    local harness_root="$1"
+    local script_dir="$2"
+    local staged="$3"
+    local manifest="${script_dir}/shared-guides.txt"
+    local rel
+    if [ -f "${manifest}" ]; then
+        while IFS= read -r rel || [ -n "$rel" ]; do
+            rel="${rel%%#*}"
+            rel="$(printf '%s' "$rel" | tr -d '[:space:]')"
+            [ -n "$rel" ] || continue
+            if [ ! -f "${harness_root}/shared/guides/${rel}" ]; then
+                echo "✗ 错误: shared-guides.txt 引用的 shared/guides/${rel} 不存在"
+                exit 1
+            fi
+            cp "${harness_root}/shared/guides/${rel}" "${staged}/$(basename "${rel}")"
+        done < "${manifest}"
+    fi
+    local f
+    for f in "${script_dir}/guides/"*.md; do
+        [ -f "$f" ] && cp "$f" "${staged}/$(basename "$f")"
+    done
+    return 0
+}
+
+# SessionStart hook：把 error-journal 里 open 的条目和模板版本落后的提示注入会话上下文。
+# 脚本放 .harness/hooks/，同一份注册进 Claude Code 的 .claude/settings.json 与 Codex 的 .codex/hooks.json；
+# 命令按 python3 → python 探测解释器（Windows 官方安装包只有 python.exe）。
+# 注册要改 JSON，用 python 做；本机没有 python 时跳过并提示，hook 脚本本身也跑不起来。
+_HARNESS_HOOK_COMMAND='ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; PY="$(command -v python3 || command -v python)"; "$PY" "$ROOT/.harness/hooks/session_start.py"'
+
+# _harness_register_hook <config_file> <python>
+_harness_register_hook() {
+    local config="$1"
+    local python="$2"
+    "$python" - "$config" "${_HARNESS_HOOK_COMMAND}" <<'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+command = sys.argv[2]
+data = json.loads(path.read_text()) if path.is_file() and path.read_text().strip() else {}
+hooks = data.setdefault("hooks", {})
+entries = hooks.setdefault("SessionStart", [])
+# 先剥掉旧的 harness 注册（按脚本路径识别），再写当前命令，命令串变化时也能刷新
+kept = []
+for entry in entries:
+    remaining = [h for h in entry.get("hooks", []) if "/.harness/hooks/" not in h.get("command", "")]
+    if remaining:
+        entry["hooks"] = remaining
+        kept.append(entry)
+kept.append({"matcher": ".*", "hooks": [{"type": "command", "command": command, "timeout": 15}]})
+hooks["SessionStart"] = kept
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+PYEOF
+}
+
 # install_harness <module_name> <display_name> <script_dir>
 install_harness() {
     local module_name="$1"
@@ -198,9 +258,19 @@ install_harness() {
     _HARNESS_STALE_GUIDES=""
 
     # ---------- 前置检查 ----------
-    if [ ! -d "${script_dir}/guides" ]; then
-        echo "✗ 错误: 找不到 ${script_dir}/guides/ 目录"
-        echo "  请确认 setup.sh 和 guides/ 在同一目录下"
+    if [ ! -d "${script_dir}/guides" ] && [ ! -f "${script_dir}/shared-guides.txt" ]; then
+        echo "✗ 错误: ${script_dir} 下既没有 guides/ 也没有 shared-guides.txt"
+        exit 1
+    fi
+    # guide 来源分两层：shared-guides.txt 列出的公共 guide（shared/guides/ 下），叠加本 harness 自己的
+    # guides/*.md（同名以自己的为准）。先拼到暂存目录，后面的复制逻辑只看这一个目录。
+    local staged_guides
+    staged_guides="$(mktemp -d)"
+    # 路径在设 trap 时就展开：trap 触发在函数返回之后，local 变量那时已不存在
+    trap "rm -rf '${staged_guides}'" EXIT
+    _harness_stage_guides "${harness_root}" "${script_dir}" "${staged_guides}"
+    if [ ! -f "${staged_guides}/error-journal-template.md" ]; then
+        echo "✗ 错误: ${module_name} 没有 error-journal-template.md（guides/ 或 shared 清单里都没有）"
         exit 1
     fi
     if [ ! -d "${error_journal_runtime_dir}" ]; then
@@ -276,7 +346,7 @@ install_harness() {
     local guide_preserved=0
     local guide_stale=0
     local f filename dest
-    for f in "${script_dir}/guides/"*.md; do
+    for f in "${staged_guides}/"*.md; do
         filename="$(basename "$f")"
         if [ "$filename" = "error-journal-template.md" ]; then
             continue
@@ -324,9 +394,22 @@ install_harness() {
         echo "  ✓ .harness/scripts/ — 新增 ${runtime_copied} 个，保留 ${runtime_preserved} 个"
     fi
 
+    # -- .harness/hooks/（SessionStart hook）--
+    mkdir -p "${project_dir}/.harness/hooks"
+    cp "${harness_root}/scripts/hooks/session_start.py" "${project_dir}/.harness/hooks/session_start.py"
+    local hook_python
+    hook_python="$(command -v python3 || command -v python || true)"
+    if [ -n "${hook_python}" ]; then
+        _harness_register_hook "${project_dir}/.claude/settings.json" "${hook_python}"
+        _harness_register_hook "${project_dir}/.codex/hooks.json" "${hook_python}"
+        echo "  ✓ .harness/hooks/session_start.py 已注册到 .claude/settings.json 与 .codex/hooks.json"
+    else
+        echo "  ⚠ 本机没有 python3 / python，SessionStart hook 未注册（脚本已放到 .harness/hooks/，装好 Python 后重跑 setup）"
+    fi
+
     # -- .harness/error-journal.md --
     if [ ! -f "${project_dir}/.harness/error-journal.md" ]; then
-        cp "${script_dir}/guides/error-journal-template.md" "${project_dir}/.harness/error-journal.md"
+        cp "${staged_guides}/error-journal-template.md" "${project_dir}/.harness/error-journal.md"
         echo "  ✓ .harness/error-journal.md"
     else
         echo "  ⊘ .harness/error-journal.md 已存在，保留现有记录"
@@ -438,6 +521,7 @@ EOF
     installed_at="$(date '+%Y-%m-%dT%H:%M:%S%z')"
     {
         printf 'harness: %s\n' "${module_name}"
+        printf 'source-path: %s\n' "${harness_root}"
         printf 'source-commit: %s\n' "${source_commit}"
         if [ -n "${source_tag:-}" ]; then
             printf 'source-tag: %s\n' "${source_tag}"
@@ -462,7 +546,7 @@ EOF
     echo "  项目文件："
     echo "    ${project_dir}/CLAUDE.md"
     echo "    ${project_dir}/AGENTS.md"
-    echo "    ${project_dir}/.harness/  (error-journal.md / guides/ ${guide_count} 篇 / scripts/)"
+    echo "    ${project_dir}/.harness/  (error-journal.md / guides/ ${guide_count} 篇 / scripts/ / hooks/)"
     echo "    ${project_dir}/.claude/skills/harness-*/  ${project_dir}/.agents/skills/harness-*/"
     echo "    ${project_dir}/.claude/rules/harness-*.md"
     echo ""

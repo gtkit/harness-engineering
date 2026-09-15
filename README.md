@@ -39,8 +39,16 @@
 ```
 harness-engineering/
 ├── README.md                ← 你正在读的文件
-├── install.sh               ← 往 ~/go/bin 写六个包装命令（go-harness 等）
-├── scripts/harness-init.sh  ← 包装命令的实际逻辑：git init → setup.sh → openspec-auto install
+├── install.sh               ← 往 ~/go/bin 写包装命令：六个 harness 名 + harness-refresh
+├── scripts/
+│   ├── harness-init.sh      ← harness 命令的实际逻辑：git init → setup.sh → openspec-auto install
+│   ├── harness-refresh.sh   ← 批量查看 / 刷新清单里所有项目
+│   ├── hooks/session_start.py ← SessionStart hook：注入未关闭的错误记忆与模板落后提示
+│   ├── install-harness.sh   ← 六套 setup.sh 共用的安装逻辑
+│   └── error-journal/       ← 装进项目 .harness/scripts/ 的错误记忆读写脚本
+├── shared/guides/           ← 多套 harness 共用的 guide 唯一真源
+│   ├── go/                  ← go-harness / go-grpc-harness / fullstack-harness 共用 9 篇
+│   └── laravel/             ← laravel-harness / laravel-fullstack-harness 共用 7 篇
 ├── skills/                  ← 六个工作流 skill（Claude Code 与 Codex 同一份）
 │   ├── harness-doctor/SKILL.md
 │   ├── harness-init-openspec/SKILL.md
@@ -54,8 +62,9 @@ harness-engineering/
 │   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
+│   ├── shared-guides.txt    ← 从 shared/guides/ 拉哪些公共 guide；guides/ 里同名文件优先
 │   ├── rules/               ← Claude Code 路径限定规则：读到匹配文件时把对应 guide 拉进上下文
-│   └── guides/
+│   └── guides/              ← 本 harness 独有的 guide（下面列的是装进项目后的完整清单）
 │       ├── go-modern.md
 │       ├── architecture.md
 │       ├── api-conventions.md
@@ -222,7 +231,7 @@ go-harness --version                # 打印本仓库当前 commit / tag
 
 1. 目标目录不是 git 仓库就 `git init`（忽略规则要写进 `.git/info/exclude`）
 2. **全局 Skill** 安装到 `~/.claude/skills/<harness>/` 和 `~/.agents/skills/<harness>/`（只装一次，所有项目共享；`~/.agents/skills` 是 Codex 官方的用户级 skill 目录，旧位置 `~/.codex/skills/<harness>/` 会被移走）
-3. **项目文件** 安装到项目目录：`CLAUDE.md`、`AGENTS.md`、`.harness/`（guides、error-journal、运行脚本）、六个工作流 skill（`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/`）、Claude Code 的路径限定规则 `.claude/rules/harness-*.md`
+3. **项目文件** 安装到项目目录：`CLAUDE.md`、`AGENTS.md`、`.harness/`（guides、error-journal、运行脚本、SessionStart hook）、六个工作流 skill（`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/`）、Claude Code 的路径限定规则 `.claude/rules/harness-*.md`
 4. **忽略规则** 自动创建/补齐：通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`、`*.out`，以及应用型 harness 的 `.env`）写进 `.gitignore`；本地工具与 Agent 运行产物（整个 `.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`.agents/`、`openspec/`、`.openspec-auto/`、计划文件等）写进 `.git/info/exclude`（仅本地、不进版本库，避免忽略规则本身泄露 AI 工具链）
 5. 运行 `openspec-auto install`，接入自动 OpenSpec 工作流（hooks、skill、`CLAUDE.md` / `AGENTS.md` 里的托管块）
 
@@ -756,7 +765,7 @@ AI 调用 .harness/scripts/append-error-journal.*
            主动规避同类错误
 ```
 
-AI 犯过的错误会被记录下来，形成项目专属的"经验库"。这里的“自动”是指 agent 按项目规则调用脚本，而不是依赖外部黑盒 hook。
+AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加靠 agent 按项目规则调用脚本；**读取不再只靠模型自觉**：setup 会把 `.harness/hooks/session_start.py` 注册进 `.claude/settings.json` 与 `.codex/hooks.json` 的 SessionStart 事件，每次会话开始时自动把 `Status: open` 的条目摘要注入上下文（最多 10 条），同时对比 `.harness/VERSION` 里记录的模板 commit 与模板仓库当前 HEAD，落后就提示运行 `<harness> --force-guides`。两条都没有可说的时 hook 不输出任何内容。hook 由 Claude Code 与 Codex 共用同一份脚本，按 `python3` → `python` 探测解释器；本机没有 Python 时 setup 跳过注册并提示。
 
 ---
 
@@ -785,7 +794,9 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"。这里
 
 - 通用项目入口：`CLAUDE.md` / `AGENTS.md`
 - 专项规范：`.harness/guides/`
-- 错误记忆运行时：`.harness/scripts/`
+- 错误记忆运行时：`.harness/scripts/`、`.harness/hooks/`
+
+在模板仓库里改 guide 时先看它的来源：多套 harness 共用的放在 `shared/guides/go/`、`shared/guides/laravel/`，各 harness 的 `shared-guides.txt` 声明拉取哪些；只属于某一套的放在该套自己的 `guides/`，同名时以自己的为准。改一条 GORM 规则只需改 `shared/guides/go/db-patterns.md`，go-harness、go-grpc-harness、fullstack-harness 下次安装同时生效。
 
 比如你想加一条新的 GORM 规则：
 
@@ -810,6 +821,19 @@ cat .harness/error-journal.md
 bash .harness/scripts/append-error-journal.sh . user-correction auth "用户纠正了入口文件边界"
 ```
 
+### 批量查看 / 刷新多个项目
+
+把常用项目登记进清单后，一条命令看所有项目是否落后、入口文件是否被本地改过：
+
+```bash
+harness-refresh add ~/code/proj-a ~/code/proj-b   # 清单在 ~/.config/harness-engineering/projects.txt，可用 HARNESS_PROJECTS_FILE 换位置
+harness-refresh                                   # 只读报告：harness 名、已装 commit、是否落后、CLAUDE.md / AGENTS.md 是否与模板不同
+harness-refresh apply                             # 对落后的项目逐个执行 <harness> <dir> --force（含 openspec-auto --force）
+harness-refresh apply --all --no-openspec         # 全部刷新、只刷 harness
+```
+
+`apply` 等价于进每个目录跑 `<harness> --force`：`CLAUDE.md` / `AGENTS.md` 里 openspec-auto 的托管块保留，其余本地改动会被模板覆盖，先看报告再决定。
+
 ### 查看 harness 版本
 
 每次跑 `setup.sh` / `setup.ps1` 都会在项目下写入 `.harness/VERSION`，记录这次安装的 harness 包名、源仓库 commit、安装时间：
@@ -817,11 +841,14 @@ bash .harness/scripts/append-error-journal.sh . user-correction auth "用户纠�
 ```bash
 cat .harness/VERSION
 # harness: go-harness
+# source-path: /Users/you/Ai/harness-engineering
 # source-commit: a3f4b9c2e8d1
-# source-tag: 1.1.1
+# source-tag: v1.10.0
 # installed-at: 2026-05-14T17:30:42+0800
 # installer: setup.sh
 ```
+
+`source-path` 是安装时模板仓库的位置，SessionStart hook 与 `harness-refresh` 用它对比当前 HEAD 判断是否落后。
 
 排查"为什么我和同事的 `.harness/guides/` 不一样"时先看这个文件——commit / 安装时间不同就是差异原因。整个 `.harness/` 目录已自动加到项目 `.git/info/exclude`，本地忽略、不入库（含本文件）。
 
@@ -1029,11 +1056,11 @@ Windows 下同样支持先设置 `HARNESS_FORCE_GUIDES=1`，再执行任一脚�
 
 ## 贡献本仓库（修改 harness 模板）
 
-如果你要改 `setup.sh` / `setup.ps1`、`guides/*.md`、`rules/*.md`、`skills/*/SKILL.md`、`CLAUDE.md` / `AGENTS.md` 或 `scripts/`，提交前先在本地跑这套门禁：
+如果你要改 `setup.sh` / `setup.ps1`、`guides/*.md`、`shared/guides/`、`rules/*.md`、`skills/*/SKILL.md`、`CLAUDE.md` / `AGENTS.md` 或 `scripts/`，提交前先在本地跑这套门禁：
 
 ```bash
 # 0. 入口脚本语法
-bash -n install.sh scripts/harness-init.sh
+bash -n install.sh scripts/harness-init.sh scripts/harness-refresh.sh && python3 -m py_compile scripts/hooks/session_start.py
 
 # 1. CLAUDE.md / AGENTS.md 同步检查（修改 AGENTS.md 后必跑）
 bash scripts/sync-claude-from-agents.sh --check

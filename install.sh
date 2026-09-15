@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # ============================================================
-# 把六个 harness 命令装到 PATH：go-harness / go-grpc-harness / fullstack-harness /
-# go-pkg-harness / laravel-harness / laravel-fullstack-harness
+# 把命令装到 PATH：六个 harness 命令（go-harness / go-grpc-harness / fullstack-harness /
+# go-pkg-harness / laravel-harness / laravel-fullstack-harness）加 harness-refresh
 #
 # 用法：
 #   bash install.sh                    # 装到 ~/go/bin
@@ -39,8 +39,22 @@ EOF
     installed=$((installed + 1))
 done
 
+# harness-refresh：批量查看 / 刷新清单里所有项目
+target="${BIN_DIR}/harness-refresh"
+if [ -e "${target}" ] && ! grep -Fqs "${MARKER}" "${target}"; then
+    echo "  ⚠ ${target} 已存在且不是本脚本生成的，已替换"
+fi
+cat > "${target}" <<EOF
+#!/usr/bin/env bash
+${MARKER}
+exec bash "${ROOT_DIR}/scripts/harness-refresh.sh" "\$@"
+EOF
+chmod +x "${target}"
+echo "  ✓ ${target}"
+installed=$((installed + 1))
+
 echo ""
-echo "已安装 ${installed} 个命令到 ${BIN_DIR}，在项目目录直接执行命令名即可（如 go-harness）。"
+echo "已安装 ${installed} 个命令到 ${BIN_DIR}：在项目目录直接执行 harness 名（如 go-harness）；harness-refresh 批量查看 / 刷新多个项目。"
 case ":${PATH}:" in
     *":${BIN_DIR}:"*) ;;
     *) echo "⚠ ${BIN_DIR} 不在 PATH 里，把它加进 shell 配置后再用。" ;;

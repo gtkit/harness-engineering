@@ -205,10 +205,23 @@ assert_all_guides_are_referenced() {
     local guide_name
 
     for guide in "${ROOT_DIR}/${harness_dir}/guides/"*.md; do
+        [ -f "$guide" ] || continue
         guide_name="$(basename "$guide")"
         [ "$guide_name" = "error-journal-template.md" ] && continue
         assert_file_contains "$agents_file" "$guide_name"
     done
+    # shared-guides.txt 拉进来的公共 guide 同样必须被入口文件引用
+    if [ -f "${ROOT_DIR}/${harness_dir}/shared-guides.txt" ]; then
+        while IFS= read -r guide || [ -n "$guide" ]; do
+            guide="${guide%%#*}"
+            guide="$(printf '%s' "$guide" | tr -d '[:space:]')"
+            [ -n "$guide" ] || continue
+            test -f "${ROOT_DIR}/shared/guides/${guide}" || fail "shared guide missing: ${guide} (referenced by ${harness_dir})"
+            guide_name="$(basename "$guide")"
+            [ "$guide_name" = "error-journal-template.md" ] && continue
+            assert_file_contains "$agents_file" "$guide_name"
+        done < "${ROOT_DIR}/${harness_dir}/shared-guides.txt"
+    fi
 }
 
 # 入口规则文件必须真的在版本库里。go-grpc-harness 的 AGENTS.md / CLAUDE.md 曾被
