@@ -1,5 +1,7 @@
 # 数据库操作规范 Guide
 
+> 通用知识以 skill go-database-patterns（驱动 / ORM / 连接池 / 查询正确性 / 迁移工具）、go-data-consistency（事务、锁、幂等） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > 分层和事务边界以 `architecture.md` 为准；本文只约束 repository / GORM / 迁移实践。
 
 ## Repository 模式

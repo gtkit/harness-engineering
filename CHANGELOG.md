@@ -4,7 +4,20 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.13.0] - 2026-09-15
+
+### Added
+- `scripts/error-journal/close-error-journal.sh` / `.ps1`：关闭一条错误记录（`Status: open` → `closed`，记关闭时间与处置说明）。SessionStart hook 只注入 open 条目，此前没有任何关闭手段，条目会无限期每次会话注入。六套入口文件的错误记忆节补上关闭动作。
+- `harness-refresh apply` 覆盖前自动把项目的 `CLAUDE.md`、`AGENTS.md`、`.harness/guides/` 备份到 `~/.config/harness-engineering/backups/<时间戳>/<项目名>/`；新增 `--no-force`，只补缺失文件、修复只剩托管块的入口文件，本地改动一律保留。
+- 反证测试：入口文件托管块的比对与强刷保留、只剩托管块时的自愈、hook 注册幂等、shared guides 原样安装、rules 指向存在的 guide、SessionStart hook 的注入与静默、`harness-refresh` 报告与 `--no-force` 备份、`close-error-journal` 只关目标条目。
+
+### Fixed
+- **入口文件只剩 openspec-auto 托管块时 setup 会按"用户定制"跳过，项目看着装了 harness 实际 agent 读不到任何 harness 规则。** 扫描本机 48 个已装项目，21 个处于这种状态（openspec-auto 先装、harness 后装的顺序问题留下的）。setup 现在剥离托管块后若为空就直接写入模板并保留块；普通重跑即可修复，不需要 `--force`。`sh` / `ps1` 两端一致。
+- `shared/guides/go/pkg-design.md` 与 `go-pkg-harness/guides/pkg-structure.md` 的 Functional Options 模板用 `*slog.Logger` 做日志注入，与"永远禁止 `log/slog`"冲突；改为库内直接调 `github.com/gtkit/logger` 包级函数、不提供 `WithLogger`。
+- 四套 Go 入口文件的日志表述统一为：`github.com/gtkit/logger`，major 以项目 `go.mod` 已引用的为准，未引用时用最新 major（当前 `/v2`）。此前 harness 写 v1 路径、skills 写 `/v2`，同一项目里两个答案。
+
+### Changed
+- 与 skills 仓库划清分工：harness guides 只写项目约定，通用 Go 知识归 skills。`go-modern.md` 四份收成指向 `use-modern-go` 的一页（只留门禁、本项目 UUID 落库约束、自检），17 份与 skill 重叠的 guide 开头加归属行写明指向哪个 skill，四套 Go 入口文件的 Guide 加载表加"通用 Go 知识 → 对应 skill"一行。此前同一主题 harness 与 skills 各写一份、互不引用，漂移已经发生（日志库版本就是一例）。
 
 ## [1.12.0] - 2026-09-15
 

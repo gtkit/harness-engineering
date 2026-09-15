@@ -503,4 +503,97 @@ for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness l
     assert_file_contains "${ROOT_DIR}/${harness_dir}/CLAUDE.md" "docker ps -a"
 done
 
+# --- 反证测试：入口文件托管块、自愈、hook 注册、shared guides、rules、SessionStart hook、harness-refresh ---
+managed_home="${tmpdir}/managed-home"
+managed_project="${tmpdir}/managed-project"
+mkdir -p "$managed_home" "$managed_project"
+run_setup "go-harness" "$managed_project" "$managed_home"
+
+# 托管块保留：追加块后重跑应判为一致；改正文后强刷应刷新正文且块原样保留
+printf '\n<!-- OPENSPEC-AUTO:START -->\n# OpenSpec First Workflow\nblock body $HOME keep me\n<!-- OPENSPEC-AUTO:END -->\n' >> "${managed_project}/CLAUDE.md"
+out="$( (cd "$managed_project" && HOME="$managed_home" CODEX_HOME="$managed_home/.codex" bash "${ROOT_DIR}/go-harness/setup.sh") )"
+grep -Fq "CLAUDE.md 已存在且与本版本一致（含 openspec-auto 托管块）" <<<"$out" || fail "entry file with managed block must compare equal to template"
+sed -i '' 's/^## 编码基线$/## 编码基线X/' "${managed_project}/CLAUDE.md"
+out="$( (cd "$managed_project" && HOME="$managed_home" CODEX_HOME="$managed_home/.codex" bash "${ROOT_DIR}/go-harness/setup.sh") )"
+grep -Fq "CLAUDE.md 已存在且内容与本版本模板不同，保留未动" <<<"$out" || fail "modified entry body must be reported and left untouched"
+assert_file_contains "${managed_project}/CLAUDE.md" "编码基线X"
+run_setup "go-harness" "$managed_project" "$managed_home" "1"
+assert_file_not_contains "${managed_project}/CLAUDE.md" "编码基线X"
+assert_file_contains "${managed_project}/CLAUDE.md" "## 编码基线"
+assert_file_contains "${managed_project}/CLAUDE.md" 'block body $HOME keep me'
+if [ "$(grep -c 'OPENSPEC-AUTO:START' "${managed_project}/CLAUDE.md")" != "1" ]; then
+    fail "force refresh must keep exactly one managed block"
+fi
+
+# 自愈：入口文件只剩 openspec-auto 托管块时不算用户定制，普通 setup 必须补齐 harness 规则并保留块
+heal_home="${tmpdir}/heal-home"
+heal_project="${tmpdir}/heal-project"
+mkdir -p "$heal_home" "$heal_project"
+git init -q "$heal_project"
+printf '<!-- OPENSPEC-AUTO:START -->\nopenspec only\n<!-- OPENSPEC-AUTO:END -->\n' | tee "${heal_project}/CLAUDE.md" > "${heal_project}/AGENTS.md"
+run_setup "go-harness" "$heal_project" "$heal_home"
+for f in CLAUDE.md AGENTS.md; do
+    assert_file_contains "${heal_project}/${f}" "## Guide 加载表"
+    assert_file_contains "${heal_project}/${f}" "openspec only"
+    if [ "$(grep -c 'OPENSPEC-AUTO:START' "${heal_project}/${f}")" != "1" ]; then
+        fail "self-heal must keep exactly one managed block in ${f}"
+    fi
+done
+
+# hook 注册幂等：重跑两次，两份配置里各只有一条 harness 注册
+run_setup "go-harness" "$managed_project" "$managed_home"
+for cfg in .claude/settings.json .codex/hooks.json; do
+    count="$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(sum(1 for e in d['hooks']['SessionStart'] for h in e['hooks'] if '/.harness/hooks/' in h['command']))" "${managed_project}/${cfg}")"
+    [ "$count" = "1" ] || fail "expected exactly one harness SessionStart hook in ${cfg}, got ${count}"
+done
+
+# shared guides：装进项目的公共 guide 必须与 shared/guides 源一致；rules 必须带 paths 且指向存在的 guide
+cmp -s "${ROOT_DIR}/shared/guides/go/db-patterns.md" "${managed_project}/.harness/guides/db-patterns.md" || fail "shared guide db-patterns.md must be installed verbatim"
+cmp -s "${ROOT_DIR}/shared/guides/common/commit-and-changelog.md" "${managed_project}/.harness/guides/commit-and-changelog.md" || fail "shared guide commit-and-changelog.md must be installed verbatim"
+for rule in "${managed_project}"/.claude/rules/harness-*.md; do
+    guide="$(sed -n 's/.*`\.harness\/guides\/\([a-z0-9-]*\.md\)`.*/\1/p' "$rule" | head -n1)"
+    [ -n "$guide" ] || fail "rule $(basename "$rule") must point to a guide"
+    test -f "${managed_project}/.harness/guides/${guide}" || fail "rule $(basename "$rule") points to missing guide ${guide}"
+    assert_file_contains "$rule" "paths:"
+done
+
+# SessionStart hook：无 open 条目且版本一致时静默；有 open 条目且版本落后时注入两条
+assert_file_contains "${managed_project}/.harness/VERSION" "source-path: ${ROOT_DIR}"
+hook_out="$(cd "$managed_project" && echo '{}' | python3 .harness/hooks/session_start.py)"
+[ -z "$hook_out" ] || fail "session hook must print nothing when journal has no open entry and template is current, got: ${hook_out}"
+err_id="$(bash "${managed_project}/.harness/scripts/append-error-journal.sh" "$managed_project" user-correction auth "入口边界改错")"
+sed -i '' 's/^source-commit: .*/source-commit: 000000000000/' "${managed_project}/.harness/VERSION"
+hook_out="$(cd "$managed_project" && echo '{}' | python3 .harness/hooks/session_start.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])')"
+grep -Fq "$err_id" <<<"$hook_out" || fail "session hook must list open journal entry ${err_id}"
+grep -Fq "入口边界改错" <<<"$hook_out" || fail "session hook must include the entry summary"
+grep -Fq "go-harness --force-guides" <<<"$hook_out" || fail "session hook must suggest refresh when template commit differs"
+bash "${managed_project}/.harness/scripts/close-error-journal.sh" "$managed_project" "$err_id" "已修" >/dev/null
+hook_out="$(cd "$managed_project" && echo '{}' | python3 .harness/hooks/session_start.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])')"
+if grep -Fq "$err_id" <<<"$hook_out"; then
+    fail "closed journal entry must not be injected by session hook"
+fi
+
+# harness-refresh：报告识别落后 / 本地改动 / 未安装；apply --no-force 修自愈项目且不覆盖本地改动，并留下备份
+refresh_home="${tmpdir}/refresh-home"
+mkdir -p "$refresh_home"
+printf 'LOCAL EDIT\n' >> "${managed_project}/AGENTS.md"
+report="$(HOME="$refresh_home" HARNESS_PROJECTS_FILE="${tmpdir}/projects.txt" bash "${ROOT_DIR}/scripts/harness-refresh.sh" add "$managed_project" "$heal_project" "${tmpdir}/not-a-harness-project" 2>&1 || true)"
+mkdir -p "${tmpdir}/not-a-harness-project"
+report="$(HOME="$refresh_home" HARNESS_PROJECTS_FILE="${tmpdir}/projects.txt" bash "${ROOT_DIR}/scripts/harness-refresh.sh")"
+grep -Fq "落后" <<<"$report" || fail "refresh report must flag the project with an outdated source-commit"
+grep -Fq "入口文件与模板不同" <<<"$report" || fail "refresh report must flag locally edited entry files"
+HOME="$refresh_home" HARNESS_PROJECTS_FILE="${tmpdir}/projects.txt" bash "${ROOT_DIR}/scripts/harness-refresh.sh" add "${tmpdir}/not-a-harness-project" >/dev/null
+report="$(HOME="$refresh_home" HARNESS_PROJECTS_FILE="${tmpdir}/projects.txt" bash "${ROOT_DIR}/scripts/harness-refresh.sh")"
+grep -Fq "未安装 harness" <<<"$report" || fail "refresh report must flag directories without .harness/VERSION"
+apply_out="$(HOME="$refresh_home" HARNESS_PROJECTS_FILE="${tmpdir}/projects.txt" CODEX_HOME="$refresh_home/.codex" bash "${ROOT_DIR}/scripts/harness-refresh.sh" apply --no-force --no-openspec)"
+assert_file_contains "${managed_project}/AGENTS.md" "LOCAL EDIT"
+backup_dir="$(find "${refresh_home}/.config/harness-engineering/backups" -mindepth 2 -maxdepth 2 -name "$(basename "$managed_project")" | head -n1)"
+[ -n "$backup_dir" ] || fail "refresh apply must back up the project before touching it"
+assert_file_contains "${backup_dir}/AGENTS.md" "LOCAL EDIT"
+test -d "${backup_dir}/guides" || fail "refresh apply backup must include .harness/guides"
+grep -Fq "已刷新" <<<"$apply_out" || fail "refresh apply must report refreshed projects"
+
 printf 'setup smoke test passed\n'

@@ -237,7 +237,7 @@ go-harness --version                # 打印本仓库当前 commit / tag
 - 先 harness 再 openspec-auto：harness 写出完整规则，openspec-auto 把托管块追加进去，两份内容都在。
 - 反过来先 openspec-auto：`CLAUDE.md` / `AGENTS.md` 已经存在且只有托管块，harness 默认不覆盖已存在的入口文件，会判定为"与模板不同、保留未动"并跳过，项目就只剩 OpenSpec 规则而没有 harness 规则；只有加 `--force` 强刷才能补回来。
 
-harness 这一侧已经做了配合：日常重跑比对入口文件是否为本版本时会忽略托管块，`--force` 刷新时先写模板再把托管块原样追加回去，所以装好之后重复执行任意一个安装器都不会互相破坏。
+harness 这一侧已经做了配合：日常重跑比对入口文件是否为本版本时会忽略托管块，`--force` 刷新时先写模板再把托管块原样追加回去；入口文件里只剩托管块、没有任何 harness 规则时（先装 openspec-auto 的老项目就是这样），普通 setup 会直接补齐规则并保留块，不再按"用户定制"跳过。所以装好之后以任意顺序重复执行任意一个安装器都不会互相破坏。
 
 ### openspec-auto 从哪里来、怎么保持最新
 
@@ -749,6 +749,8 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加
 
 ### 修改规范
 
+harness 只写**项目约定**（gtkit 技术栈、分层与依赖方向、DTO 与错误码、支付与迁移流程、门禁命令、错误记忆）；**通用工程知识**（现代 Go 写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能）归 [skills 仓库](../skills) 的对应 skill，每套 Go guide 开头的归属行写明指向哪个 skill，`go-modern.md` 已收成指向 `use-modern-go` 的一页。同一主题只在一处写全，避免两边各自漂移。
+
 规则分三层：
 
 - 通用项目入口：`CLAUDE.md` / `AGENTS.md`
@@ -774,11 +776,14 @@ cat .harness/error-journal.md
 
 可以手动编辑，删除过时的条目或补充新的。
 
-也可以直接调用追加脚本生成新条目骨架：
+也可以直接调用追加脚本生成新条目骨架，处置完后关闭：
 
 ```bash
 bash .harness/scripts/append-error-journal.sh . user-correction auth "用户纠正了入口文件边界"
+bash .harness/scripts/close-error-journal.sh . ERR-20260915-001 "已在 architecture.md 补规则"
 ```
+
+只有 `Status: open` 的条目会被 SessionStart hook 在每次会话开始时注入，关闭后不再出现。
 
 ### 批量查看 / 刷新多个项目
 
@@ -789,9 +794,10 @@ harness-refresh add ~/code/proj-a ~/code/proj-b   # 清单在 ~/.config/harness-
 harness-refresh                                   # 只读报告：harness 名、已装 commit、是否落后、CLAUDE.md / AGENTS.md 是否与模板不同
 harness-refresh apply                             # 对落后的项目逐个执行 <harness> <dir> --force（含 openspec-auto --force）
 harness-refresh apply --all --no-openspec         # 全部刷新、只刷 harness
+harness-refresh apply --no-force                  # 不强刷：只补缺失文件、修复只剩托管块的入口文件，本地改动一律保留
 ```
 
-`apply` 等价于进每个目录跑 `<harness> --force`：`CLAUDE.md` / `AGENTS.md` 里 openspec-auto 的托管块保留，其余本地改动会被模板覆盖，先看报告再决定。
+`apply` 每次覆盖前先把该项目的 `CLAUDE.md`、`AGENTS.md`、`.harness/guides/` 备份到 `~/.config/harness-engineering/backups/<UTC 时间戳>/<项目名>/`，因为这些文件在 `.git/info/exclude` 里不入库，覆盖后没有别处可找回。默认等价于进每个目录跑 `<harness> --force`：openspec-auto 的托管块保留，其余本地改动被模板覆盖；先看报告再决定用不用 `--no-force`。
 
 ### 查看 harness 版本
 

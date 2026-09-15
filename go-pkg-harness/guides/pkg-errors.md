@@ -1,5 +1,7 @@
 # 错误体系设计 Guide
 
+> 通用知识以 skill go-error-handling（AppError、Unwrap / Is、错误分类） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 ## 三层错误体系
 
 库的错误设计分三层，调用方按需使用：

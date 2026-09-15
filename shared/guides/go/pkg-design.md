@@ -27,7 +27,7 @@ github.com/gtkit/pkgname/
 
 ## Functional Options 模板
 
-> 可复用扩展包用标准库 `log/slog`（零依赖，不绑定业务日志栈）；这与业务服务统一用 `gtkit/logger` 是刻意区分，见 architecture.md「日志库」。
+> 日志一律 `github.com/gtkit/logger`（major 以项目 go.mod 已引用的为准，未引用时用最新 major，当前 `/v2`），库内直接调包级函数，不提供 `WithLogger` 注入；`log` / `log/slog` 包括当接口层的变通写法都不用。
 
 ```go
 type Option func(*config)
@@ -35,14 +35,12 @@ type Option func(*config)
 type config struct {
     timeout  time.Duration
     retries  int
-    logger   *slog.Logger
 }
 
 func defaultConfig() *config {
     return &config{
         timeout: 10 * time.Second,
         retries: 3,
-        logger:  slog.Default(),
     }
 }
 
@@ -52,10 +50,6 @@ func WithTimeout(d time.Duration) Option {
 
 func WithRetries(n int) Option {
     return func(c *config) { c.retries = n }
-}
-
-func WithLogger(l *slog.Logger) Option {
-    return func(c *config) { c.logger = l }
 }
 
 // New 创建实例，应用所有选项

@@ -3,6 +3,8 @@
 > 硬性基线：`go.mod` 声明 `go 1.27.0`；提交前 `go fix -diff ./...` 必须无输出。
 > 本文的 API 签名、编译器报错与编解码输出都在 go1.27.0 上实测过；完整示例（泛型方法、Valuer/Scanner、JSON tag）整包 `go run` / `go vet` / `go fix -diff` 通过，带 `...` 的片段是示意。
 
+> 通用的现代 Go 写法（泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / 迭代器、`slices` / `maps` / `cmp`、`omitzero`、`json/v2`、`synctest`）以 skill `use-modern-go` 为准，按项目 `go.mod` 版本只读它 `references/` 里对应的一段；本文只保留门禁命令、本项目的 UUID 落库约束与自检项。
+
 ## 门禁
 
 ```bash
@@ -12,12 +14,6 @@ go test -race -count=1 ./...
 ```
 
 `go fix` 的改写器清单用 `go tool fix help` 查（go1.27.0 实测注册 26 个 analyzer，含 `errorsastype`、`waitgroupgo`、`rangeint`、`stringsseq`、`omitzero`、`newexpr`、`stditerators`），把下面这些写法从"建议"变成"可执行检查"。
-
-## 泛型方法（Go 1.27 新增）
-
-方法可以自带类型参数，容器不必再为每种取出类型写一个包级函数。完整写法、两条编译器强制约束（接口方法不能带类型参数、方法值必须先实例化）与选型标准见 `pkg-generics.md` 的「泛型方法（Go 1.27）」一节，本文不重复。
-
-库作者额外注意：**泛型方法会进入导出面**。给已发布的类型新增泛型方法是 MINOR；改动它的类型参数个数、约束或返回类型是破坏性变更，按 `pkg-api-compat.md` 处理。
 
 ## UUID：标准库 `uuid` 包
 
@@ -88,59 +84,6 @@ import "uuid"
    `omitzero` 与 `omitempty` 的这组差异在 `encoding/json` 和 `github.com/gtkit/json` v1.0.0 上实测输出逐字节一致，两个编码器都可以照此写 tag。
 
    **这条门禁抓不到，只能靠审查**：`go fix` 的 `omitzero` modernizer 会标记结构体、`time.Time` 等字段上无效的 `omitempty`，但实测不标记数组类型——`uuid.UUID` 上写错的 `omitempty` 能干净通过 `go fix -diff ./...`。所以 UUID 字段的 tag 要逐个人工核对。
-
-## 错误：`errors.AsType`
-
-```go
-// 签名：func AsType[E error](err error) (E, bool)
-if e, ok := errors.AsType[*PaymentError](err); ok {
-    return e.Code
-}
-```
-
-替代 `var e *PaymentError; errors.As(err, &e)` 的两步写法，少一个中间变量，类型写在调用处。包装仍用 `fmt.Errorf("...: %w", err)`，哨兵判断仍用 `errors.Is`。
-
-## 并发：`sync.WaitGroup.Go`
-
-```go
-var wg sync.WaitGroup
-for _, item := range items {
-    wg.Go(func() {           // Add(1) / go / defer Done() 三步收成一步
-        process(ctx, item)
-    })
-}
-wg.Wait()
-```
-
-`wg.Go` 只是省掉计数样板，不改变逻辑约束：闭包里的错误必须自己收集（用 `errgroup` 或带锁的切片），goroutine 仍要监听 `ctx`。
-
-## `new(expr)`
-
-```go
-p := new(computeLimit())   // 直接对表达式取地址，替代 tmp := ...; p := &tmp
-```
-
-## range over int / 迭代器
-
-```go
-for i := range 3 { ... }                       // 替代 for i := 0; i < 3; i++
-
-for line := range strings.Lines(text) { ... }  // strings.SplitSeq / FieldsSeq / SplitAfterSeq 同理
-
-for k, v := range maps.All(m) { ... }
-```
-
-自定义迭代器返回 `iter.Seq[T]` / `iter.Seq2[K, V]`，调用方直接 `range`。
-
-## slices / maps / cmp 优先于手写循环
-
-```go
-slices.Contains(s, v)
-slices.SortFunc(items, func(a, b Item) int { return cmp.Compare(a.Name, b.Name) })
-slices.Collect(maps.Keys(m))      // maps.Keys 返回 iter.Seq，不是切片
-slices.Sorted(maps.Keys(m))       // 需要有序键直接用 Sorted
-maps.DeleteFunc(m, func(k string, v int) bool { return v == 0 })
-```
 
 ## 自检
 

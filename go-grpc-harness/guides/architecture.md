@@ -1,5 +1,7 @@
 # 架构约束 Guide（gRPC 服务）
 
+> 通用知识以 skill senior-go-engineer（架构取舍框架）、go-microservice（gRPC 拦截器 / keepalive / 健康检查协议 / deadline 传播） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > BASE: go-harness/guides/architecture.md @ 2026-07-03（gRPC 化重写；分层骨架同源，transport 层由 HTTP/Gin 换为 gRPC）
 > 本 guide 采用「模块化 + 显式装配」结构。契约先行：proto 是唯一事实源。
 

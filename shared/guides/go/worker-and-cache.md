@@ -1,5 +1,7 @@
 # Worker / Cache Guide
 
+> 通用知识以 skill go-redis-patterns（客户端、Pipeline、Lua、锁）、go-cache-consistency（一致性、穿透 / 击穿 / 雪崩、热 key） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > 本 guide 补充 `workers-and-scheduling.md`，聚焦缓存、Redis、Pub/Sub、延迟队列一致性。
 
 ## Worker 边界

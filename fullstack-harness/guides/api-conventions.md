@@ -1,5 +1,7 @@
 # API 设计规范 Guide
 
+> 通用知识以 skill go-gin-api（http.Server 超时、中间件栈、DTO 校验、JWT、幂等接口）、go-error-handling（AppError、错误码、状态映射） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > 本 guide 约束 HTTP transport 层。具体响应 helper、错误包、middleware 函数名必须以项目真实源码为准；不确定时先 `rg` / `go doc`，禁止照搬不存在的 `response.OK`、`Created`、`Paged` 等 API。
 
 ## 统一响应格式

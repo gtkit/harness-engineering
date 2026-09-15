@@ -1,5 +1,7 @@
 # gRPC / proto / buf 规范 Guide
 
+> 通用知识以 skill go-microservice（gRPC 拦截器、status 映射、健康检查协议、deadline 传播） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > 本 guide 是 go-grpc-harness 专有（替代 go-harness 的 api-conventions.md）。
 > 内容蒸馏自真实落地项目（pay360-service）的验证经验与 error-journal 教训。
 

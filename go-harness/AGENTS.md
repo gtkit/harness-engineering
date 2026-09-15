@@ -25,6 +25,7 @@
 - Go 1.27，**必须使用现代语法**：泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`slices`/`maps`/`cmp`、`omitzero` tag；落地写法与实测约束见 `.harness/guides/go-modern.md`，门禁是 `go fix -diff ./...` 无输出
 - UUID 用标准库 `uuid` 包：`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）；`uuid.Nil()` 是函数不是变量，入库与 JSON 的转换约束见 `.harness/guides/go-modern.md`
 - Gin + GORM + github.com/gtkit/*
+- 日志：`github.com/gtkit/logger`，major 以项目 `go.mod` 已引用的为准，未引用时用最新 major（当前 `/v2`）；**永远禁止 `log` / `log/slog`**，含以 slog 为接口层的变通
 - 第三方包选型顺序：标准库 → gtkit 原生包 → 业界事实标准 → 其他第三方
 - 依赖使用最新稳定版，不用 RC/Beta
 - 已有 go.mod 的项目遵循已锁定版本
@@ -53,6 +54,7 @@
 | CI / 传感器 | `.harness/guides/ci-sensors.md` |
 | 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
+| 通用 Go 知识（现代写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能） | 对应 skill：`use-modern-go`、`go-concurrency`、`go-database-patterns`、`go-cache-consistency`、`go-mq-patterns`、`go-stability-engineering`、`go-security`、`go-testing`、`go-performance`；guides 只写本项目约定 |
 | 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
 | 新增或改动 `.go` 文件（现代语法 / 泛型方法 / UUID） | `.harness/guides/go-modern.md` |
 | 新增模块 / 新建包 / 跨层改动 / 调整依赖方向 | `.harness/guides/architecture.md` |
@@ -177,6 +179,8 @@ scripts/check-architecture.sh
 `.harness/error-journal.md` 里未关闭的条目由 SessionStart hook 在会话开始时注入，不用自己去读。
 
 用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，执行 append 脚本追加错误记录。脚本不存在时，按 `.harness/guides/error-journal-template.md` 手工追加。
+
+条目处置完（规则已改、guide 已补、根因已修）后用 `bash .harness/scripts/close-error-journal.sh . <ERR-ID> "处置说明"` 关闭；只有 `Status: open` 的条目会被 SessionStart hook 每次注入，不关闭就会一直出现。
 
 ## 合规摘要
 

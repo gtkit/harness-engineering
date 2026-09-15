@@ -212,6 +212,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-erro
 用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
 用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
 
+条目处置完（规则已改、guide 已补、根因已修）后用 `bash .harness/scripts/close-error-journal.sh . <ERR-ID> "处置说明"` 关闭；只有 `Status: open` 的条目会被 SessionStart hook 每次注入，不关闭就会一直出现。
+
 ## 沟通语言
 
 **与用户的所有对话必须使用简体中文**，包括解释、确认、进度汇报、错误说明。

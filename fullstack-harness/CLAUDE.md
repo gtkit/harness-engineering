@@ -28,6 +28,7 @@
 **后端**：Go 1.27 + Gin + GORM + gtkit（代码在 `backend/`）。**必须使用现代语法**：泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`slices`/`maps`/`cmp`、`omitzero` tag；落地写法与实测约束见 `.harness/guides/go-modern.md`，门禁是 `backend/` 下 `go fix -diff ./...` 无输出
 **UUID**：用标准库 `uuid` 包，`uuid.New()` 用于通用场景，`uuid.NewV7()` 生成时间有序 ID（适合作数据库主键）；`uuid.Nil()` 是函数不是变量，入库与 JSON 的转换约束见 `.harness/guides/go-modern.md`
 **前端**：Vue 3 + Vite + TypeScript strict + Pinia + Axios（代码在 `frontend/`）
+**日志**：`github.com/gtkit/logger`，major 以项目 `go.mod` 已引用的为准，未引用时用最新 major（当前 `/v2`）；**永远禁止 `log` / `log/slog`**，含以 slog 为接口层的变通
 **JSON**：后端统一使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`，禁止 `encoding/json`
 **第三方包选型顺序**：标准库 → `github.com/gtkit/*` 下的原生包（如 `gtkit/logger`、`gtkit/json`、`gtkit/go-pay`，其中 `gtkit/go-pay` 通过 `paymgr` 提供跨渠道统一抽象，非轻封装）→ 业界事实标准（如 `redis/go-redis`、`gorm/gorm`、`gin-gonic/gin`，gtkit 下无原生包或同名包仅是轻封装时可直连）→ 其他第三方
 依赖使用最新稳定版；JSON 属于例外，必须使用 `github.com/gtkit/json` 或 `github.com/gtkit/json/v2`。
@@ -139,6 +140,7 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | 新增或改动 `backend/` 下的 `.go` 文件（现代语法 / 泛型方法 / UUID） | `.harness/guides/go-modern.md` |
 | 新增模块 / 新建包 / 跨层改动 / 调整依赖方向 | `.harness/guides/architecture.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
+| 通用 Go 知识（现代写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能） | 对应 skill：`use-modern-go`、`go-concurrency`、`go-database-patterns`、`go-cache-consistency`、`go-mq-patterns`、`go-stability-engineering`、`go-security`、`go-testing`、`go-performance`；guides 只写本项目约定 |
 | 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
 
 ## 后端分层
@@ -225,6 +227,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-erro
 
 用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
 用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
+
+条目处置完（规则已改、guide 已补、根因已修）后用 `bash .harness/scripts/close-error-journal.sh . <ERR-ID> "处置说明"` 关闭；只有 `Status: open` 的条目会被 SessionStart hook 每次注入，不关闭就会一直出现。
 
 ## 沟通语言
 

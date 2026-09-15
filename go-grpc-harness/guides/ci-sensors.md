@@ -1,5 +1,7 @@
 # CI / 传感器 Guide（gRPC 服务）
 
+> 通用知识以 skill go-engineering-governance（golangci-lint v2 配置、依赖治理、apidiff、发布纪律、PGO） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > BASE: go-harness/guides/ci-sensors.md @ 2026-07-03（gRPC 化改写）
 > guide 中的硬规则应尽量落成脚本。新增规则前先 grep 存量代码，避免模板与现实冲突。
 

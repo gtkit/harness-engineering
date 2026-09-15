@@ -88,7 +88,6 @@ type config struct {
     timeout     time.Duration
     retries     int
     maxSize     int
-    logger      *slog.Logger
     concurrency int
 }
 
@@ -97,7 +96,6 @@ func defaultConfig() *config {
         timeout:     10 * time.Second,
         retries:     3,
         maxSize:     1 << 20, // 1MB
-        logger:      slog.Default(),
         concurrency: runtime.NumCPU(),
     }
 }
@@ -122,15 +120,7 @@ func WithRetries(n int) Option {
     }
 }
 
-func WithLogger(l *slog.Logger) Option {
-    return func(c *config) error {
-        if l == nil {
-            return fmt.Errorf("pkgname: nil logger: %w", ErrInvalidArg)
-        }
-        c.logger = l
-        return nil
-    }
-}
+// 日志不做 Option 注入：库内直接调 github.com/gtkit/logger 的包级函数（major 以项目 go.mod 为准）
 ```
 
 **规则：**

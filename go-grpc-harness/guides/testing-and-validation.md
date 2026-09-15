@@ -1,5 +1,7 @@
 # Go 测试与验证 Guide
 
+> 通用知识以 skill go-testing（表驱动、替身选择、httptest、testcontainers、-race / goleak / synctest、fuzz、benchmark） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > BASE: go-harness/guides/testing-and-validation.md @ 2026-07-03（通用规则同源;通用改进先落 go-grpc-harness,择机回灌 go-harness）
 
 ## 验证入口

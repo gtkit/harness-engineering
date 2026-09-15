@@ -1,5 +1,7 @@
 # Go 测试与验证 Guide
 
+> 通用知识以 skill go-testing（表驱动、替身选择、httptest、testcontainers、-race / goleak / synctest、fuzz、benchmark） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 ## 验证入口
 
 优先使用项目统一入口。没有统一入口时至少执行：

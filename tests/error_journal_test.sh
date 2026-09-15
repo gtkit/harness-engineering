@@ -101,4 +101,49 @@ test_append_joins_multi_word_summary
 test_read_rejects_missing_journal
 test_read_outputs_journal_content
 
+
+CLOSE="${ROOT_DIR}/scripts/error-journal/close-error-journal.sh"
+
+test_close_rejects_missing_args() {
+    local out
+    if out="$(bash "${CLOSE}" 2>&1)"; then
+        fail "close should exit non-zero when args missing; got: ${out}"
+    fi
+    printf 'ok: close rejects missing args\n'
+}
+
+test_close_rejects_unknown_id() {
+    local dir
+    dir="$(setup_fixture)"
+    if bash "${CLOSE}" "${dir}" ERR-19700101-999 >/dev/null 2>&1; then
+        fail "close should exit non-zero for an unknown id"
+    fi
+    rm -rf "${dir}"
+    printf 'ok: close rejects unknown id\n'
+}
+
+test_close_marks_only_target_entry() {
+    local dir id1 id2
+    dir="$(setup_fixture)"
+    id1="$(bash "${APPEND}" "${dir}" user-correction core "one")"
+    id2="$(bash "${APPEND}" "${dir}" test-failure core "two")"
+    bash "${CLOSE}" "${dir}" "${id1}" "规则已改" >/dev/null
+    # 目标条目关闭并带上关闭时间与处置说明；另一条保持 open
+    awk -v id="## [${id1}]" 'index($0, id)==1{f=1} f&&/^## \[ERR-/&&index($0,id)!=1{exit} f' "${dir}/.harness/error-journal.md" \
+        | grep -Fq "**Status**: closed" || fail "closed entry should have Status closed"
+    awk -v id="## [${id1}]" 'index($0, id)==1{f=1} f&&/^## \[ERR-/&&index($0,id)!=1{exit} f' "${dir}/.harness/error-journal.md" \
+        | grep -Fq "**Resolution**: 规则已改" || fail "closed entry should carry the resolution note"
+    awk -v id="## [${id2}]" 'index($0, id)==1{f=1} f&&/^## \[ERR-/&&index($0,id)!=1{exit} f' "${dir}/.harness/error-journal.md" \
+        | grep -Fq "**Status**: open" || fail "other entry must stay open"
+    if [ "$(grep -c '^\*\*Status\*\*: closed' "${dir}/.harness/error-journal.md")" != "1" ]; then
+        fail "exactly one entry should be closed"
+    fi
+    rm -rf "${dir}"
+    printf 'ok: close marks only the target entry\n'
+}
+
+test_close_rejects_missing_args
+test_close_rejects_unknown_id
+test_close_marks_only_target_entry
+
 printf 'error-journal test passed\n'

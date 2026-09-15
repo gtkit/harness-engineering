@@ -1,5 +1,7 @@
 # 可观测性 Guide
 
+> 通用知识以 skill go-observability（gtkit/logger 初始化与字段、request_id、OTel、Prometheus、慢 SQL） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > 日志、指标、告警 API 以项目真实依赖为准。示例中的字段名表达结构化日志意图，不代表具体 logger 函数签名。
 
 ## 日志

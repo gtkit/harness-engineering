@@ -1,5 +1,7 @@
 # Worker 与定时任务 Guide
 
+> 通用知识以 skill go-concurrency（goroutine 生命周期、有界并发、worker pool）、go-mq-patterns（消费幂等、重试与死信） 为准；本文只写本项目的约定与落地位置，不重复那里的内容。
+
 > worker 仍遵守模块化边界：`module/<m>/worker` 只依赖 application，不直接 import repository / gorm。
 
 ## 基本原则
