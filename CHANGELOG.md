@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-09-15
+
 > ⚠ 行为变更：工作流命令由 `.claude/commands/harness/*.md`（`/harness:doctor` 等）改为项目级 skills（`/harness-doctor` 等），重跑 setup 会删掉旧的 `.claude/commands/harness/`；Codex 全局 skill 改装到 `~/.agents/skills/<harness>/`，旧位置 `~/.codex/skills/<harness>/` 会被移走。
 
 ### Added
