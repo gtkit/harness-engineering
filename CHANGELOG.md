@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-09-15
+
 > ⚠ 行为变更：setup 不再往用户目录安装 `<harness>` 全局 skill，重跑时会把旧版本装过的 `~/.claude/skills/<harness>/`、`~/.agents/skills/<harness>/`、`~/.codex/skills/<harness>/` 删掉；六套 harness 目录下的 `SKILL.md` / `SKILL.codex.md` 已移除。`.claude/rules/` 新增 `harness-go-modern.md`（`**/*.go`）等规则，旧项目重跑 setup 自动补齐。
 
 对照 OpenAI《Rethinking skills and prompts for GPT-6 Astra》的四条建议（skill 少而窄、AGENTS.md 做减法、写清自主边界、写清完成标准）修订六套入口规则与工作流 skill：
