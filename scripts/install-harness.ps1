@@ -196,13 +196,19 @@ function Install-HarnessEntryFile {
         return
     }
 
-    # 剥离托管块后为空：文件里只有 openspec-auto 等工具写的块，没有任何 harness 规则
-    # （openspec-auto 先装、harness 后装被跳过留下的产物）。直接写入，不按"用户定制"跳过。
-    if ($block -and -not (Get-HarnessContentWithoutManagedBlock -Path $Destination)) {
+    # 剥离托管块后没有任何 harness 规则：文件为空、只剩 openspec-auto 的块，或只剩一行 `@AGENTS.md`
+    # （旧版 openspec-auto 在 CLAUDE.md 缺失时写的导入行）。这些是"openspec-auto 先装、harness 后装
+    # 被跳过"留下的产物，直接写入模板，不按"用户定制"跳过。
+    $rest = Get-HarnessContentWithoutManagedBlock -Path $Destination
+    if (-not $rest -or $rest -ceq "@AGENTS.md") {
         Copy-Item -LiteralPath $Source -Destination $Destination -Force
-        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-        [System.IO.File]::AppendAllText($Destination, "`n" + $block + "`n", $utf8NoBom)
-        Write-Host "  OK $Label (file had only the openspec-auto managed block; harness rules restored, block kept)"
+        if ($block) {
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::AppendAllText($Destination, "`n" + $block + "`n", $utf8NoBom)
+            Write-Host "  OK $Label (file had no harness rules; template written, openspec-auto managed block kept)"
+        } else {
+            Write-Host "  OK $Label (file had no harness rules; template written)"
+        }
         return
     }
 

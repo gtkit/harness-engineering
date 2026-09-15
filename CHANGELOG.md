@@ -4,6 +4,11 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.13.1] - 2026-09-15
+
+### Fixed
+- 入口文件自愈范围补全：`CLAUDE.md` 只剩一行 `@AGENTS.md`（旧版 openspec-auto 在文件缺失时写的导入行）加托管块，或入口文件是空文件时，同样视为"没有 harness 规则"直接写入模板，不再按用户定制跳过。刷新本机项目时发现 11 个项目的 `CLAUDE.md` 处于前一种状态、1 个项目两份入口文件为空，1.13.0 的自愈判定都漏掉了。`sh` / `ps1` 一致，补反证用例。
+
 ## [1.13.0] - 2026-09-15
 
 ### Added

@@ -539,6 +539,15 @@ for f in CLAUDE.md AGENTS.md; do
         fail "self-heal must keep exactly one managed block in ${f}"
     fi
 done
+# 同类残留的另两种形态：CLAUDE.md 只剩旧版 openspec-auto 写的 `@AGENTS.md` 导入行 + 托管块；AGENTS.md 是空文件
+printf '@AGENTS.md\n\n<!-- OPENSPEC-AUTO:START -->\nopenspec only\n<!-- OPENSPEC-AUTO:END -->\n' > "${heal_project}/CLAUDE.md"
+: > "${heal_project}/AGENTS.md"
+run_setup "go-harness" "$heal_project" "$heal_home"
+assert_file_contains "${heal_project}/CLAUDE.md" "## Guide 加载表"
+assert_file_contains "${heal_project}/CLAUDE.md" "openspec only"
+assert_file_not_contains "${heal_project}/CLAUDE.md" "@AGENTS.md"
+assert_file_contains "${heal_project}/AGENTS.md" "## Guide 加载表"
+assert_file_not_contains "${heal_project}/AGENTS.md" "OPENSPEC-AUTO:START"
 
 # hook 注册幂等：重跑两次，两份配置里各只有一条 harness 注册
 run_setup "go-harness" "$managed_project" "$managed_home"
