@@ -6,6 +6,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- `go-pkg-harness` 强刷（`--force-project-files` / `HARNESS_FORCE_PROJECT_FILES=1`）不再重置 `version.go` 的版本号：既有版本号原样保留，只更新文件结构与注释。版本号是项目自己的状态，不是模板内容——被重置成模板的 `v0.1.0` 后，下次 `make release-patch` 会从错误的基线自增。批量刷新到 1.14.0 时 33 个库项目命中此问题（`redis` v1.3.0、`asynqx` v1.6.0、`aigc` v1.2.1 等全被打回 v0.1.0），已从 git 回滚。提取版本号的规则与发版脚本一致（取文件里第一个匹配到的版本号），`version.go` 存在却不含版本号时（只有 package 行）grep 无匹配返回 1，在 `set -e` + `pipefail` 下会终止整个 setup，已兜住。`sh` / `ps1` 一致。
+
 ## [1.14.0] - 2026-09-15
 
 ### Added

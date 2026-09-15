@@ -77,9 +77,20 @@ install_go_pkg_project_files() {
     fi
 
     if [ "${force_project_files}" = "1" ] || [ ! -s "${project_dir}/version.go" ]; then
-        sed "s/{{PACKAGE_NAME}}/${package_name}/g" "${template_dir}/version.go.tmpl" > "${project_dir}/version.go"
+        # 版本号是项目自己的状态，不是模板内容：强刷只更新文件结构与注释，既有版本号原样保留。
+        # 不保留的话，刷新会把 v1.6.0 重置成模板里的 v0.1.0，下次 make release-patch 从错误的基线自增。
+        # 提取规则与发版脚本一致：取文件里第一个匹配到的版本号。
+        local existing_version=""
+        if [ -s "${project_dir}/version.go" ]; then
+            # version.go 可能存在却没有版本号（只有 package 行）：grep 无匹配返回 1，
+            # 在 set -e + pipefail 下会直接终止 setup，所以这里必须兜住。
+            existing_version="$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' "${project_dir}/version.go" | head -n1 || true)"
+        fi
+        sed -e "s/{{PACKAGE_NAME}}/${package_name}/g" \
+            ${existing_version:+-e "s/\"v0\.1\.0\"/\"${existing_version}\"/"} \
+            "${template_dir}/version.go.tmpl" > "${project_dir}/version.go"
         if [ "${force_project_files}" = "1" ]; then
-            echo "  ✓ version.go（package ${package_name}${package_note}，已刷新）"
+            echo "  ✓ version.go（package ${package_name}${package_note}，已刷新${existing_version:+，版本号保留 ${existing_version}}）"
         elif [ -f "${project_dir}/version.go" ]; then
             echo "  ✓ version.go（package ${package_name}${package_note}，已写入模板内容）"
         else

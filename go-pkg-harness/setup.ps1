@@ -90,10 +90,20 @@ function Install-GoPkgProjectFiles {
     $versionExists = Test-Path -LiteralPath $versionPath -PathType Leaf
     $versionEmpty = $versionExists -and ((Get-Item -LiteralPath $versionPath).Length -eq 0)
     if ($forceProjectFiles -eq "1" -or -not $versionExists -or $versionEmpty) {
+        # 版本号是项目自己的状态，不是模板内容：强刷只更新文件结构与注释，既有版本号原样保留。
+        # 不保留的话，刷新会把 v1.6.0 重置成模板里的 v0.1.0，下次 make release-patch 从错误的基线自增。
+        # 提取规则与发版脚本一致：取文件里第一个匹配到的版本号。与 setup.sh 保持一致。
+        $existingVersion = ""
+        if ($versionExists -and -not $versionEmpty) {
+            $m = [regex]::Match((Get-Content -LiteralPath $versionPath -Raw), 'v[0-9]+\.[0-9]+\.[0-9]+')
+            if ($m.Success) { $existingVersion = $m.Value }
+        }
         $content = (Get-Content -LiteralPath $versionTemplatePath -Raw).Replace("{{PACKAGE_NAME}}", $packageName)
+        if ($existingVersion) { $content = $content.Replace('"v0.1.0"', '"' + $existingVersion + '"') }
         Set-Utf8NoBomContent -Path $versionPath -Value $content
         if ($forceProjectFiles -eq "1") {
-            Write-Host "  OK version.go (package $packageName$packageNote, refreshed)"
+            $keptNote = if ($existingVersion) { ", version kept $existingVersion" } else { "" }
+            Write-Host "  OK version.go (package $packageName$packageNote, refreshed$keptNote)"
         }
         elseif ($versionEmpty) {
             Write-Host "  OK version.go (package $packageName$packageNote, wrote template content)"
