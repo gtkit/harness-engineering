@@ -5,8 +5,6 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $helperPath = Join-Path (Split-Path -Parent $scriptDir) "scripts\install-harness.ps1"
 . $helperPath
 
-$codexSkillPath = Join-Path $scriptDir "SKILL.codex.md"
-
 # Returns the package name declared by existing .go files in the directory
 # (version.go itself and test files excluded); empty string when there is none.
 function Get-GoPkgExistingPackageName {
@@ -113,7 +111,6 @@ function Install-GoPkgProjectFiles {
 Invoke-HarnessSetup `
     -ScriptDir $scriptDir `
     -ModuleName "go-pkg-harness" `
-    -DisplayName "go-pkg-harness" `
-    -CodexSkillPath $codexSkillPath
+    -DisplayName "go-pkg-harness"
 
 Install-GoPkgProjectFiles -TemplateDir (Join-Path $scriptDir "project-templates")

@@ -6,52 +6,29 @@ argument-hint: [proposal_id]
 
 # Harness Plan
 
-Use this after `/harness-research`.
+Use after `/harness-research` has been approved. The plan must be executable without architectural judgment; no code is written here.
 
-## Guardrails
+## Boundaries
 
-- Do not implement code.
-- Every ambiguity must become a concrete decision or a user question.
-- The implementation phase should not need architectural judgment.
+- Start from the approved constraint set: the active OpenSpec proposal (`openspec view`) when available, otherwise ask which constraint set to plan.
+- Every remaining decision point (technology choice, file ownership, interface contract, error behavior, migration strategy, test strategy) becomes either a concrete decision grounded in project facts and harness guides, or a question to the user. None may be left for the implementer.
+- If OpenSpec is available, run `openspec validate <proposal_id> --strict` on the result.
 - Keep output in Chinese.
 
-## Steps
+## Output
 
-1. Find the active proposal:
-   - run `openspec view` if available
-   - otherwise ask the user which constraint set to plan
-2. Review the proposal / constraints against harness guides.
-3. Identify remaining decision points:
-   - technology choices
-   - file ownership
-   - interface contracts
-   - error behavior
-   - migration strategy
-   - test strategy
-4. Ask the user for any decision that cannot be resolved from project facts.
-5. Write a zero-decision plan:
-   ```markdown
-   ## Goal
-   ## Constraints
-   ## Files To Change
-   ## Sequential Tasks
-   ## Verification Per Task
-   ## Rollback / Migration Notes
-   ## Out Of Scope
-   ```
-6. Extract property-style test targets where useful:
-   - invariant
-   - boundary condition
-   - falsification strategy
-   - counterexample examples
-7. If OpenSpec is available, validate:
-   ```bash
-   openspec validate <proposal_id> --strict
-   ```
-8. Stop and request explicit approval before implementation.
+```markdown
+## Goal
+## Constraints
+## Files To Change
+## Sequential Tasks          # each task with its own verification command or observable check
+## Verification Per Task
+## Rollback / Migration Notes
+## Out Of Scope
+```
 
-## Exit Criteria
+Where useful, add property-style test targets: invariant, boundary condition, falsification strategy, counterexamples.
 
-- No unresolved decision points remain.
-- Every task has a verification command or observable check.
-- The user has approved the plan.
+## Done When
+
+No unresolved decision points remain, every task has a verification, and the user has explicitly approved the plan. Implementation does not start until then.

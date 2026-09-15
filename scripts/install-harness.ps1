@@ -415,8 +415,7 @@ function Invoke-HarnessSetup {
     param(
         [string]$ScriptDir,
         [string]$ModuleName,
-        [string]$DisplayName,
-        [string]$CodexSkillPath
+        [string]$DisplayName
     )
 
     $projectDir = (Get-Location).Path
@@ -435,7 +434,6 @@ function Invoke-HarnessSetup {
     $runtimeScriptsDir = Join-Path (Split-Path -Parent $ScriptDir) "scripts\error-journal"
     $skillsDir = Join-Path (Split-Path -Parent $ScriptDir) "skills"
     $rulesDir = Join-Path $ScriptDir "rules"
-    $skillPath = Join-Path $ScriptDir "SKILL.md"
     $claudePath = Join-Path $ScriptDir "CLAUDE.md"
     $agentsPath = Join-Path $ScriptDir "AGENTS.md"
     $errorJournalTemplatePath = Join-Path $guidesDir "error-journal-template.md"
@@ -446,8 +444,6 @@ function Invoke-HarnessSetup {
     Assert-HarnessPathExists -Path $hookScriptPath -Message "Missing hook script: $hookScriptPath"
     Assert-HarnessPathExists -Path $runtimeScriptsDir -Message "Missing runtime scripts directory: $runtimeScriptsDir"
     Assert-HarnessPathExists -Path $skillsDir -Message "Missing harness skills directory: $skillsDir"
-    Assert-HarnessPathExists -Path $skillPath -Message "Missing SKILL.md: $skillPath"
-    Assert-HarnessPathExists -Path $CodexSkillPath -Message "Missing Codex skill template: $CodexSkillPath"
     Assert-HarnessPathExists -Path $claudePath -Message "Missing CLAUDE.md: $claudePath"
     Assert-HarnessPathExists -Path $agentsPath -Message "Missing AGENTS.md: $agentsPath"
     Assert-HarnessPathExists -Path $errorJournalTemplatePath -Message "Missing error-journal-template.md (own guides/ or shared manifest): $errorJournalTemplatePath"
@@ -462,25 +458,22 @@ function Invoke-HarnessSetup {
     Write-Host ""
 
     Write-Host "--------------------------------------------"
-    Write-Host "[Step 1] Install global skill files"
+    Write-Host "[Step 1] Remove legacy global skills"
     Write-Host "--------------------------------------------"
     Write-Host ""
 
-    $claudeSkillDir = Join-Path $homeDir ".claude\skills\$ModuleName"
-    New-Item -ItemType Directory -Path $claudeSkillDir -Force | Out-Null
-    Copy-Item -LiteralPath $skillPath -Destination (Join-Path $claudeSkillDir "SKILL.md") -Force
-    Write-Host "  OK $claudeSkillDir\SKILL.md"
-
-    # Codex 官方的用户级 skill 目录是 ~/.agents/skills；1.10.0 及更早版本装在 $CODEX_HOME/skills（旧位置），
-    # 两处同名会重复触发，迁移时把旧的删掉。
-    $codexSkillDir = Join-Path $homeDir ".agents\skills\$ModuleName"
-    New-Item -ItemType Directory -Path $codexSkillDir -Force | Out-Null
-    Set-Utf8NoBomContent -Path (Join-Path $codexSkillDir "SKILL.md") -Value (Get-Content -LiteralPath $CodexSkillPath -Raw)
-    Write-Host "  OK $codexSkillDir\SKILL.md"
-    $legacyCodexSkillDir = Join-Path $codexHome "skills\$ModuleName"
-    if (Test-Path -LiteralPath (Join-Path $legacyCodexSkillDir "SKILL.md")) {
-        Remove-Item -LiteralPath $legacyCodexSkillDir -Recurse -Force
-        Write-Host "  OK removed legacy $legacyCodexSkillDir (Codex now reads ~/.agents/skills)"
+    # 1.11.0 及更早版本往用户目录装一个只说"去读 CLAUDE.md / AGENTS.md"的全局 skill；
+    # 入口文件本来就自动加载，该 skill 只占位，现已不再安装，发现旧安装就删掉。
+    $legacyRemoved = $false
+    foreach ($legacyDir in @((Join-Path $homeDir ".claude\skills\$ModuleName"), (Join-Path $homeDir ".agents\skills\$ModuleName"), (Join-Path $codexHome "skills\$ModuleName"))) {
+        if (Test-Path -LiteralPath (Join-Path $legacyDir "SKILL.md")) {
+            Remove-Item -LiteralPath $legacyDir -Recurse -Force
+            Write-Host "  OK removed $legacyDir (entry files load automatically; global skill no longer needed)"
+            $legacyRemoved = $true
+        }
+    }
+    if (-not $legacyRemoved) {
+        Write-Host "  SKIP no legacy global skill to remove"
     }
     Write-Host ""
 

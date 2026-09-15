@@ -40,24 +40,13 @@ assert_line_not_exists() {
     fi
 }
 
-assert_global_claude_skill() {
-    local file="$1"
-
-    assert_file_contains "$file" "CLAUDE.md"
-    assert_file_contains "$file" ".harness/guides/"
-    assert_file_contains "$file" "AGENTS.md"
-    assert_file_not_contains "$file" "## 第零章"
-    assert_file_not_contains "$file" "## 行为纪律"
-}
-
-assert_global_codex_skill() {
-    local file="$1"
-
-    assert_file_contains "$file" "AGENTS.md"
-    assert_file_contains "$file" ".harness/guides/"
-    assert_file_not_contains "$file" "CLAUDE.md"
-    assert_file_not_contains "$file" "## 第零章"
-    assert_file_not_contains "$file" "## 行为纪律"
+# 全局 harness skill 已不再安装；setup 还要把旧版本装过的清掉
+assert_no_global_skill() {
+    local home_dir="$1"
+    local module="$2"
+    test ! -e "${home_dir}/.claude/skills/${module}" || fail "legacy global skill must be removed: ${home_dir}/.claude/skills/${module}"
+    test ! -e "${home_dir}/.agents/skills/${module}" || fail "legacy global skill must be removed: ${home_dir}/.agents/skills/${module}"
+    test ! -e "${home_dir}/.codex/skills/${module}" || fail "legacy global skill must be removed: ${home_dir}/.codex/skills/${module}"
 }
 
 assert_error_journal_runtime() {
@@ -354,15 +343,16 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 go_home="${tmpdir}/go-home"
 go_project="${tmpdir}/go-project"
-mkdir -p "$go_home" "$go_project"
+mkdir -p "$go_home" "$go_project" "${go_home}/.claude/skills/go-harness" "${go_home}/.codex/skills/go-harness"
+printf 'legacy\n' > "${go_home}/.claude/skills/go-harness/SKILL.md"
+printf 'legacy\n' > "${go_home}/.codex/skills/go-harness/SKILL.md"
 run_setup "go-harness" "$go_project" "$go_home"
 
 test -f "${go_project}/.gitignore" || fail "go-harness should create .gitignore when missing"
 assert_gitignore_baseline "${go_project}/.gitignore" "go-harness"
 assert_exclude_baseline "${go_project}/.git/info/exclude"
 assert_generated_docs_do_not_require_cleanup "${go_project}"
-assert_global_claude_skill "${go_home}/.claude/skills/go-harness/SKILL.md"
-assert_global_codex_skill "${go_home}/.agents/skills/go-harness/SKILL.md"
+assert_no_global_skill "${go_home}" go-harness
 assert_error_journal_runtime "${go_project}"
 assert_version_file "${go_project}" "go-harness"
 assert_harness_skills "${go_project}"
@@ -440,8 +430,7 @@ for harness_dir in go-grpc-harness fullstack-harness go-pkg-harness laravel-harn
     assert_gitignore_baseline "${project_dir}/.gitignore" "${harness_dir}"
     assert_exclude_baseline "${project_dir}/.git/info/exclude"
     assert_generated_docs_do_not_require_cleanup "${project_dir}"
-    assert_global_claude_skill "${home_dir}/.claude/skills/${harness_dir}/SKILL.md"
-    assert_global_codex_skill "${home_dir}/.agents/skills/${harness_dir}/SKILL.md"
+    assert_no_global_skill "${home_dir}" "${harness_dir}"
     assert_file_contains "${project_dir}/AGENTS.md" "工作流 skills（Claude Code 与 Codex 同一套）"
     assert_file_contains "${project_dir}/AGENTS.md" '$harness-research'
     assert_installed_guides_match_source "${harness_dir}" "${project_dir}"
@@ -488,7 +477,6 @@ assert_go_pkg_project_files "$existing_pkg_project" "gopay"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "github.com/gtkit/json"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" "纯零依赖公共库允许使用 \`encoding/json\`"
 assert_file_contains "${ROOT_DIR}/go-pkg-harness/AGENTS.md" ".harness/guides/pkg-release-and-supply-chain.md"
-assert_file_contains "${ROOT_DIR}/go-pkg-harness/SKILL.codex.md" "AGENTS.md"
 assert_file_contains "${ROOT_DIR}/go-harness/AGENTS.md" ".harness/guides/testing-and-validation.md"
 assert_file_contains "${ROOT_DIR}/go-harness/AGENTS.md" ".harness/guides/workers-and-scheduling.md"
 assert_file_contains "${ROOT_DIR}/go-harness/CLAUDE.md" ".harness/guides/testing-and-validation.md"
@@ -499,9 +487,6 @@ assert_file_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" "frontend/"
 assert_file_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" ".harness/guides/testing-and-validation.md"
 assert_file_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" ".harness/guides/workers-and-scheduling.md"
 assert_file_not_contains "${ROOT_DIR}/fullstack-harness/AGENTS.md" "web/src/api/types.ts"
-assert_file_contains "${ROOT_DIR}/go-harness/SKILL.md" "CLAUDE.md"
-assert_file_contains "${ROOT_DIR}/go-harness/SKILL.md" "AGENTS.md"
-assert_file_not_contains "${ROOT_DIR}/go-harness/SKILL.codex.md" "CLAUDE.md"
 assert_file_contains "${ROOT_DIR}/README.md" "### Claude Code 怎么用"
 assert_file_contains "${ROOT_DIR}/README.md" "### Codex 怎么用"
 assert_file_contains "${ROOT_DIR}/README.md" '$harness-research'

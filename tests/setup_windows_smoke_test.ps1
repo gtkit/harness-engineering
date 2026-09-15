@@ -430,12 +430,12 @@ try {
             Assert-FileContains (Join-Path $projectDir "AGENTS.md") ".harness/guides/testing-and-validation.md"
             Assert-FileContains (Join-Path $projectDir "AGENTS.md") ".harness/guides/workers-and-scheduling.md"
         }
-        Assert-PathExists (Join-Path $homeDir ".claude\skills\$module\SKILL.md")
-        Assert-PathExists (Join-Path $homeDir ".agents\skills\$module\SKILL.md")
-        Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "CLAUDE.md"
-        Assert-FileContains (Join-Path $homeDir ".claude\skills\$module\SKILL.md") "AGENTS.md"
-        Assert-FileContains (Join-Path $homeDir ".agents\skills\$module\SKILL.md") "AGENTS.md"
-        Assert-FileNotContains (Join-Path $homeDir ".agents\skills\$module\SKILL.md") "CLAUDE.md"
+        # 全局 harness skill 已不再安装
+        foreach ($legacy in @(".claude\skills\$module", ".agents\skills\$module", ".codex\skills\$module")) {
+            if (Test-Path -LiteralPath (Join-Path $homeDir $legacy)) {
+                Fail "legacy global skill must be removed: $legacy"
+            }
+        }
         Assert-GitignoreSplit -ProjectDir $projectDir -ModuleName $module
 
         Assert-FileNotContains (Join-Path $projectDir "AGENTS.md") "清理杂物"

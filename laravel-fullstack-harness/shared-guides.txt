@@ -6,3 +6,4 @@ laravel/queues-events-scheduling.md
 laravel/notifications-and-mail.md
 laravel/testing-and-validation.md
 laravel/laravel-modules.md
+common/commit-and-changelog.md

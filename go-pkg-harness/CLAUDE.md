@@ -15,6 +15,14 @@
 6. **反推更简方案**：发现比用户原方案更简单的做法时，主动提出并说明权衡，不默默按原方案堆代码。
 7. **量化自检**：写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；库导出面积能小则小，单次使用的内部代码不写抽象 / 配置项 / 扩展点。
 
+## 自主执行边界
+
+**直接做，不用问**：读任何文件；改本次任务范围内的代码与测试；跑 build / vet / lint / 测试 / 架构传感器；修复本次改动引入的失败并重跑相关检查；`docker ps` / `docker images` 查看本机状态；按错误记忆规则追加 `.harness/error-journal.md`。
+
+**先停下问用户**：拉镜像、新建容器（细则见「本机容器与镜像纪律」）；安装全局工具或改用户级配置；`git commit` / `push` / 打 tag；删除或改写非本次任务产生的文件、数据、迁移；任何触达生产或外部系统的操作；需求有多种读法且会导向不同实现。
+
+**默认完成标准**（用户没另说时）：编译通过；提交前检查的门禁全部通过；受影响的测试实际跑过；行为验证过——接口发过请求看响应、任务或消费者实际触发过、页面打开点过；汇报里写清跑了什么、结果如何，做不下去就说明卡在哪。只讨论方案、只做研究、只出计划时不改代码；计划批准前不进入实现。
+
 ## 技术栈
 
 - Go 1.27，**必须使用现代语法**：泛型、泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`iter.Seq` 迭代器、`slices`/`maps`/`cmp`、`omitzero` tag；落地写法与实测约束见 `.harness/guides/go-modern.md`，门禁是 `go fix -diff ./...` 无输出
@@ -117,10 +125,9 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | 文档、README、CHANGELOG | `.harness/guides/pkg-docs.md` |
 | 泛型 | `.harness/guides/pkg-generics.md` |
 | API 兼容性、导出面、SemVer 影响 | `.harness/guides/pkg-api-compat.md` |
-| 发布、依赖、供应链安全 | `.harness/guides/pkg-release-and-supply-chain.md` |
+| 发版、打 tag、SemVer、依赖、供应链安全 | `.harness/guides/pkg-release-and-supply-chain.md` |
 | 代码审查 | `.harness/guides/pkg-review.md` |
-| Go 1.27 现代语法 / UUID | `.harness/guides/go-modern.md` |
-| 所有任务 | `pkg-structure.md` + `go-modern.md` 始终生效 |
+| 新增或改动 `.go` 文件（现代语法 / 泛型 / UUID） | `.harness/guides/go-modern.md` |
 
 ## 本机容器与镜像纪律（铁律）
 
@@ -142,7 +149,7 @@ go test -coverprofile=coverage.out ./...
 
 ## 合规摘要
 
-每次交付附上：
+多文件改动或走 `/harness-review` 时附上；一处小修复只汇报跑了哪些检查与结果：
 ```
 ## 合规检查摘要
 - [x] Go 1.27 现代特性
@@ -161,42 +168,24 @@ go test -coverprofile=coverage.out ./...
 
 ## 错误记忆
 
-`.harness/error-journal.md`——犯错时追加，下次读取规避。
+`.harness/error-journal.md`——未关闭的条目由 SessionStart hook 在会话开始时注入，不用自己去读；犯错时追加。
 
 优先执行项目内脚本：
 
 ```bash
-bash .harness/scripts/read-error-journal.sh .
 bash .harness/scripts/append-error-journal.sh . user-correction pkg "用户指出包导出面设计不合理"
 ```
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
 powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area pkg -Summary "用户指出包导出面设计不合理"
 ```
 
 用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
 用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
 
-## 沟通与提交规范
-
-### 沟通语言
+## 沟通语言
 
 **与用户的所有对话必须使用简体中文**，包括解释、确认、进度汇报、错误说明。
-
-### Commit 规范（强制）
-
-- 格式：`<类型>(<范围>): <标题>`，必要时附正文和页脚
-- 语言：Header / Body / Footer 全部使用简体中文
-- 类型：`feat` | `fix` | `docs` | `style` | `refactor` | `perf` | `test` | `chore` | `ci` | `revert`
-- 标题：祈使句、现在时态（用"添加"而非"添加了"），结尾不加句号
-- 范围：尽可能具体（如 `auth`、`ui`、`api`），不确定可省略括号
-- 正文：仅在需要解释"为什么"时添加，说明动机而非实现
-- 页脚：关联 Issue 用 `Closes #ID`；破坏性变更以 `BREAKING CHANGE:` 开头
-- 输出限制：仅输出 Commit Message，不加代码块标记、不加寒暄
-- 示例：
-  - `fix(auth): 修复移动端登录页面显示异常`
-  - `feat(cart): 添加购物车核心功能`
 
 ## 文档维护
 
@@ -204,79 +193,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-erro
 - 更新范围：功能清单、安装/初始化步骤、命令示例、配置项说明、目录结构
 - 提交纪律：README 更新与功能代码须在同一次提交中完成，避免文档滞后
 - 交付前自检：若本次变更涉及对外接口、CLI 命令、环境变量、使用流程，而 README 未同步，判定为未完成
-
-## Git Tag 与版本发布（SemVer 强制）
-
-Go 扩展包的依赖解析直接按 tag 走，版本号即对外契约，规则不可违背。
-
-### 标签格式
-
-- 正式版：`vX.Y.Z`（必须以 `v` 开头，Go Module 硬要求）
-- 预发布：`vX.Y.Z-rc.N` / `vX.Y.Z-beta.N` / `vX.Y.Z-alpha.N`
-- 禁止：`1.2.3`（缺 `v` 前缀）、`v1.2`（缺 PATCH）、`release-1.2.3`、`latest`
-
-### 版本号递增规则（Semantic Versioning 2.0.0）
-
-- **MAJOR**：不兼容的 API 变更——删除/重命名导出符号、改函数签名、改返回类型、改行为语义、改错误类型
-- **MINOR**：向后兼容的新功能——新增导出 API、新增可选字段、新增 Option
-- **PATCH**：向后兼容的修复——Bug 修复、文档修正、内部重构、性能优化
-
-### v0.x.y 与 v2+ 特殊规则
-
-- `v0.x.y`：开发期不做兼容性承诺，但破坏性变更至少升 MINOR，便于下游识别
-- `v1.0.0`：宣告稳定，此后严格遵守 SemVer，MAJOR 不可回退
-- `v2.0.0` 及以上：`go.mod` 的 module path 必须带 `/v2`、`/v3` 后缀，且仓库需通过子目录（`v2/`）或分支提供该 major 版本（Go Module 规则）
-
-### 发版入口
-
-发版走 Makefile 的两步流程，不手工拼 git 命令：
-
-- `make release-patch` / `make release-minor`：跑完整门禁 → 自增 `version.go` 的 `Version` → 提交 → 打附注标签 → 推主干，标签留在本地
-- `make push-tag`：远端 CI 全绿后发布标签（会自己核对 check-runs 结论）
-
-标签分两步推是因为 Go module proxy 抓取后永久缓存，删除或覆盖收不回来。配置项与使用约束见 `.harness/guides/pkg-release-and-supply-chain.md`。
-
-### 打 tag 前必须通过
-
-`make release-*` 已包含下列检查；在没有 Makefile 的包里手工发布时至少执行：
-
-```bash
-go vet ./...
-golangci-lint run ./...
-go test -race -count=1 -timeout=5m ./...
-go test -bench=. -benchmem -count=3 ./...
-go test -coverprofile=coverage.out ./...
-```
-
-并确认：
-
-- `CHANGELOG.md` 已追加本版本条目
-- 变更已合并到主干分支（一般是 `main`）
-- 破坏性变更已在 CHANGELOG 和 tag message 中明确标注
-- 所有导出 API 的 GoDoc 与 Example 测试齐全
-
-### Tag 操作规范
-
-- 必须使用附注标签：`git tag -a vX.Y.Z -m "..."`
-- 禁止轻量标签（不带 `-a`）
-- Tag message 使用简体中文
-- 禁止重命名、删除或强制覆盖已推送的 tag——下游可能已缓存
-- 发错版本时，打新 tag 修复（如 `v1.2.4`），不回滚旧 tag
-
-### Tag Message 模板
-
-```text
-版本 vX.Y.Z
-
-主要变更：
-- feat: 新增 xxx
-- fix: 修复 xxx
-
-破坏性变更（如有）：
-- BREAKING CHANGE: xxx 已删除，请使用 yyy 替代
-
-相关 Issue：#123, #124
-```
 
 ## 敏感信息与 .gitignore 安全基线
 
@@ -298,23 +214,7 @@ go test -coverprofile=coverage.out ./...
 - 测试禁止使用真实密钥，用 mock / fixture 替代
 - **库代码额外约束**：导出 API 参数/返回值禁止包含明文密钥；文档与 Example 使用占位符
 
-### .gitignore 必备条目
-
-    .env
-    .env.*
-    !.env.example
-    *.pem
-    *.key
-    secrets.*
-    credentials.*
-    .DS_Store
-    .idea/
-    bin/
-    dist/
-    build/
-    coverage/
-    *.out
-    *.log
+`.gitignore` 基线由 setup 写好，不要删其中条目；项目新增产物类型时补进去。
 
 ### 事故响应
 
@@ -322,50 +222,3 @@ go test -coverprofile=coverage.out ./...
 - 已推送到远端的密钥视作"已泄露"，不可靠删除掩盖
 - 事件记录到 `.harness/error-journal.md`，避免重蹈覆辙
 
-## CHANGELOG 规范（Keep a Changelog）
-
-根目录维护 `CHANGELOG.md`，遵循 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/) 格式。**与 Git Tag 规范强绑定：发版必须先更新 CHANGELOG，再打 tag。**
-
-### 区段结构（示例）
-
-    # Changelog
-
-    ## [Unreleased]
-
-    ### Added
-    ### Changed
-    ### Deprecated
-    ### Removed
-    ### Fixed
-    ### Security
-
-    ## [1.2.0] - 2026-04-17
-
-    ### Added
-    - 新增 `WithTimeout` Option，用于配置请求超时（#123）
-
-    ### Fixed
-    - 修复并发场景下 `Client.Do` 可能 panic 的问题（#124）
-
-### 变更类别
-
-- **Added** 新功能
-- **Changed** 现有功能的变更
-- **Deprecated** 即将移除的功能
-- **Removed** 已移除的功能
-- **Fixed** Bug 修复
-- **Security** 安全相关修复
-
-### 写作约束
-
-- 语言：简体中文
-- 视角：站在下游用户 / 调用方角度描述，不写实现细节
-- 粒度：一条一件事，对应一个 PR 或一组强相关 commit
-- 关联：条目尾部附 Issue / PR 链接，如 `（#123）`
-- 禁止写入：`refactor xxx`、`bump version`、`update deps` 等内部动作
-
-### 维护纪律
-
-- 每个 PR 合并主干时，同步更新 `[Unreleased]` 区段
-- 发版时：将 `[Unreleased]` 内容剪切到新版本区段，附日期（`YYYY-MM-DD`），Unreleased 清空
-- 破坏性变更在对应版本条目顶部用 **⚠ 破坏性变更** 标注，并与 tag message 的 `BREAKING CHANGE:` 描述保持一致

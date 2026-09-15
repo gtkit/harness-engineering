@@ -277,14 +277,6 @@ install_harness() {
         echo "✗ 错误: 找不到 ${error_journal_runtime_dir}"
         exit 1
     fi
-    if [ ! -f "${script_dir}/SKILL.md" ]; then
-        echo "✗ 错误: 找不到 ${script_dir}/SKILL.md"
-        exit 1
-    fi
-    if [ ! -f "${script_dir}/SKILL.codex.md" ]; then
-        echo "✗ 错误: 找不到 ${script_dir}/SKILL.codex.md"
-        exit 1
-    fi
     if [ ! -f "${script_dir}/CLAUDE.md" ]; then
         echo "✗ 错误: 找不到 ${script_dir}/CLAUDE.md"
         exit 1
@@ -304,29 +296,24 @@ install_harness() {
     echo ""
 
     # ==========================================================
-    # Step 1: 全局 Skill（只装一次，所有项目共享）
+    # Step 1: 清理旧版本装过的全局 skill
     # ==========================================================
+    # 1.11.0 及更早版本往用户目录装一个只说"去读 CLAUDE.md / AGENTS.md"的全局 skill。
+    # 入口文件本来就无条件自动加载，这个 skill 只在每个项目的 skill 列表里占位、稀释
+    # 其它 skill 的描述预算，现已不再安装；发现旧安装就删掉。
     echo "--------------------------------------------"
-    echo "[Step 1] 安装全局 Skill"
+    echo "[Step 1] 清理旧版本的全局 skill"
     echo "--------------------------------------------"
     echo ""
-
-    local claude_skill_dir="${HOME}/.claude/skills/${module_name}"
-    mkdir -p "${claude_skill_dir}"
-    cp "${script_dir}/SKILL.md" "${claude_skill_dir}/SKILL.md"
-    echo "  ✓ ${claude_skill_dir}/SKILL.md"
-
-    # Codex 官方的用户级 skill 目录是 ~/.agents/skills；1.10.0 及更早版本装在 $CODEX_HOME/skills（旧位置），
-    # 两处同名会重复触发，迁移时把旧的删掉。
-    local codex_skill_dir="${HOME}/.agents/skills/${module_name}"
-    mkdir -p "${codex_skill_dir}"
-    cp "${script_dir}/SKILL.codex.md" "${codex_skill_dir}/SKILL.md"
-    echo "  ✓ ${codex_skill_dir}/SKILL.md"
-    local legacy_codex_skill_dir="${CODEX_HOME:-${HOME}/.codex}/skills/${module_name}"
-    if [ -f "${legacy_codex_skill_dir}/SKILL.md" ]; then
-        rm -rf "${legacy_codex_skill_dir}"
-        echo "  ✓ 已移除旧位置 ${legacy_codex_skill_dir}（Codex 现读 ~/.agents/skills）"
-    fi
+    local legacy_dir legacy_removed=0
+    for legacy_dir in "${HOME}/.claude/skills/${module_name}" "${HOME}/.agents/skills/${module_name}" "${CODEX_HOME:-${HOME}/.codex}/skills/${module_name}"; do
+        if [ -f "${legacy_dir}/SKILL.md" ]; then
+            rm -rf "${legacy_dir}"
+            echo "  ✓ 已移除 ${legacy_dir}（入口文件自动加载，不再需要全局 skill）"
+            legacy_removed=1
+        fi
+    done
+    [ "${legacy_removed}" = 1 ] || echo "  ⊘ 没有旧的全局 skill 需要清理"
     echo ""
 
     # ==========================================================
@@ -539,10 +526,6 @@ EOF
     echo "  安装完成"
     echo "============================================"
     echo ""
-    echo "  全局 Skill（装一次，所有项目共享）："
-    echo "    ${claude_skill_dir}/SKILL.md"
-    echo "    ${codex_skill_dir}/SKILL.md"
-    echo ""
     echo "  项目文件："
     echo "    ${project_dir}/CLAUDE.md"
     echo "    ${project_dir}/AGENTS.md"
@@ -550,7 +533,7 @@ EOF
     echo "    ${project_dir}/.claude/skills/harness-*/  ${project_dir}/.agents/skills/harness-*/"
     echo "    ${project_dir}/.claude/rules/harness-*.md"
     echo ""
-    echo "  全局 Skill 只是入口；项目规则维护在 CLAUDE.md、AGENTS.md 和 .harness/guides/。"
+    echo "  项目规则维护在 CLAUDE.md、AGENTS.md 和 .harness/guides/，Claude Code 与 Codex 打开项目即自动加载。"
     echo ""
 
     if [ -n "${_HARNESS_STALE_PROJECT_FILES}${_HARNESS_STALE_GUIDES}" ]; then

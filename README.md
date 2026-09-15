@@ -47,6 +47,7 @@ harness-engineering/
 │   ├── install-harness.sh   ← 六套 setup.sh 共用的安装逻辑
 │   └── error-journal/       ← 装进项目 .harness/scripts/ 的错误记忆读写脚本
 ├── shared/guides/           ← 多套 harness 共用的 guide 唯一真源
+│   ├── common/              ← 全部 harness 共用：commit-and-changelog.md
 │   ├── go/                  ← go-harness / go-grpc-harness / fullstack-harness 共用 9 篇
 │   └── laravel/             ← laravel-harness / laravel-fullstack-harness 共用 7 篇
 ├── skills/                  ← 六个工作流 skill（Claude Code 与 Codex 同一份）
@@ -59,7 +60,6 @@ harness-engineering/
 │
 ├── go-harness/              ← 纯 Go 后端业务服务
 │   ├── setup.sh
-│   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
 │   ├── shared-guides.txt    ← 从 shared/guides/ 拉哪些公共 guide；guides/ 里同名文件优先
@@ -80,7 +80,6 @@ harness-engineering/
 ├── go-grpc-harness/         ← 纯 Go gRPC 微服务
 │   ├── setup.sh             ← 只装规则（存量项目）
 │   ├── scaffold.sh          ← 从模板生成新项目骨架（新项目）
-│   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
 │   ├── templates/
@@ -105,7 +104,6 @@ harness-engineering/
 │
 ├── fullstack-harness/       ← Go + Vue 全栈项目
 │   ├── setup.sh
-│   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
 │   ├── rules/
@@ -127,7 +125,6 @@ harness-engineering/
 │
 ├── go-pkg-harness/          ← Go 扩展包 / 第三方库
 │   ├── setup.sh
-│   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
 │   ├── rules/
@@ -144,7 +141,6 @@ harness-engineering/
 │
 ├── laravel-harness/         ← 纯 Laravel 项目
 │   ├── setup.sh
-│   ├── SKILL.md
 │   ├── CLAUDE.md
 │   ├── AGENTS.md
 │   ├── rules/
@@ -161,7 +157,6 @@ harness-engineering/
 │
 └── laravel-fullstack-harness/ ← Laravel + Vue 全栈项目
     ├── setup.sh
-    ├── SKILL.md
     ├── CLAUDE.md
     ├── AGENTS.md
     ├── rules/
@@ -230,7 +225,7 @@ go-harness --version                # 打印本仓库当前 commit / tag
 命令会做五件事：
 
 1. 目标目录不是 git 仓库就 `git init`（忽略规则要写进 `.git/info/exclude`）
-2. **全局 Skill** 安装到 `~/.claude/skills/<harness>/` 和 `~/.agents/skills/<harness>/`（只装一次，所有项目共享；`~/.agents/skills` 是 Codex 官方的用户级 skill 目录，旧位置 `~/.codex/skills/<harness>/` 会被移走）
+2. 清理旧版本装过的全局 skill（`~/.claude/skills/<harness>/`、`~/.agents/skills/<harness>/`、`~/.codex/skills/<harness>/`）：入口文件本来就自动加载，那个只说"去读 CLAUDE.md"的全局 skill 只在每个项目的 skill 列表里占位，现已不再安装
 3. **项目文件** 安装到项目目录：`CLAUDE.md`、`AGENTS.md`、`.harness/`（guides、error-journal、运行脚本、SessionStart hook）、六个工作流 skill（`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/`）、Claude Code 的路径限定规则 `.claude/rules/harness-*.md`
 4. **忽略规则** 自动创建/补齐：通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`、`*.out`，以及应用型 harness 的 `.env`）写进 `.gitignore`；本地工具与 Agent 运行产物（整个 `.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`.agents/`、`openspec/`、`.openspec-auto/`、计划文件等）写进 `.git/info/exclude`（仅本地、不进版本库，避免忽略规则本身泄露 AI 工具链）
 5. 运行 `openspec-auto install`，接入自动 OpenSpec 工作流（hooks、skill、`CLAUDE.md` / `AGENTS.md` 里的托管块）
@@ -256,8 +251,7 @@ openspec-auto 与本仓库一样是纯 sh 实现，三条路都是直接运行�
 
 其中：
 
-- Claude Code 全局 skill 是轻量入口，优先把运行时引到项目根目录 `CLAUDE.md`
-- Codex 全局 skill 是轻量入口，把运行时引到项目根目录 `AGENTS.md`
+- Claude Code 自动加载项目根目录 `CLAUDE.md`，Codex 自动加载 `AGENTS.md`，两份内容同级完整，不需要任何全局 skill 做入口
 - 详细专项规范统一放在 `.harness/guides/`
 - 工作流 skills 双端各一份：Claude Code 读 `.claude/skills/harness-*/`，Codex 读 `.agents/skills/harness-*/`，内容相同
 - `.claude/rules/harness-*.md` 是 Claude Code 的路径限定规则：只在 Claude 读到匹配路径的文件时，把对应 guide 拉进上下文；Codex 没有对应机制，仍按 `AGENTS.md` 的 Guide 加载表读 guide
@@ -291,7 +285,7 @@ your-backend-project/
 │   └── skills/harness-*/      ← Codex 读的同一份六个 skill（$harness-doctor）
 └── .harness/
     ├── error-journal.md       ← AI 错误记忆文件
-    ├── guides/                ← 15 个规范文档
+    ├── guides/                ← 16 个规范文档
     │   ├── go-modern.md            Go 1.27 现代语法、泛型方法、UUID
     │   ├── architecture.md         分层架构、依赖方向
     │   ├── api-conventions.md      统一响应格式、错误码
@@ -306,7 +300,8 @@ your-backend-project/
     │   ├── pkg-design.md           扩展包设计
     │   ├── ci-sensors.md           CI 与架构传感器
     │   ├── testing-and-validation.md 测试、回归、验证
-    │   └── review-checklist.md     12 维度审查清单
+    │   ├── review-checklist.md     12 维度审查清单
+    │   └── commit-and-changelog.md 写 commit / 改 CHANGELOG / 发版时读
     └── scripts/               ← error-journal 读写脚本
         ├── read-error-journal.sh
         ├── append-error-journal.sh
@@ -341,7 +336,7 @@ your-fullstack-project/
 │   └── skills/harness-*/
 └── .harness/
     ├── error-journal.md
-    ├── guides/                ← 18 个规范文档（后端 15 + 前端 3）
+    ├── guides/                ← 19 个规范文档（后端 15 + 前端 3 + 通用 1）
     │   ├── go-modern.md
     │   ├── architecture.md
     │   ├── api-conventions.md
@@ -359,7 +354,8 @@ your-fullstack-project/
     │   ├── frontend-architecture.md
     │   ├── frontend-api.md
     │   ├── frontend-coding.md
-    │   └── review-checklist.md
+    │   ├── review-checklist.md
+    │   └── commit-and-changelog.md
     └── scripts/               ← error-journal 读写脚本
         ├── read-error-journal.sh
         ├── append-error-journal.sh
@@ -454,7 +450,8 @@ your-laravel-project/
         ├── notifications-and-mail.md
         ├── testing-and-validation.md
         ├── laravel-modules.md
-        └── review-checklist.md
+        ├── review-checklist.md
+        └── commit-and-changelog.md
 ```
 
 ---
@@ -495,7 +492,8 @@ your-laravel-fullstack-project/
         ├── frontend-architecture.md
         ├── frontend-api.md
         ├── frontend-coding.md
-        └── review-checklist.md
+        ├── review-checklist.md
+        └── commit-and-changelog.md
 ```
 
 ---
@@ -535,7 +533,7 @@ your-grpc-service/
 │   └── skills/harness-*/      ← Codex 读的同一份六个 skill（$harness-doctor）
 └── .harness/
     ├── error-journal.md       ← AI 错误记忆文件
-    ├── guides/                ← 15 个规范文档
+    ├── guides/                ← 16 个规范文档
     │   ├── go-modern.md            Go 1.27 现代语法、泛型方法、UUID
     │   ├── architecture.md         分层架构、依赖方向
     │   ├── grpc-conventions.md     proto / buf / 契约与拦截器
@@ -550,51 +548,14 @@ your-grpc-service/
     │   ├── pkg-design.md           扩展包设计
     │   ├── ci-sensors.md           CI 与架构传感器
     │   ├── testing-and-validation.md 测试、回归、验证
-    │   └── review-checklist.md     审查清单
+    │   ├── review-checklist.md     审查清单
+    │   └── commit-and-changelog.md 写 commit / 改 CHANGELOG / 发版时读
     └── scripts/               ← error-journal 读写脚本
         ├── read-error-journal.sh
         ├── append-error-journal.sh
         ├── read-error-journal.ps1
         └── append-error-journal.ps1
 ```
-
----
-
-## 安装后的全局 Skill 一览
-
-六套脚本各自安装到不同目录，互不覆盖：
-
-```
-~/.claude/skills/
-├── go-harness/              ← 场景 A
-│   └── SKILL.md
-├── go-grpc-harness/         ← 场景 F
-│   └── SKILL.md
-├── fullstack-harness/       ← 场景 B
-│   └── SKILL.md
-├── go-pkg-harness/          ← 场景 C
-│   └── SKILL.md
-├── laravel-harness/         ← 场景 D
-│   └── SKILL.md
-└── laravel-fullstack-harness/ ← 场景 E
-    └── SKILL.md
-
-~/.agents/skills/            ← Codex 官方的用户级 skill 目录（旧的 ~/.codex/skills/<harness>/ 会被移走）
-├── go-harness/              ← 场景 A
-│   └── SKILL.md
-├── go-grpc-harness/         ← 场景 F
-│   └── SKILL.md
-├── fullstack-harness/       ← 场景 B
-│   └── SKILL.md
-├── go-pkg-harness/          ← 场景 C
-│   └── SKILL.md
-├── laravel-harness/         ← 场景 D
-│   └── SKILL.md
-└── laravel-fullstack-harness/ ← 场景 E
-    └── SKILL.md
-```
-
-全局 Skill 只是触发入口，实际规范内容在每个项目的 `CLAUDE.md`、`AGENTS.md` 和 `.harness/guides/` 下。
 
 ---
 
@@ -732,13 +693,11 @@ Codex 侧把 `/` 换成 `$` 即可，六个 skill 一一对应。
 ### 为什么 AI 每次都会遵守规则
 
 ```
-Claude Code 启动 → 触发轻量 xxx-harness skill → 读取项目 CLAUDE.md → 读取 .harness/guides/
-Codex 启动      → 触发轻量 xxx-harness skill → 读取项目 AGENTS.md  → 读取 .harness/guides/
+Claude Code 启动 → 自动加载项目 CLAUDE.md → SessionStart hook 注入未关闭的错误记忆 → 按任务读 .harness/guides/（.claude/rules 按路径自动拉取）
+Codex 启动      → 自动加载项目 AGENTS.md  → SessionStart hook 注入未关闭的错误记忆 → 按 Guide 加载表读 .harness/guides/
 ```
 
-兼容旧项目时，Claude 的轻量 skill 会在 `CLAUDE.md` 明显过旧或缺失时，补读 `AGENTS.md` 兜底；Codex 不会去读 `CLAUDE.md`。
-
-`CLAUDE.md` 和 `AGENTS.md` 是各自 Agent 的**无条件自动加载文件**——不需要关键词匹配，不需要手动指定，每次对话/任务都会读取。
+`CLAUDE.md` 和 `AGENTS.md` 是各自 Agent 的**无条件自动加载文件**——不需要关键词匹配，不需要手动指定，每次对话/任务都会读取。入口文件只放每次都要用的规则；专项规范放 `.harness/guides/`，按"做什么时读哪份"的表按需加载，不做"每次先读完全部文档"。
 
 ### AI 写代码的强制流程（Logic 四步）
 
@@ -863,7 +822,7 @@ laravel-harness ~/code/new-laravel        # Laravel
 laravel-fullstack-harness ~/code/new-lf   # Laravel + Vue 全栈
 ```
 
-不传目录就装到当前目录。全局 Skill 已经装过了不会重复，只会安装项目级文件。只装 harness 加 `--no-openspec`，或直接跑对应目录的 `setup.sh`。命令直接运行仓库里的脚本，仓库改了什么，下次运行就是什么。
+不传目录就装到当前目录。只装 harness 加 `--no-openspec`，或直接跑对应目录的 `setup.sh`。命令直接运行仓库里的脚本，仓库改了什么，下次运行就是什么。
 
 如果你要把一个老项目的 `CLAUDE.md` / `AGENTS.md` 刷新到最新模板：
 
@@ -935,24 +894,6 @@ task_plan.md
 **Q：我用的不是 Claude Code 也不是 Codex，能用吗？**
 
 可以。`.harness/guides/` 下的规范文档是通用的 Markdown，任何 AI 代理（Cursor、Windsurf 等）都可以读。你只需要在对应工具的配置文件里指向这些文件即可。`AGENTS.md` 本身也是一个跨 Agent 的开放标准。
-
-**Q：全局 Skill 装错了怎么删？**
-
-```bash
-rm -rf ~/.claude/skills/go-harness
-rm -rf ~/.claude/skills/go-grpc-harness
-rm -rf ~/.claude/skills/fullstack-harness
-rm -rf ~/.claude/skills/go-pkg-harness
-rm -rf ~/.claude/skills/laravel-harness
-rm -rf ~/.claude/skills/laravel-fullstack-harness
-
-rm -rf ~/.agents/skills/go-harness
-rm -rf ~/.agents/skills/go-grpc-harness
-rm -rf ~/.agents/skills/fullstack-harness
-rm -rf ~/.agents/skills/go-pkg-harness
-rm -rf ~/.agents/skills/laravel-harness
-rm -rf ~/.agents/skills/laravel-fullstack-harness
-```
 
 **Q：guides 改错了想恢复怎么办？**
 

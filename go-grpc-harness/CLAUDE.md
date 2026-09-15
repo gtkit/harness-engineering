@@ -14,6 +14,14 @@
 5. **反推更简方案**：发现更简单方案时说明权衡，但不擅自扩大实现范围。
 6. **量化自检**：单次使用的代码不写抽象 / 配置项 / 扩展点；过度复杂就重写。
 
+## 自主执行边界
+
+**直接做，不用问**：读任何文件；改本次任务范围内的代码与测试；跑 build / vet / lint / 测试 / 架构传感器；修复本次改动引入的失败并重跑相关检查；`docker ps` / `docker images` 查看本机状态；按错误记忆规则追加 `.harness/error-journal.md`。
+
+**先停下问用户**：拉镜像、新建容器（细则见「本机容器与镜像纪律」）；安装全局工具或改用户级配置；`git commit` / `push` / 打 tag；删除或改写非本次任务产生的文件、数据、迁移；任何触达生产或外部系统的操作；需求有多种读法且会导向不同实现。
+
+**默认完成标准**（用户没另说时）：编译通过；提交前检查的门禁全部通过；受影响的测试实际跑过；行为验证过——接口发过请求看响应、任务或消费者实际触发过、页面打开点过；汇报里写清跑了什么、结果如何，做不下去就说明卡在哪。只讨论方案、只做研究、只出计划时不改代码；计划批准前不进入实现。
+
 ## 技术栈
 
 - Go 1.27，**必须使用现代语法**：泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`slices`/`maps`/`cmp`、`omitzero` tag；落地写法与实测约束见 `.harness/guides/go-modern.md`，门禁是 `go fix -diff ./...` 无输出
@@ -51,8 +59,9 @@
 | CI / 传感器 | `.harness/guides/ci-sensors.md` |
 | 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
-| Go 1.27 现代语法 / 泛型方法 / UUID | `.harness/guides/go-modern.md` |
-| 所有代码任务 | `.harness/guides/architecture.md` + `.harness/guides/go-modern.md` 始终生效 |
+| 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
+| 新增或改动 `.go` 文件（现代语法 / 泛型方法 / UUID） | `.harness/guides/go-modern.md` |
+| 新增模块 / 新建包 / 跨层改动 / 调整依赖方向 | `.harness/guides/architecture.md` |
 
 ## 工作流 skills（Claude Code 与 Codex 同一套）
 
@@ -72,6 +81,28 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 1. 被显式调用或任务明显匹配某个 skill 的 description 时，读取并严格按该 `SKILL.md` 执行。
 2. 简单小改动不强制走完整 RPI；复杂、高风险、跨模块任务优先使用 `research → plan → implement → review`。
 3. `research` 和 `plan` 阶段不得修改代码；`implement` 必须基于用户已批准的计划。
+
+## 可验证目标（Goal-Driven Execution）
+
+动手前把模糊任务转成可验证目标，再编码。
+
+| 模糊指令 | 可验证目标 |
+|---------|----------|
+| "加个校验" | 写非法输入的 table-driven 测试 → 让它通过 |
+| "修这个 bug" | 写复现用例测试 → 让它通过 |
+| "重构 X" | 确认改前测试全绿 → 改后仍全绿 |
+| "加个接口" | 先改 proto 并 `make proto-check` 通过 → handler 测试通过 |
+| "让它能跑" | 不可验证，退回用户澄清成功标准 |
+
+多步任务先列计划，每步带一个可观察的检查：`1. [步骤] → verify: [检查]`。
+
+### 迭代与停止纪律（Verify–Correct Loop）
+
+- **先观察再改**：每次修复前先读真实报错 / 失败用例 / 实际输出，说不清"上一轮为什么失败"就不进下一轮。
+- **改完跑相关全量**：单点修复后重跑该模块相关的全部检查，不只跑新加的那条。
+- **自纠上界**：同一问题连续自纠 3 轮仍不达标立即停手，向用户汇报已尝试什么、当前现象、卡在哪、建议的下一步。
+- **进展为正才继续**：每轮结束确认离目标更近；来回震荡视同卡住，按上界处理。
+- **回归确认**：修复后确认是真修复而非巧合通过，再按错误记忆规则追加记录。
 
 ## 分层架构（不可逾越）
 
@@ -150,19 +181,13 @@ bash scripts/check-architecture.sh
 
 ## 错误记忆
 
-如果项目中存在 `.harness/error-journal.md`，每次任务开始前先读取。
-
-优先执行项目内脚本：
-
-```bash
-bash .harness/scripts/read-error-journal.sh .
-```
+`.harness/error-journal.md` 里未关闭的条目由 SessionStart hook 在会话开始时注入，不用自己去读。
 
 用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，执行 append 脚本追加错误记录。脚本不存在时，按 `.harness/guides/error-journal-template.md` 手工追加。
 
 ## 合规摘要
 
-每次交付代码时附上：
+多文件改动或走 `/harness-review` 时附上；一处小修复只汇报跑了哪些检查与结果：
 
 ```markdown
 ## 合规检查摘要

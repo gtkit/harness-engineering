@@ -11,7 +11,7 @@
 | 模块 | 谁实现 | harness 现状 |
 |-----|-------|-------------|
 | **中心：递归目标 / 迭代直到完成** | harness（治理）+ 运行时（执行） | 入口规则的「迭代与停止纪律（Verify–Correct Loop）」提供"怎么循环、何时停、何时升级"的纪律 |
-| **③ Skill（SKILL.md / 固化意图 / 分发）** | **harness 原生** | 5 套 `SKILL.md` / `SKILL.codex.md` 即意图固化，`setup.sh` / `setup.ps1` 即分发 |
+| **③ Skill（SKILL.md / 固化意图 / 分发）** | **harness 原生** | 六个工作流 skill（`skills/harness-*/SKILL.md`，Claude Code 与 Codex 同一份）与六套入口规则即意图固化，`setup.sh` / `setup.ps1` 即分发 |
 | **⑥ 记忆机制（markdown / 持久化）** | **harness 原生** | `.harness/error-journal.md` + `.harness/guides/` 即"模型会忘、仓库不会" |
 | **① 自动化调度（Automations / `/loop` / cron / `/goal`）** | 运行时 | 实现不了，只能在命令模板里引用；且仅 Claude Code 有 |
 | **② 工作树隔离（git worktree / 自动清理）** | 运行时 | 实现不了，只能下达"用隔离环境跑并行子任务"的策略 |
@@ -47,5 +47,5 @@
 
 - 想让 AI"定义目标 → 持续迭代到完成"：在 **Claude Code** 上用 `/loop` / `/goal` / Workflow 驱动，harness 的迭代纪律会自动约束它怎么循环、何时停。
 - 想沉淀经验、不让模型重复犯错：靠 `.harness/error-journal.md`（Memory），这是 harness 的强项。
-- 想固化团队意图、统一规范：靠 `SKILL.md` + guides（Skill），改完重新 `setup` 即可分发。
+- 想固化团队意图、统一规范：靠入口规则 + 工作流 skill + guides，改完重新 `setup` 即可分发。
 - **不要期待 harness 自己去调度、开 worktree、派子 Agent**——那是运行时的事；harness 只负责"该怎么做"的规则与"别忘了什么"的记忆。

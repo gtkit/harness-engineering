@@ -6,58 +6,26 @@ argument-hint: <user request>
 
 # Harness Research
 
-Use this before planning complex or risky changes.
+Use before planning complex or risky changes. Output is a constraint set, not an information dump, and no code is written.
 
-## Core Output
+## Boundaries
 
-Produce a constraint set, not an information dump.
-
-## Guardrails
-
-- If `openspec/` is missing, recommend `/harness-init-openspec`.
-- Do not make implementation decisions during research.
-- Ask the user when ambiguity blocks the constraint set.
-- Divide exploration by context boundaries, not agent roles.
+- Read `AGENTS.md` / `CLAUDE.md`, the relevant `.harness/guides/*.md`, and the existing source layout; explore each affected context boundary (backend API, data layer, frontend, auth / payment / LLM / queue, package API surface) rather than the whole repository.
+- Do not make implementation decisions; record them as open questions.
+- Ask the user only when an ambiguity blocks the constraint set. Everything else becomes an explicit assumption in the output.
+- If `openspec/` is missing, recommend `/harness-init-openspec`. If OpenSpec is available, create or update the proposal draft from the result.
 - Keep output in Chinese.
 
-## Steps
+## Output
 
-1. Capture the user request verbatim.
-2. Inspect project harness context:
-   - `AGENTS.md` or `CLAUDE.md`
-   - relevant `.harness/guides/*.md`
-   - existing source layout
-3. Identify context boundaries, for example:
-   - backend API
-   - data layer
-   - frontend UI
-   - auth / payment / LLM / queue
-   - package API surface
-4. Explore each boundary and produce the same structured report:
-   ```json
-   {
-     "module_name": "context boundary",
-     "existing_structures": [],
-     "existing_conventions": [],
-     "hard_constraints": [],
-     "soft_constraints": [],
-     "dependencies": [],
-     "risks": [],
-     "open_questions": [],
-     "success_criteria_hints": []
-   }
-   ```
-5. Aggregate into:
-   - hard constraints
-   - soft constraints
-   - dependencies
-   - risks
-   - open questions
-   - verifiable success criteria
-6. If OpenSpec is available, create or update a proposal draft.
-7. Stop before planning. Ask the user to approve the constraint set.
+Per context boundary, then aggregated:
 
-## Exit Criteria
+- hard constraints / soft constraints
+- dependencies
+- risks
+- open questions (each with the decision it blocks)
+- verifiable success criteria (each one an observable check, not a feeling)
 
-- The request has explicit constraints and success criteria.
-- Open questions are either answered by the user or listed as blockers.
+## Done When
+
+The request has explicit constraints and success criteria, open questions are either answered or listed as blockers, and the user has been asked to approve the constraint set before any planning starts.

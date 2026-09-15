@@ -83,7 +83,7 @@ MIT / Apache-2.0
 
 ## CHANGELOG.md
 
-遵循 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/) + [Semantic Versioning](https://semver.org/)，与 AGENTS.md / CLAUDE.md 的 CHANGELOG 规范一致：六类区段 **Added / Changed / Deprecated / Removed / Fixed / Security**，维护 `[Unreleased]`，发版时剪切到带日期的版本区段。
+遵循 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/) + [Semantic Versioning](https://semver.org/)，六类区段与维护纪律如下：六类区段 **Added / Changed / Deprecated / Removed / Fixed / Security**，维护 `[Unreleased]`，发版时剪切到带日期的版本区段。
 
 ```markdown
 # Changelog

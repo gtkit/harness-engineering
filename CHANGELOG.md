@@ -6,6 +6,27 @@
 
 ## [Unreleased]
 
+> ⚠ 行为变更：setup 不再往用户目录安装 `<harness>` 全局 skill，重跑时会把旧版本装过的 `~/.claude/skills/<harness>/`、`~/.agents/skills/<harness>/`、`~/.codex/skills/<harness>/` 删掉；六套 harness 目录下的 `SKILL.md` / `SKILL.codex.md` 已移除。`.claude/rules/` 新增 `harness-go-modern.md`（`**/*.go`）等规则，旧项目重跑 setup 自动补齐。
+
+对照 OpenAI《Rethinking skills and prompts for GPT-6 Astra》的四条建议（skill 少而窄、AGENTS.md 做减法、写清自主边界、写清完成标准）修订六套入口规则与工作流 skill：
+
+### Added
+- 六套 `AGENTS.md` / `CLAUDE.md` 新增「自主执行边界」：写清哪些事直接做不用问（读文件、改本次任务范围内的代码与测试、跑门禁、修自己引入的失败、`docker ps` / `docker images`、追加错误记忆），哪些事先停下问（拉镜像新建容器、装全局工具、`git commit` / `push` / tag、删改非本次任务的文件与数据、触达生产或外部系统、需求多解），以及默认完成标准（编译通过、门禁通过、受影响测试实际跑过、行为实际验证过、汇报附验证证据；只讨论方案 / 研究 / 出计划时不改代码，计划批准前不实现）。此前只写了"何时先问"，没写"何时直接做"。
+- `go-harness`、`go-grpc-harness` 补齐其余四套已有的「可验证目标」转换表与「迭代与停止纪律」；`docs/harness-and-loop-architecture.md` 此前声称全部六套都有。
+- `shared/guides/common/commit-and-changelog.md`：Commit 与 CHANGELOG 规范从四套长版入口文件里抽出成一份共享 guide，五套 harness（go-pkg 由 `pkg-docs.md` 覆盖）通过 `shared-guides.txt` 拉取，Guide 加载表加「写 commit message / 改 CHANGELOG / 发版」一行，`.claude/rules/harness-commit-and-changelog.md` 在读到 `CHANGELOG.md` 时拉取。
+- `.claude/rules/` 新增 `harness-go-modern.md`（`**/*.go`）、`harness-architecture.md`（`internal/module|runtime|bootstrap|router/**`、`cmd/**`）、go-pkg 的 `harness-pkg-structure.md`。
+
+### Changed
+- Guide 加载表里的"始终生效"改为条件加载：go-harness / go-grpc-harness 的「所有代码任务：architecture.md + go-modern.md 始终生效」（约 17KB）改为「新增或改动 `.go` 文件读 go-modern.md」「新增模块 / 新建包 / 跨层改动读 architecture.md」，go-pkg 的「所有任务：pkg-structure.md + go-modern.md 始终生效」同理。入口文件里内联的分层禁止项已覆盖日常改动需要的部分；改一个日志文案不再先读完 350 行 guide。
+- 合规检查摘要由「每次交付附上」改为「多文件改动或走 `/harness-review` 时附上；一处小修复只汇报跑了哪些检查与结果」，六套一致。
+- 错误记忆段不再要求"每次任务前先读取"：读取已由 SessionStart hook 机械完成，入口文件只保留何时追加；对应的 read 脚本示例行删除。
+- 四套长版入口文件做减法：删掉 `.gitignore 必备条目` 清单（setup 已写好基线，改为一句"不要删其中条目"），`Commit 规范` 与 `CHANGELOG 规范` 移入共享 guide，go-pkg 的 `Git Tag 与版本发布` 一节删除——其发版流程、tag 格式、v2+ 规则已在 `pkg-release-and-supply-chain.md`，只把那里缺的「版本号递增规则」与「Tag Message 模板」并入该 guide。fullstack 335 → 263 行、laravel 325 → 252 行、laravel-fullstack 316 → 约 245 行、go-pkg 368 → 221 行。
+- 三个 RPI skill（`harness-research` / `harness-plan` / `harness-implement`）从 7 到 8 步的固定流程改为「边界 + 输出 + 完成条件」三段：说清结果和不能越过的线，具体步骤交给模型；`harness-implement` 明确"不要做完第一个任务就停"，只在验证连续失败三次、范围不清或上下文过大时停下汇报。
+- setup 不再安装全局 harness skill，改为清理旧安装（见上方行为变更）。README 删除「安装后的全局 Skill 一览」与对应 FAQ，「工作原理」改写为入口文件自动加载 + hook + 按需 guide。
+
+### Removed
+- 六套 harness 的 `SKILL.md` / `SKILL.codex.md`。
+
 ## [1.11.0] - 2026-09-15
 
 > ⚠ 行为变更：工作流命令由 `.claude/commands/harness/*.md`（`/harness:doctor` 等）改为项目级 skills（`/harness-doctor` 等），重跑 setup 会删掉旧的 `.claude/commands/harness/`；Codex 全局 skill 改装到 `~/.agents/skills/<harness>/`，旧位置 `~/.codex/skills/<harness>/` 会被移走。

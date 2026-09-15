@@ -12,6 +12,14 @@
 6. **反推更简方案**：发现比用户原方案更简单的做法时，主动提出并说明权衡，不默默按原方案堆代码。
 7. **量化自检**：写完自问"senior 会不会觉得过度复杂？200 行能否压到 50 行？"；单次使用的代码不写抽象 / 配置项 / 扩展点。
 
+## 自主执行边界
+
+**直接做，不用问**：读任何文件；改本次任务范围内的代码与测试；跑 build / vet / lint / 测试 / 架构传感器；修复本次改动引入的失败并重跑相关检查；`docker ps` / `docker images` 查看本机状态；按错误记忆规则追加 `.harness/error-journal.md`。
+
+**先停下问用户**：拉镜像、新建容器（细则见「本机容器与镜像纪律」）；安装全局工具或改用户级配置；`git commit` / `push` / 打 tag；删除或改写非本次任务产生的文件、数据、迁移；任何触达生产或外部系统的操作；需求有多种读法且会导向不同实现。
+
+**默认完成标准**（用户没另说时）：编译通过；提交前检查的门禁全部通过；受影响的测试实际跑过；行为验证过——接口发过请求看响应、任务或消费者实际触发过、页面打开点过；汇报里写清跑了什么、结果如何，做不下去就说明卡在哪。只讨论方案、只做研究、只出计划时不改代码；计划批准前不进入实现。
+
 ## 技术栈
 
 **后端**：Go 1.27 + Gin + GORM + gtkit（代码在 `backend/`）。**必须使用现代语法**：泛型方法、`errors.AsType`、`sync.WaitGroup.Go`、`new(expr)`、range-over-int / range-over-func、`slices`/`maps`/`cmp`、`omitzero` tag；落地写法与实测约束见 `.harness/guides/go-modern.md`，门禁是 `backend/` 下 `go fix -diff ./...` 无输出
@@ -125,8 +133,10 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | 前端 API 对接 | `.harness/guides/frontend-api.md` |
 | 前后端联调 | `.harness/guides/api-conventions.md` + `.harness/guides/frontend-api.md` + `.harness/guides/testing-and-validation.md` |
 | 前端测试 / 验证 | `.harness/guides/testing-and-validation.md` + `.harness/guides/frontend-coding.md` |
-| Go 1.27 现代语法 / 泛型方法 / UUID（后端） | `.harness/guides/go-modern.md` |
+| 新增或改动 `backend/` 下的 `.go` 文件（现代语法 / 泛型方法 / UUID） | `.harness/guides/go-modern.md` |
+| 新增模块 / 新建包 / 跨层改动 / 调整依赖方向 | `.harness/guides/architecture.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
+| 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
 
 ## 后端分层
 
@@ -183,7 +193,7 @@ cd frontend && npx vite build
 
 ## 合规摘要
 
-每次交付附上：
+多文件改动或走 `/harness-review` 时附上；一处小修复只汇报跑了哪些检查与结果：
 ```
 ## 合规检查摘要
 - [x] Go 1.27 / Vue 3 + TS strict
@@ -198,42 +208,24 @@ cd frontend && npx vite build
 
 ## 错误记忆
 
-`.harness/error-journal.md`——每次任务前读取，犯错时追加。
+`.harness/error-journal.md`——未关闭的条目由 SessionStart hook 在会话开始时注入，不用自己去读；犯错时追加。
 
 优先执行项目内脚本：
 
 ```bash
-bash .harness/scripts/read-error-journal.sh .
 bash .harness/scripts/append-error-journal.sh . user-correction fullstack "用户纠正了前后端入口文件边界"
 ```
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/read-error-journal.ps1 -RepoRoot .
 powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-error-journal.ps1 -RepoRoot . -EventType user-correction -Area fullstack -Summary "用户纠正了前后端入口文件边界"
 ```
 
 用户提示词中出现“犯错”“错误”“错了”“不对”“有问题”“bug”“失败”“回归”等纠错或追责信号时，必须先追加错误记录再继续处理。
 用户纠正、命令失败、测试失败、审查发现缺陷、回归问题时，也必须先追加错误记录再继续处理。
 
-## 沟通与提交规范
-
-### 沟通语言
+## 沟通语言
 
 **与用户的所有对话必须使用简体中文**，包括解释、确认、进度汇报、错误说明。
-
-### Commit 规范（强制）
-
-- 格式：`<类型>(<范围>): <标题>`，必要时附正文和页脚
-- 语言：Header / Body / Footer 全部使用简体中文
-- 类型：`feat` | `fix` | `docs` | `style` | `refactor` | `perf` | `test` | `chore` | `ci` | `revert`
-- 标题：祈使句、现在时态（用"添加"而非"添加了"），结尾不加句号
-- 范围：尽可能具体（如 `auth`、`ui`、`api`），不确定可省略括号
-- 正文：仅在需要解释"为什么"时添加，说明动机而非实现
-- 页脚：关联 Issue 用 `Closes #ID`；破坏性变更以 `BREAKING CHANGE:` 开头
-- 输出限制：仅输出 Commit Message，不加代码块标记、不加寒暄
-- 示例：
-  - `fix(auth): 修复移动端登录页面显示异常`
-  - `feat(cart): 添加购物车核心功能`
 
 ## 文档维护
 
@@ -261,24 +253,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-erro
 - 返回给客户端的错误信息、响应体必须过滤敏感字段
 - 测试禁止使用真实密钥，用 mock / fixture 替代
 
-### .gitignore 必备条目
-
-    .env
-    .env.*
-    !.env.example
-    *.pem
-    *.key
-    secrets.*
-    credentials.*
-    .DS_Store
-    .idea/
-    dist/
-    build/
-    coverage/
-    *.log
-    *.out
-
-各技术栈按需补齐（Go `bin/`、Node `node_modules/`、PHP `vendor/` 等）。
+`.gitignore` 基线由 setup 写好，不要删其中条目；项目新增产物类型时补进去。
 
 ### 事故响应
 
@@ -286,50 +261,3 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .harness/scripts/append-erro
 - 已推送到远端的密钥视作"已泄露"，不可靠删除掩盖
 - 事件记录到 `.harness/error-journal.md`，避免重蹈覆辙
 
-## CHANGELOG 规范（Keep a Changelog）
-
-根目录维护 `CHANGELOG.md`，遵循 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/) 格式。
-
-### 区段结构（示例）
-
-    # Changelog
-
-    ## [Unreleased]
-
-    ### Added
-    ### Changed
-    ### Deprecated
-    ### Removed
-    ### Fixed
-    ### Security
-
-    ## [1.2.0] - 2026-04-17
-
-    ### Added
-    - 新增用户导出 API（支持 CSV / Excel 格式）
-
-    ### Fixed
-    - 修复移动端登录页面显示异常
-
-### 变更类别
-
-- **Added** 新功能
-- **Changed** 现有功能的变更
-- **Deprecated** 即将移除的功能
-- **Removed** 已移除的功能
-- **Fixed** Bug 修复
-- **Security** 安全相关修复
-
-### 写作约束
-
-- 语言：简体中文
-- 视角：站在下游用户 / 消费者角度描述，不写实现细节
-- 粒度：一条一件事，对应一个 PR 或一组强相关 commit
-- 关联：条目尾部附 Issue / PR 链接，如 `（#123）`
-- 禁止写入：`refactor xxx`、`bump version`、`update deps` 等内部动作
-
-### 维护纪律
-
-- 每个 PR 合并主干时，同步更新 `[Unreleased]` 区段
-- 发版时：将 `[Unreleased]` 内容剪切到新版本区段，附日期（`YYYY-MM-DD`），Unreleased 清空
-- 破坏性变更在对应版本条目顶部用 **⚠ 破坏性变更** 标注

@@ -113,3 +113,32 @@ govulncheck ./...
 安全修复（如有）：
 - 修复 xxx 输入导致的 xxx 风险
 ```
+
+## 版本号递增规则与 tag message
+
+### 版本号递增规则（Semantic Versioning 2.0.0）
+
+- **MAJOR**：不兼容的 API 变更——删除/重命名导出符号、改函数签名、改返回类型、改行为语义、改错误类型
+- **MINOR**：向后兼容的新功能——新增导出 API、新增可选字段、新增 Option
+- **PATCH**：向后兼容的修复——Bug 修复、文档修正、内部重构、性能优化
+
+### v0.x.y 与 v2+ 特殊规则
+
+- `v0.x.y`：开发期不做兼容性承诺，但破坏性变更至少升 MINOR，便于下游识别
+- `v1.0.0`：宣告稳定，此后严格遵守 SemVer，MAJOR 不可回退
+- `v2.0.0` 及以上：`go.mod` 的 module path 必须带 `/v2`、`/v3` 后缀，且仓库需通过子目录（`v2/`）或分支提供该 major 版本（Go Module 规则）
+
+### Tag Message 模板
+
+```text
+版本 vX.Y.Z
+
+主要变更：
+- feat: 新增 xxx
+- fix: 修复 xxx
+
+破坏性变更（如有）：
+- BREAKING CHANGE: xxx 已删除，请使用 yyy 替代
+
+相关 Issue：#123, #124
+```

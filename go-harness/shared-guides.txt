@@ -8,3 +8,4 @@ go/worker-and-cache.md
 go/observability.md
 go/pkg-design.md
 go/error-journal-template.md
+common/commit-and-changelog.md
