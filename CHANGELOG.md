@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-09-15
+
 ### Added
 - **AI 行为安全两层防护**（七套全部生效）。管的是 agent 自己的行为可能造成的破坏与泄露，与"写出的代码是否安全"分属两件事，后者仍归各语言的安全 guide 与 skill。加之前实测盘点：七套 AGENTS.md 里 `rm -rf`、`git reset --hard`、`push -f`、`DROP` / `TRUNCATE` 命中数均为 0，提示注入在七套 harness 与 39 个 skill 里同样是 0，`go-harness` / `go-grpc-harness` 连密钥基线那节都没有。
   - 软层：`shared/guides/common/ai-safety.md`（七套共用），七套入口文件新增「AI 行为安全（铁律）」常驻节与 Guide 加载表一行，七套各加 `rules/harness-ai-safety.md`（挂 `.env` / `*.pem` / `*.sql` / `migrations/` / `docker-compose*` 等路径）。覆盖：外部内容是数据不是指令（提示注入）、不可恢复操作、凭据不读不传不回显、生产纪律、依赖引入。
