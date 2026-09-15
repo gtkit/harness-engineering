@@ -1,0 +1,12 @@
+# 从 shared/guides/ 拉取的公共 guide；同名文件以本目录 guides/ 下的为准
+openresty/architecture.md
+openresty/lua-baseline.md
+openresty/nginx-conf.md
+openresty/shared-state.md
+openresty/upstream-and-io.md
+openresty/data-encoding.md
+openresty/config-and-secrets.md
+openresty/vendor-and-deps.md
+openresty/validation-and-release.md
+common/ai-safety.md
+common/commit-and-changelog.md

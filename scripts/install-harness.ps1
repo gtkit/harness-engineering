@@ -300,9 +300,14 @@ function Stage-HarnessGuides {
     }
 }
 
-# SessionStart hook 命令：同一份注册进 Claude Code 的 .claude/settings.json 与 Codex 的 .codex/hooks.json。
-# 与 scripts/install-harness.sh 的 _HARNESS_HOOK_COMMAND 保持一致；注册用 python 改 JSON，没有 python 就跳过。
-$script:HarnessHookCommand = 'ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; PY="$(command -v python3 || command -v python)"; "$PY" "$ROOT/.harness/hooks/session_start.py"'
+# 两个 hook 都注册进 Claude Code 的 .claude/settings.json 与 Codex 的 .codex/hooks.json：
+#   session_start.py  SessionStart  注入 error-journal 的 open 条目与模板落后提示
+#   pre_tool_use.py   PreToolUse    在破坏性命令执行前拒绝它
+# 与 scripts/install-harness.sh 的 _harness_hook_command 保持一致；注册用 python 改 JSON，没有 python 就跳过。
+function Get-HarnessHookCommand {
+    param([string]$ScriptName)
+    return 'ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; PY="$(command -v python3 || command -v python)"; "$PY" "$ROOT/.harness/hooks/' + $ScriptName + '"'
+}
 
 function Get-HarnessPython {
     foreach ($name in @("python3", "python")) {
@@ -315,7 +320,11 @@ function Get-HarnessPython {
 function Register-HarnessHook {
     param(
         [string]$ConfigPath,
-        [string]$Python
+        [string]$Python,
+        [string]$Event,
+        [string]$Matcher,
+        [string]$ScriptName,
+        [int]$TimeoutSeconds = 15
     )
 
     $script = @'
@@ -323,26 +332,27 @@ import json
 import sys
 from pathlib import Path
 
-path = Path(sys.argv[1])
-command = sys.argv[2]
+path, command, event, matcher, script_name, timeout = sys.argv[1:7]
+path = Path(path)
 data = json.loads(path.read_text()) if path.is_file() and path.read_text().strip() else {}
 hooks = data.setdefault("hooks", {})
-entries = hooks.setdefault("SessionStart", [])
+entries = hooks.setdefault(event, [])
+# 只剥掉本脚本自己的旧注册（按脚本文件名识别），别的 harness hook 与 openspec-auto 的注册原样保留
 kept = []
 for entry in entries:
-    remaining = [h for h in entry.get("hooks", []) if "/.harness/hooks/" not in h.get("command", "")]
+    remaining = [h for h in entry.get("hooks", []) if f"/.harness/hooks/{script_name}" not in h.get("command", "")]
     if remaining:
         entry["hooks"] = remaining
         kept.append(entry)
-kept.append({"matcher": ".*", "hooks": [{"type": "command", "command": command, "timeout": 15}]})
-hooks["SessionStart"] = kept
+kept.append({"matcher": matcher, "hooks": [{"type": "command", "command": command, "timeout": int(timeout)}]})
+hooks[event] = kept
 path.parent.mkdir(parents=True, exist_ok=True)
 path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 '@
     $scriptPath = Join-Path ([System.IO.Path]::GetTempPath()) ("harness-hook-" + [System.Guid]::NewGuid().ToString("N") + ".py")
     Set-Utf8NoBomContent -Path $scriptPath -Value $script
     try {
-        & $Python $scriptPath $ConfigPath $script:HarnessHookCommand
+        & $Python $scriptPath $ConfigPath (Get-HarnessHookCommand -ScriptName $ScriptName) $Event $Matcher $ScriptName $TimeoutSeconds
         if ($LASTEXITCODE -ne 0) { throw "hook registration failed for $ConfigPath" }
     }
     finally {
@@ -453,6 +463,7 @@ function Invoke-HarnessSetup {
     $guidesDir = Join-Path ([System.IO.Path]::GetTempPath()) ("harness-guides-" + [System.Guid]::NewGuid().ToString("N"))
     Stage-HarnessGuides -HarnessRoot $harnessRoot -ScriptDir $ScriptDir -StagedDir $guidesDir
     $hookScriptPath = Join-Path $harnessRoot "scripts\hooks\session_start.py"
+    $preToolHookPath = Join-Path $harnessRoot "scripts\hooks\pre_tool_use.py"
     $runtimeScriptsDir = Join-Path (Split-Path -Parent $ScriptDir) "scripts\error-journal"
     $skillsDir = Join-Path (Split-Path -Parent $ScriptDir) "skills"
     $rulesDir = Join-Path $ScriptDir "rules"
@@ -570,14 +581,17 @@ function Invoke-HarnessSetup {
     $projectHooksDir = Join-Path $projectHarnessDir "hooks"
     New-Item -ItemType Directory -Path $projectHooksDir -Force | Out-Null
     Copy-Item -LiteralPath $hookScriptPath -Destination (Join-Path $projectHooksDir "session_start.py") -Force
+    Copy-Item -LiteralPath $preToolHookPath -Destination (Join-Path $projectHooksDir "pre_tool_use.py") -Force
     $hookPython = Get-HarnessPython
     if ($hookPython) {
-        Register-HarnessHook -ConfigPath (Join-Path $projectDir ".claude\settings.json") -Python $hookPython
-        Register-HarnessHook -ConfigPath (Join-Path $projectDir ".codex\hooks.json") -Python $hookPython
-        Write-Host "  OK .harness/hooks/session_start.py registered in .claude/settings.json and .codex/hooks.json"
+        foreach ($cfg in @((Join-Path $projectDir ".claude\settings.json"), (Join-Path $projectDir ".codex\hooks.json"))) {
+            Register-HarnessHook -ConfigPath $cfg -Python $hookPython -Event "SessionStart" -Matcher ".*" -ScriptName "session_start.py" -TimeoutSeconds 15
+            Register-HarnessHook -ConfigPath $cfg -Python $hookPython -Event "PreToolUse" -Matcher "Bash|Write|Edit|MultiEdit|NotebookEdit" -ScriptName "pre_tool_use.py" -TimeoutSeconds 10
+        }
+        Write-Host "  OK session_start.py (SessionStart) and pre_tool_use.py (PreToolUse) registered in .claude/settings.json and .codex/hooks.json"
     }
     else {
-        Write-Host "  WARN no python3 / python found; SessionStart hook not registered (script placed in .harness/hooks/, re-run setup after installing Python)"
+        Write-Host "  WARN no python3 / python found; hooks not registered (scripts placed in .harness/hooks/, re-run setup after installing Python)"
     }
 
     $projectErrorJournalPath = Join-Path $projectHarnessDir "error-journal.md"

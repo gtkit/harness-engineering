@@ -334,7 +334,7 @@ assert_file_contains "${workflow_file}" "bash -n go-harness/setup.sh go-grpc-har
 assert_file_contains "${workflow_file}" "bash scripts/sync-claude-from-agents.sh --check"
 assert_file_contains "${workflow_file}" "bash tests/setup_smoke_test.sh"
 
-for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
+for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
     assert_all_guides_are_referenced "${harness_dir}"
     assert_entry_files_tracked "${harness_dir}"
 done
@@ -422,7 +422,7 @@ assert_line_exists "${migrate_project}/.gitignore" "/build/"
 assert_gitignore_baseline "${migrate_project}/.gitignore" "go-harness"
 assert_exclude_baseline "${migrate_project}/.git/info/exclude"
 
-for harness_dir in go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
+for harness_dir in go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
     if [ "${harness_dir}" = "go-pkg-harness" ]; then
         project_dir="${tmpdir}/pkgdemo"
     else
@@ -499,7 +499,7 @@ assert_file_contains "${ROOT_DIR}/README.md" "docs/harness-command-workflow.md"
 assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "## 命令对照"
 assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "doctor -> research -> plan -> implement -> review"
 
-for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness; do
+for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "## 本机容器与镜像纪律（铁律）"
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "docker images"
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "docker ps -a"

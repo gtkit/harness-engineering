@@ -205,35 +205,43 @@ _harness_stage_guides() {
     return 0
 }
 
-# SessionStart hook：把 error-journal 里 open 的条目和模板版本落后的提示注入会话上下文。
-# 脚本放 .harness/hooks/，同一份注册进 Claude Code 的 .claude/settings.json 与 Codex 的 .codex/hooks.json；
+# 两个 hook 脚本都放 .harness/hooks/，同一份注册进 Claude Code 的 .claude/settings.json
+# 与 Codex 的 .codex/hooks.json（两端 hook 输出契约一致）：
+#   session_start.py  SessionStart  把 error-journal 里 open 的条目与模板落后提示注入上下文
+#   pre_tool_use.py   PreToolUse    在破坏性命令执行前拒绝它（入口规则是软约束，这层才拦得住）
 # 命令按 python3 → python 探测解释器（Windows 官方安装包只有 python.exe）。
 # 注册要改 JSON，用 python 做；本机没有 python 时跳过并提示，hook 脚本本身也跑不起来。
-_HARNESS_HOOK_COMMAND='ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; PY="$(command -v python3 || command -v python)"; "$PY" "$ROOT/.harness/hooks/session_start.py"'
+_harness_hook_command() {
+    printf '%s' 'ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; PY="$(command -v python3 || command -v python)"; "$PY" "$ROOT/.harness/hooks/'"$1"'"'
+}
 
-# _harness_register_hook <config_file> <python>
+# _harness_register_hook <config_file> <python> <event> <matcher> <script_name> [timeout]
 _harness_register_hook() {
     local config="$1"
     local python="$2"
-    "$python" - "$config" "${_HARNESS_HOOK_COMMAND}" <<'PYEOF'
+    local event="$3"
+    local matcher="$4"
+    local script_name="$5"
+    local timeout="${6:-15}"
+    "$python" - "$config" "$(_harness_hook_command "${script_name}")" "${event}" "${matcher}" "${script_name}" "${timeout}" <<'PYEOF'
 import json
 import sys
 from pathlib import Path
 
-path = Path(sys.argv[1])
-command = sys.argv[2]
+path, command, event, matcher, script_name, timeout = sys.argv[1:7]
+path = Path(path)
 data = json.loads(path.read_text()) if path.is_file() and path.read_text().strip() else {}
 hooks = data.setdefault("hooks", {})
-entries = hooks.setdefault("SessionStart", [])
-# 先剥掉旧的 harness 注册（按脚本路径识别），再写当前命令，命令串变化时也能刷新
+entries = hooks.setdefault(event, [])
+# 只剥掉本脚本自己的旧注册（按脚本文件名识别），别的 harness hook 与 openspec-auto 的注册原样保留
 kept = []
 for entry in entries:
-    remaining = [h for h in entry.get("hooks", []) if "/.harness/hooks/" not in h.get("command", "")]
+    remaining = [h for h in entry.get("hooks", []) if f"/.harness/hooks/{script_name}" not in h.get("command", "")]
     if remaining:
         entry["hooks"] = remaining
         kept.append(entry)
-kept.append({"matcher": ".*", "hooks": [{"type": "command", "command": command, "timeout": 15}]})
-hooks["SessionStart"] = kept
+kept.append({"matcher": matcher, "hooks": [{"type": "command", "command": command, "timeout": int(timeout)}]})
+hooks[event] = kept
 path.parent.mkdir(parents=True, exist_ok=True)
 path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 PYEOF
@@ -382,17 +390,20 @@ install_harness() {
         echo "  ✓ .harness/scripts/ — 新增 ${runtime_copied} 个，保留 ${runtime_preserved} 个"
     fi
 
-    # -- .harness/hooks/（SessionStart hook）--
+    # -- .harness/hooks/（SessionStart + PreToolUse）--
     mkdir -p "${project_dir}/.harness/hooks"
     cp "${harness_root}/scripts/hooks/session_start.py" "${project_dir}/.harness/hooks/session_start.py"
-    local hook_python
+    cp "${harness_root}/scripts/hooks/pre_tool_use.py" "${project_dir}/.harness/hooks/pre_tool_use.py"
+    local hook_python cfg
     hook_python="$(command -v python3 || command -v python || true)"
     if [ -n "${hook_python}" ]; then
-        _harness_register_hook "${project_dir}/.claude/settings.json" "${hook_python}"
-        _harness_register_hook "${project_dir}/.codex/hooks.json" "${hook_python}"
-        echo "  ✓ .harness/hooks/session_start.py 已注册到 .claude/settings.json 与 .codex/hooks.json"
+        for cfg in "${project_dir}/.claude/settings.json" "${project_dir}/.codex/hooks.json"; do
+            _harness_register_hook "${cfg}" "${hook_python}" SessionStart '.*' session_start.py 15
+            _harness_register_hook "${cfg}" "${hook_python}" PreToolUse 'Bash|Write|Edit|MultiEdit|NotebookEdit' pre_tool_use.py 10
+        done
+        echo "  ✓ session_start.py (SessionStart) 与 pre_tool_use.py (PreToolUse) 已注册到 .claude/settings.json 与 .codex/hooks.json"
     else
-        echo "  ⚠ 本机没有 python3 / python，SessionStart hook 未注册（脚本已放到 .harness/hooks/，装好 Python 后重跑 setup）"
+        echo "  ⚠ 本机没有 python3 / python，两个 hook 未注册（脚本已放到 .harness/hooks/，装好 Python 后重跑 setup）"
     fi
 
     # -- .harness/error-journal.md --

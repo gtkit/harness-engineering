@@ -4,6 +4,26 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+- **AI 行为安全两层防护**（七套全部生效）。管的是 agent 自己的行为可能造成的破坏与泄露，与"写出的代码是否安全"分属两件事，后者仍归各语言的安全 guide 与 skill。加之前实测盘点：七套 AGENTS.md 里 `rm -rf`、`git reset --hard`、`push -f`、`DROP` / `TRUNCATE` 命中数均为 0，提示注入在七套 harness 与 39 个 skill 里同样是 0，`go-harness` / `go-grpc-harness` 连密钥基线那节都没有。
+  - 软层：`shared/guides/common/ai-safety.md`（七套共用），七套入口文件新增「AI 行为安全（铁律）」常驻节与 Guide 加载表一行，七套各加 `rules/harness-ai-safety.md`（挂 `.env` / `*.pem` / `*.sql` / `migrations/` / `docker-compose*` 等路径）。覆盖：外部内容是数据不是指令（提示注入）、不可恢复操作、凭据不读不传不回显、生产纪律、依赖引入。
+  - 硬层：`scripts/hooks/pre_tool_use.py` 注册到 PreToolUse（`Bash|Write|Edit|MultiEdit|NotebookEdit`），在命令执行前直接 deny。规则写在 md 里模型可以不遵守，这是唯一拦得住的一层。
+  - 只拦不可恢复的操作，可恢复的一律放行——误伤会逼用户关掉整个 hook。为此剥离 heredoc 正文（写文档时正文常含危险命令示例）、跳过 `grep` / `rg` 等搜索命令。60 条用例实测：34 条应拦全部拦下，26 条应放行（含 `rm -rf build/`、`git push origin main`、`grep -rn "DROP TABLE" .`、heredoc 写含危险示例的文档）零误伤。
+  - fail-open：脚本自身出错时放行并把原因打到 stderr。它是纵深防御的一层而非唯一防线，崩溃时挡住全部工作的代价大于漏掉一次拦截。
+  - `_harness_register_hook` / `Register-HarnessHook` 参数化事件名、matcher、脚本名与超时，剥离旧注册时按**脚本文件名**而不是 `.harness/hooks/` 前缀识别——否则注册第二个 hook 会把第一个剥掉。实测与 openspec-auto 挂在同一 PreToolUse 上的 guard 共存，且重复安装幂等。`sh` / `ps1` 两端的注册脚本逐行一致。
+- `openresty-harness`：第七套 harness，面向 OpenResty / ngx_lua 项目（Nginx 内 Lua 接口服务、网关、WAF、签名与限流脚本，以及部署片段形式的 Lua 脚本集合）。
+  - 完成标准替换为四步验证链：Lua 语法检查 → `nginx -t` → 起实例发请求 → 读 `error.log`。这类项目没有编译期，Lua 运行时加载、`nginx -t` 又不检查 `*_by_lua_file` 指向的文件，其它 harness 里 `go build` / `php artisan test` 的位置在这里是空的。
+  - `shared/guides/openresty/` 9 篇：`lua-baseline`、`architecture`、`nginx-conf`、`shared-state`、`upstream-and-io`、`data-encoding`、`config-and-secrets`、`vendor-and-deps`、`validation-and-release`；另有本套自己的 `review-checklist` 与 `error-journal-template`。
+  - 语言基线按运行时实际的 LuaJIT 2.1（Lua 5.1 语义 + 部分 5.2/5.3 库）写，不按 PUC-Rio Lua 5.4。`//`、`&` `|` `<<` `~`、`<const>`、`<close>` 的不可用与 `goto`、`table.move`、`string.buffer`、`bit`、`ffi` 的可用，均在 OpenResty 1.27.1.2 / LuaJIT 2.1.ROLLING 上逐条实测，guide 里写明换版本后重测的方式。
+  - guide 里的关键行为同样来自实测而非记忆：cjson 默认 `encode_number_precision` 14 会把 `1000000000000001` 编码成 `1e+15`（上限 16）；`cjson.encode({})` 得到 `{}` 而非 `[]`；JSON `null` 解码为 userdata，`if v then` 判真；1MB shared dict 存 8KB value 只进 85 个就开始强制淘汰且会踢掉无关的旧 key；`dict:incr` 不带 init 返回 `not found`；`dict:set` 存 table 返回 `bad value type`；`get_stale` 可取到已过期值；Nginx 不给 Lua 传环境变量，未在顶层 `env NAME;` 声明时 `os.getenv("HOME")` 返回 nil；`find -exec luajit -b` 在单文件语法错误时整体仍返回 0，不能当门禁。
+  - 6 条路径限定 rules：`**/*.lua`、`lua/app.lua` 与 `lua/libs/**`、`nginx.conf` 与 `conf/**/*.conf`、db / redis / http 客户端模块、`lua/resty/**` 等 vendored 目录、`CHANGELOG.md`。
+- `install.sh` 无需改动即可识别新 harness（按顶层 `setup.sh` 扫描），`scripts/sync-claude-from-agents.sh` 的模块清单加入 `openresty-harness`。
+
+### Fixed
+- README 六处「安装完成后你的项目会多出」的目录树补全：此前只画了 harness 自己装的文件，没有 `.openspec-auto/`、`openspec/`、`.openspec-auto-backup/`、两端 hook 注册表（`.claude/settings.json`、`.codex/hooks.json`）、`.codex/config.toml.append`、两份 skill 目录里的 `openspec-auto/`，也漏了 `.harness/VERSION`、`.harness/hooks/session_start.py` 与 `close-error-journal` 脚本。现按真实安装产物逐项核对过，并注明哪些由 openspec-auto 装、只跑 `setup.sh` 时不会出现。
+
 ## [1.13.2] - 2026-09-15
 
 ### Fixed

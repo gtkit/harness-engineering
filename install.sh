@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # ============================================================
-# 把命令装到 PATH：六个 harness 命令（go-harness / go-grpc-harness / fullstack-harness /
-# go-pkg-harness / laravel-harness / laravel-fullstack-harness）加 harness-refresh
+# 把命令装到 PATH：七个 harness 命令（go-harness / go-grpc-harness / fullstack-harness /
+# go-pkg-harness / laravel-harness / laravel-fullstack-harness / openresty-harness）
+# 加 harness-refresh
 #
 # 用法：
 #   bash install.sh                    # 装到 ~/go/bin

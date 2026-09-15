@@ -11,6 +11,7 @@ MODULES=(
     "go-pkg-harness"
     "laravel-harness"
     "laravel-fullstack-harness"
+    "openresty-harness"
 )
 
 render_claude_file() {
