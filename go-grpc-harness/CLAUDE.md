@@ -39,7 +39,7 @@
 ## Logic 四步
 
 1. **理解需求**：逐字阅读指令，有歧义立即提问，不假设。
-2. **提取关键信息**：识别涉及模块和外部交互，读取对应 guide。
+2. **提取关键信息**：识别涉及模块和外部交互，读取对应 guide；同时按 `.harness/guides/skills-index.md` 选出本次相关的 Go 技术 skill，动手前就调用，不边写边补。
 3. **按结构组织**：严格按模块化分层和模板编写，不自创模式。
 4. **检查合规**：运行传感器 + 自审 + 交叉验证。
 
@@ -60,7 +60,7 @@
 | CI / 传感器 | `.harness/guides/ci-sensors.md` |
 | 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
-| 通用 Go 知识（现代写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能） | 对应 skill：`use-modern-go`、`go-concurrency`、`go-database-patterns`、`go-cache-consistency`、`go-mq-patterns`、`go-stability-engineering`、`go-security`、`go-testing`、`go-performance`；guides 只写本项目约定 |
+| 通用 Go 知识（现代写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能） | `.harness/guides/skills-index.md`——开工前按表选出相关 skill 并**立即调用**；skill 正文不调用就不会进上下文，guides 只写本项目约定 |
 | 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
 | 新增或改动 `.go` 文件（现代语法 / 泛型方法 / UUID） | `.harness/guides/go-modern.md` |
 | 新增模块 / 新建包 / 跨层改动 / 调整依赖方向 | `.harness/guides/architecture.md` |

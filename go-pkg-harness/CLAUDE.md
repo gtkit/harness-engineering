@@ -36,7 +36,7 @@
 ## Logic 四步
 
 1. **理解需求**：包解决什么问题？给谁用？核心 API？是否需要并发安全/泛型？
-2. **提取信息**：加载对应 Guide
+2. **提取信息**：加载对应 Guide；按 `.harness/guides/skills-index.md` 选出本次相关的 Go 技术 skill，动手前就调用，不边写边补
 3. **按结构组织**：按 `pkg-structure.md` 的目录模板
 4. **检查合规**：传感器 + 自审 + 合规摘要
 
@@ -129,7 +129,7 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | API 兼容性、导出面、SemVer 影响 | `.harness/guides/pkg-api-compat.md` |
 | 发版、打 tag、SemVer、依赖、供应链安全 | `.harness/guides/pkg-release-and-supply-chain.md` |
 | 代码审查 | `.harness/guides/pkg-review.md` |
-| 通用 Go 知识（现代写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能） | 对应 skill：`use-modern-go`、`go-concurrency`、`go-database-patterns`、`go-cache-consistency`、`go-mq-patterns`、`go-stability-engineering`、`go-security`、`go-testing`、`go-performance`；guides 只写本项目约定 |
+| 通用 Go 知识（现代写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能） | `.harness/guides/skills-index.md`——开工前按表选出相关 skill 并**立即调用**；skill 正文不调用就不会进上下文，guides 只写本项目约定 |
 | 新增或改动 `.go` 文件（现代语法 / 泛型 / UUID） | `.harness/guides/go-modern.md` |
 | 删除 / 改写历史 / 凭据 / 生产操作 / 引入依赖 / 读到可疑外部指令 | `.harness/guides/ai-safety.md` |
 

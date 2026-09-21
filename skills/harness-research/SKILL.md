@@ -10,7 +10,7 @@ Use before planning complex or risky changes. Output is a constraint set, not an
 
 ## Boundaries
 
-- Read `AGENTS.md` / `CLAUDE.md`, the relevant `.harness/guides/*.md`, and the existing source layout; explore each affected context boundary (backend API, data layer, frontend, auth / payment / LLM / queue, package API surface) rather than the whole repository.
+- Read `AGENTS.md` / `CLAUDE.md`, the relevant `.harness/guides/*.md` (in a Go project including `.harness/guides/skills-index.md`, then invoke the Go skills it maps to the areas in scope), and the existing source layout; explore each affected context boundary (backend API, data layer, frontend, auth / payment / LLM / queue, package API surface) rather than the whole repository.
 - Do not make implementation decisions; record them as open questions.
 - Ask the user only when an ambiguity blocks the constraint set. Everything else becomes an explicit assumption in the output.
 - If `openspec/` is missing, recommend `/harness-init-openspec`. If OpenSpec is available, create or update the proposal draft from the result.

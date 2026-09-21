@@ -26,6 +26,7 @@ Use this before final delivery or before asking for human review.
 2. Load relevant guides:
    - `.harness/guides/review-checklist.md` or package review guide
    - architecture / frontend / database guide as relevant
+   - in a Go project `.harness/guides/skills-index.md`, then invoke the Go skills it maps to the changed areas before reviewing
 3. Review for:
    - correctness
    - security

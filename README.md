@@ -50,7 +50,7 @@ harness-engineering/
 │   └── error-journal/       ← 装进项目 .harness/scripts/ 的错误记忆读写脚本
 ├── shared/guides/           ← 多套 harness 共用的 guide 唯一真源
 │   ├── common/              ← 全部 harness 共用：ai-safety.md、commit-and-changelog.md
-│   ├── go/                  ← go-harness / go-grpc-harness / fullstack-harness 共用 9 篇
+│   ├── go/                  ← go-harness / go-grpc-harness 共用 10 篇，fullstack-harness 拉其中 9 篇
 │   ├── laravel/             ← laravel-harness / laravel-fullstack-harness 共用 7 篇
 │   └── openresty/           ← openresty-harness 用 9 篇
 ├── skills/                  ← 六个工作流 skill（Claude Code 与 Codex 同一份）
@@ -69,6 +69,7 @@ harness-engineering/
 │   ├── rules/               ← Claude Code 路径限定规则：读到匹配文件时把对应 guide 拉进上下文
 │   └── guides/              ← 本 harness 独有的 guide（下面列的是装进项目后的完整清单）
 │       ├── go-modern.md
+│       ├── skills-index.md
 │       ├── architecture.md
 │       ├── api-conventions.md
 │       ├── db-patterns.md
@@ -89,6 +90,7 @@ harness-engineering/
 │   │   └── grpc-service/    ← 可运行的 gRPC 服务骨架
 │   └── guides/
 │       ├── go-modern.md
+│       ├── skills-index.md
 │       ├── architecture.md
 │       ├── grpc-conventions.md
 │       ├── db-patterns.md
@@ -133,6 +135,7 @@ harness-engineering/
 │   ├── rules/
 │   └── guides/
 │       ├── go-modern.md
+│       ├── skills-index.md
 │       ├── pkg-structure.md
 │       ├── pkg-errors.md
 │       ├── pkg-testing.md
@@ -316,8 +319,9 @@ your-backend-project/
 │   ├── error-journal.md       ← AI 错误记忆文件
 │   ├── hooks/session_start.py ← 会话开始注入未关闭的错误记忆与模板落后提示
 │   ├── hooks/pre_tool_use.py  ← 破坏性命令执行前直接拒绝
-│   ├── guides/                ← 16 个规范文档
+│   ├── guides/                ← 18 个规范文档
 │   │   ├── go-modern.md            Go 1.27 现代语法、泛型方法、UUID
+│   │   ├── skills-index.md         Go 技术 skill 调用索引与时机
 │   │   ├── architecture.md         分层架构、依赖方向
 │   │   ├── api-conventions.md      统一响应格式、错误码
 │   │   ├── db-patterns.md          GORM、Repository、事务、UUID 主键
@@ -332,7 +336,8 @@ your-backend-project/
 │   │   ├── ci-sensors.md           CI 与架构传感器
 │   │   ├── testing-and-validation.md 测试、回归、验证
 │   │   ├── review-checklist.md     12 维度审查清单
-│   │   └── commit-and-changelog.md 写 commit / 改 CHANGELOG / 发版时读
+│   │   ├── commit-and-changelog.md 写 commit / 改 CHANGELOG / 发版时读
+│   │   └── ai-safety.md            AI 自身行为的破坏与泄露红线
 │   └── scripts/               ← error-journal 读写与关闭脚本
 │       ├── read-error-journal.sh    / .ps1
 │       ├── append-error-journal.sh  / .ps1
@@ -459,8 +464,9 @@ your-go-package/
 │   ├── error-journal.md       ← AI 错误记忆文件
 │   ├── hooks/session_start.py ← 会话开始注入未关闭的错误记忆与模板落后提示
 │   ├── hooks/pre_tool_use.py  ← 破坏性命令执行前直接拒绝
-│   ├── guides/                ← 9 个规范文档
+│   ├── guides/                ← 11 个规范文档
 │   │   ├── go-modern.md            Go 1.27 现代语法、UUID
+│   │   ├── skills-index.md         Go 技术 skill 调用索引与时机
 │   │   ├── pkg-structure.md        包结构、接口、Functional Options
 │   │   ├── pkg-errors.md           三层错误体系
 │   │   ├── pkg-testing.md          测试、Benchmark、Example、Fuzz
@@ -468,7 +474,8 @@ your-go-package/
 │   │   ├── pkg-generics.md         泛型应用、泛型方法
 │   │   ├── pkg-api-compat.md       API 兼容性、导出面、SemVer 影响
 │   │   ├── pkg-release-and-supply-chain.md 发布、依赖、供应链安全
-│   │   └── pkg-review.md           包级 9 维度审查清单
+│   │   ├── pkg-review.md           包级 9 维度审查清单
+│   │   └── ai-safety.md            AI 自身行为的破坏与泄露红线
 │   └── scripts/               ← error-journal 读写与关闭脚本
 │       ├── read-error-journal.sh    / .ps1
 │       ├── append-error-journal.sh  / .ps1
@@ -669,8 +676,9 @@ your-grpc-service/
 │   ├── error-journal.md       ← AI 错误记忆文件
 │   ├── hooks/session_start.py ← 会话开始注入未关闭的错误记忆与模板落后提示
 │   ├── hooks/pre_tool_use.py  ← 破坏性命令执行前直接拒绝
-│   ├── guides/                ← 16 个规范文档
+│   ├── guides/                ← 18 个规范文档
 │   │   ├── go-modern.md            Go 1.27 现代语法、泛型方法、UUID
+│   │   ├── skills-index.md         Go 技术 skill 调用索引与时机
 │   │   ├── architecture.md         分层架构、依赖方向
 │   │   ├── grpc-conventions.md     proto / buf / 契约与拦截器
 │   │   ├── db-patterns.md          GORM、Repository、事务、UUID 主键
@@ -685,7 +693,8 @@ your-grpc-service/
 │   │   ├── ci-sensors.md           CI 与架构传感器
 │   │   ├── testing-and-validation.md 测试、回归、验证
 │   │   ├── review-checklist.md     审查清单
-│   │   └── commit-and-changelog.md 写 commit / 改 CHANGELOG / 发版时读
+│   │   ├── commit-and-changelog.md 写 commit / 改 CHANGELOG / 发版时读
+│   │   └── ai-safety.md            AI 自身行为的破坏与泄露红线
 │   └── scripts/               ← error-journal 读写与关闭脚本
 │       ├── read-error-journal.sh    / .ps1
 │       ├── append-error-journal.sh  / .ps1
@@ -910,7 +919,7 @@ Codex 启动      → 自动加载项目 AGENTS.md  → SessionStart hook 注入
 
 ```
 Step 1 理解需求 → 有歧义就问，不假设
-Step 2 提取信息 → 加载对应的 guide 文档
+Step 2 提取信息 → 加载对应的 guide 文档；Go 项目按 skills-index.md 选出相关技术 skill 并调用
 Step 3 按结构写 → 严格按规范模板输出
 Step 4 检查合规 → lint + 架构检查 + 自审 + 交叉验证 + 输出合规摘要
 ```

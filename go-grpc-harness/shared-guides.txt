@@ -1,4 +1,5 @@
 # 从 shared/guides/ 拉取的公共 guide；同名文件以本目录 guides/ 下的为准
+go/skills-index.md
 go/db-patterns.md
 go/migration.md
 go/llm-integration.md
