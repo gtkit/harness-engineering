@@ -9,6 +9,11 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-21
+
+### Added
+- `go-pkg-harness/guides/pkg-api-compat.md` 新增「带键初始化守卫（`_ struct{}`）」一节，`shared/guides/go/pkg-design.md` 加同名精简节（该 guide 由 go / go-grpc / fullstack 三套共用，写成自包含短版）：对外导出结构体在首位加未导出空字段，编译器会拒绝跨包的位置初始化，字段顺序因此不进入兼容契约。规范给出加的两个条件（有 2 个及以上同类型字段；Config / Options / DTO 这类会持续新增字段的结构体）、不加的三种情况（`internal/` 类型、靠简洁字面量表达的小值类型、需要与同构 struct 互转的类型）与实施约束。Go 1.27.1 实测：跨包位置初始化报 `too few values in struct literal of type pkg.Config (type has unexported fields - use key:value pairs)`；守卫放首位 `unsafe.Sizeof` 与不加时同为 24，放末位因尾部零大小字段补齐涨到 32；未导出字段同时阻断跨包 struct 类型转换（`cannot convert ... to type ...`），所以给已发布结构体补加守卫算破坏性变更。附带核实：`$GOROOT/src` 与 `protobuf@v1.36.9` 生成代码里都没有 `_ struct{}` 写法（protobuf 用的是 `state protoimpl.MessageState` 等有实际用途的未导出字段，效果等价），规范因此只按实测写效果，不引用「标准库广泛使用」这类说法。
+
 ## [1.0.0] - 2026-09-18
 
 版本号体系重置后的首个版本。本条目描述仓库在此版本的构成与本次的规则变更，不重述被移除的历史条目。
