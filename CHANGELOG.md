@@ -9,6 +9,17 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-21
+
+### Added
+- 三套 Go harness 新增 skill 调用索引与路径触发。起因是实际现象：开发 Go 项目时全局 skill 大多没被调用。排查结论是 skill 正文不会自动进上下文——系统提示里只有名字和描述，不显式调用等于没有；而 `rules/` 的路径触发过去只覆盖 guides（`grep` 全部 rules 文件，skill 一次都没出现），入口文件的 Guide 加载表里 skill 那行也只是陈述句「对应 skill：…」，没有调用动词。本次补齐：`shared/guides/go/skills-index.md`（21 项，go-harness 与 go-grpc-harness 共用）与 `go-pkg-harness/guides/skills-index.md`（11 项，砍掉 Gin / 微服务 / 长连接 / 可观测 / 稳定性 / 缓存与数据一致性等服务侧条目，DB / Redis / MQ 合成一行，因为 gtkit 那类工具库会直接操作它们）；三套新增 `rules/harness-go-skills.md`，`paths` 命中 `**/*.go` 与 `**/go.mod`。
+- 索引表的加载纪律限定**一次最多调 3 个**：命中多条时按本次改动的主路径挑三个先调，其余写进计划、写到那段再调。初版写的是「命中多条一次性全调」，会让一个同时碰 DB、Redis、缓存、错误、并发的功能一口气拉进 5 份规范文本，把项目代码挤出上下文。
+
+### Changed
+- 三套 Go harness 的 `AGENTS.md`：Logic 四步第 2 步改为「读 guide + 按 skills-index 选出相关 skill，动手前就调用，不边写边补」；Guide 加载表里通用 Go 知识那行换成指向索引表的指令。`CLAUDE.md` 由 `sync-claude-from-agents.sh` 同步生成，`--check` 验证一致。
+- `harness-implement` / `harness-research` / `harness-review` 三个工作流 skill，在各自「读 guides」的位置加上「Go 项目先读 skills-index 并调用它选中的 skill」。
+- README 目录树同步新增 guide，并修正三套的 guides 计数：原写 16 / 9 / 16，实测安装分别是 18 / 11 / 18，差的一篇是三份清单都漏列的 `ai-safety.md`，一并补进清单；`shared/guides/go/` 的共用篇数由 9 改为 10，并写明 fullstack-harness 只拉其中 9 篇。
+
 ## [1.1.0] - 2026-09-21
 
 ### Added
