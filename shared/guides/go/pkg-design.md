@@ -115,6 +115,34 @@ func ExampleClient_Send() {
 - 废弃的 API 用 `// Deprecated:` 注释标记
 - 破坏性变更必须升大版本（v1 → v2）
 
+## 导出结构体的带键初始化守卫
+
+首位加一个未导出空字段，编译器会拒绝跨包的位置初始化，调用方必须写字段名，字段顺序因此不再进入兼容契约：
+
+```go
+type Config struct {
+    _    struct{} // 守卫：强制跨包调用方带键初始化
+    Host string
+    Port int
+}
+```
+
+外部包写 `pkg.Config{"127.0.0.1", 8080}` 直接编译失败（Go 1.27.1 实测）：`too few values in struct literal of type pkg.Config (type has unexported fields - use key:value pairs)`。
+
+满足其一就加：
+
+- 结构体有 2 个及以上相同类型的字段（`Width`/`Height`、`From`/`To`）：调整顺序后旧的位置初始化仍然编译通过，值被静默对调。
+- Config、Options、跨服务 DTO 这类预期会持续新增字段的结构体。
+
+这些情况不加：`internal/` 下的类型（同模块内部本来就允许位置初始化，拦不住）；`Point{1, 2}` 这类靠简洁字面量表达的小值类型；调用方需要与同构 struct 互转的类型（未导出字段会让跨包 struct 转换一并失败）。
+
+实施约束：
+
+- `_ struct{}` 必须是第一个字段。放末位时尾部零大小字段会被补齐到对齐边界，实测 `unsafe.Sizeof` 由 24 涨到 32；放首位与不加守卫时相同。
+- 必须带注释说明用途，否则后续 review 会当成无用字段删掉。
+- 守卫不改变 JSON 序列化行为，也不影响结构体的可比较性。
+- 给已发布的导出结构体补加守卫，会让使用位置初始化的调用方编译中断，属于破坏性变更，跟着升大版本。
+
 ## context 支持
 
 - 所有可能耗时的操作都接受 `context.Context` 作为第一个参数

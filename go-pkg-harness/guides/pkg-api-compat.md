@@ -56,6 +56,44 @@
 - Option 只表达调用方真正需要控制的行为，不暴露内部调优参数。
 - 新增 Option 必须有 GoDoc、默认值说明和 Example 覆盖。
 - 导出 struct 优先保持字段非导出；一旦导出字段，字段名、类型和含义都进入兼容契约。
+- 导出 struct 的字段顺序也进入兼容契约；符合下一节条件的结构体加带键初始化守卫，把顺序从契约里摘出去。
+
+## 带键初始化守卫（`_ struct{}`）
+
+给导出结构体的首位加一个未导出空字段，编译器会拒绝跨包的位置初始化，调用方必须写字段名：
+
+```go
+type Config struct {
+    _    struct{} // 守卫：强制跨包调用方带键初始化，字段顺序变更不再影响调用方
+    Host string
+    Port int
+}
+```
+
+外部包写 `pkg.Config{"127.0.0.1", 8080}` 时编译失败（Go 1.27.1 实测）：
+
+```
+implicit assignment to unexported field _ in struct literal of type pkg.Config
+too few values in struct literal of type pkg.Config (type has unexported fields - use key:value pairs)
+```
+
+### 满足其一就加
+
+- 结构体有 2 个及以上相同类型的字段（`Width`/`Height`、`From`/`To`、`Min`/`Max`）：调整顺序后旧的位置初始化仍然编译通过，值被静默对调，是编译器和 `go vet` 都不报的运行期错误。
+- Config、Options、跨服务 DTO 这类预期会持续新增字段的结构体：新增字段会让位置初始化的调用方成片编译中断。
+
+### 这些情况不加
+
+- `internal/` 下的类型：同包与同模块内部本来就允许位置初始化，守卫拦不住，只留下写 `struct{}{}` 的负担。
+- 坐标、尺寸这类小值语义类型：`Point{1, 2}` 的简洁写法本身是 API 的一部分。
+- 调用方需要与同构 struct 互转的类型：未导出字段会让跨包 struct 类型转换一并失败（`cannot convert ... to type ...`）。
+
+### 实施约束
+
+- `_ struct{}` 必须是第一个字段。放末位时尾部零大小字段会被补齐到对齐边界，实测 `unsafe.Sizeof` 由 24 涨到 32；放首位与不加守卫时相同。
+- 必须带注释说明用途，否则后续 review 会当成无用字段删掉。
+- 守卫不改变 JSON 序列化行为，也不影响结构体的可比较性。
+- 给**已发布**的导出结构体补加守卫，会让使用位置初始化的调用方编译中断，并阻断跨包 struct 转换：按上面的 MAJOR 清单处理，不能当作 PATCH 塞进去。
 
 ## 错误兼容性
 
