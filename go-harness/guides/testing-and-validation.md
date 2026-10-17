@@ -95,3 +95,7 @@ case 名说明业务场景；断言具体；覆盖 success、error、edge。
 - 修复后重跑受影响包全量测试，再跑项目必需检查。
 - 测试失败不能只改断言凑绿。
 - 交付说明实际跑过的命令；没跑说明原因。
+
+## 交付验收
+
+运行行为交付前读取 `.harness/guides/acceptance-gates.md` 并加载 `$backend-acceptance`。build、lint、单测和 `-race` 只证明局部，不能替代业务规则来源、事务、幂等、并发、权限、索引、外部依赖和生产容量证据。

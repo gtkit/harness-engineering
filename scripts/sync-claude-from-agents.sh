@@ -8,6 +8,7 @@ MODULES=(
     "go-harness"
     "go-grpc-harness"
     "fullstack-harness"
+    "frontend-harness"
     "go-pkg-harness"
     "laravel-harness"
     "laravel-fullstack-harness"

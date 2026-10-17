@@ -689,7 +689,13 @@ function Invoke-HarnessSetup {
     }
 
     # 迁移: 剔除旧版本误写进 .gitignore 的本地工具规则与旧标题(移到 .git/info/exclude)
-    $legacyLines = @(Get-HarnessLegacyGitignoreHeader, (Get-HarnessLegacyJournalHeader), ".harness/VERSION", ".harness/error-journal.md", ".claude/*") + $excludePatterns + $legacyToolsPatterns
+    $legacyLines = @(
+        (Get-HarnessLegacyGitignoreHeader)
+        (Get-HarnessLegacyJournalHeader)
+        ".harness/VERSION"
+        ".harness/error-journal.md"
+        ".claude/*"
+    ) + $excludePatterns + $legacyToolsPatterns
     if (Remove-LinesFromFile -Path $gitignorePath -Lines $legacyLines) {
         Write-Host "  OK removed legacy local-tool rules from .gitignore (migrated to .git/info/exclude)"
     }

@@ -8,5 +8,6 @@ openresty/data-encoding.md
 openresty/config-and-secrets.md
 openresty/vendor-and-deps.md
 openresty/validation-and-release.md
+common/acceptance-gates.md
 common/ai-safety.md
 common/commit-and-changelog.md

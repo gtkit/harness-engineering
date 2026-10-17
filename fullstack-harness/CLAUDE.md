@@ -144,6 +144,7 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | Go 扩展包 | `.harness/guides/pkg-design.md` |
 | CI / 传感器 | `.harness/guides/ci-sensors.md` |
 | 后端测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 交付验收 | `.harness/guides/acceptance-gates.md`；按变更面加载 `$backend-acceptance`、`$frontend-acceptance`，契约变更两者都加载 |
 | 前端页面/组件 | `.harness/guides/frontend-architecture.md` + `.harness/guides/frontend-coding.md` |
 | 前端 API 对接 | `.harness/guides/frontend-api.md` |
 | 前后端联调 | `.harness/guides/api-conventions.md` + `.harness/guides/frontend-api.md` + `.harness/guides/testing-and-validation.md` |
@@ -234,6 +235,16 @@ cd frontend && npx vite build
 - [x] 测试覆盖
 - [x] 无编造内容
 ```
+
+## 交付验收门禁
+
+本 harness 是全栈项目。运行行为交付前读取 `.harness/guides/acceptance-gates.md`：
+
+- 后端、数据库、鉴权、队列、worker、支付、消息或外部调用变更：加载 `$backend-acceptance`。
+- 页面、组件、路由、store、composable、API client 或浏览器安全/性能变更：加载 `$frontend-acceptance`。
+- DTO、错误码、权限、数据库 schema、支付/消息状态或跨端类型变更：两个 skill 都加载，先核对后端不变量，再做前端和真实联调。
+
+构建、类型检查、单测和 `-race` 不能替代业务、权限、数据一致性、并发和真实交互证据；关键项未验证时，结论为“不准入”。
 
 ## 错误记忆
 

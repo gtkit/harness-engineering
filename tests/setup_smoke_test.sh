@@ -340,11 +340,11 @@ assert_file_contains "${workflow_file}" "pull_request:"
 assert_file_contains "${workflow_file}" "branches: [main]"
 assert_file_contains "${workflow_file}" "runs-on: ubuntu-latest"
 assert_file_contains "${workflow_file}" "uses: actions/checkout@v4"
-assert_file_contains "${workflow_file}" "bash -n go-harness/setup.sh go-grpc-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh"
+assert_file_contains "${workflow_file}" "bash -n go-harness/setup.sh go-grpc-harness/setup.sh fullstack-harness/setup.sh frontend-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh"
 assert_file_contains "${workflow_file}" "bash scripts/sync-claude-from-agents.sh --check"
 assert_file_contains "${workflow_file}" "bash tests/setup_smoke_test.sh"
 
-for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
+for harness_dir in go-harness go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
     assert_all_guides_are_referenced "${harness_dir}"
     assert_entry_files_tracked "${harness_dir}"
 done
@@ -432,7 +432,7 @@ assert_line_exists "${migrate_project}/.gitignore" "/build/"
 assert_gitignore_baseline "${migrate_project}/.gitignore" "go-harness"
 assert_exclude_baseline "${migrate_project}/.git/info/exclude"
 
-for harness_dir in go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
+for harness_dir in go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
     if [ "${harness_dir}" = "go-pkg-harness" ]; then
         project_dir="${tmpdir}/pkgdemo"
     else
@@ -509,7 +509,7 @@ assert_file_contains "${ROOT_DIR}/README.md" "docs/harness-command-workflow.md"
 assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "## 命令对照"
 assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "doctor -> research -> plan -> implement -> review"
 
-for harness_dir in go-harness go-grpc-harness fullstack-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
+for harness_dir in go-harness go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "## 本机容器与镜像纪律（铁律）"
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "docker images"
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "docker ps -a"
@@ -528,7 +528,8 @@ run_setup "go-harness" "$managed_project" "$managed_home"
 printf '\n<!-- OPENSPEC-AUTO:START -->\n# OpenSpec First Workflow\nblock body $HOME keep me\n<!-- OPENSPEC-AUTO:END -->\n' >> "${managed_project}/CLAUDE.md"
 out="$( (cd "$managed_project" && HOME="$managed_home" CODEX_HOME="$managed_home/.codex" bash "${ROOT_DIR}/go-harness/setup.sh") )"
 grep -Fq "CLAUDE.md 已存在且与本版本一致（含 openspec-auto 托管块）" <<<"$out" || fail "entry file with managed block must compare equal to template"
-sed -i '' 's/^## 编码基线$/## 编码基线X/' "${managed_project}/CLAUDE.md"
+sed -i.bak 's/^## 编码基线$/## 编码基线X/' "${managed_project}/CLAUDE.md"
+rm -f "${managed_project}/CLAUDE.md.bak"
 out="$( (cd "$managed_project" && HOME="$managed_home" CODEX_HOME="$managed_home/.codex" bash "${ROOT_DIR}/go-harness/setup.sh") )"
 grep -Fq "CLAUDE.md 已存在且内容与本版本模板不同，保留未动" <<<"$out" || fail "modified entry body must be reported and left untouched"
 assert_file_contains "${managed_project}/CLAUDE.md" "编码基线X"
@@ -594,7 +595,8 @@ assert_file_contains "${managed_project}/.harness/VERSION" "source-path: ${ROOT_
 hook_out="$(cd "$managed_project" && echo '{}' | python3 .harness/hooks/session_start.py)"
 [ -z "$hook_out" ] || fail "session hook must print nothing when journal has no open entry and template is current, got: ${hook_out}"
 err_id="$(bash "${managed_project}/.harness/scripts/append-error-journal.sh" "$managed_project" user-correction auth "入口边界改错")"
-sed -i '' 's/^source-commit: .*/source-commit: 000000000000/' "${managed_project}/.harness/VERSION"
+sed -i.bak 's/^source-commit: .*/source-commit: 000000000000/' "${managed_project}/.harness/VERSION"
+rm -f "${managed_project}/.harness/VERSION.bak"
 hook_out="$(cd "$managed_project" && echo '{}' | python3 .harness/hooks/session_start.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])')"
 grep -Fq "$err_id" <<<"$hook_out" || fail "session hook must list open journal entry ${err_id}"
 grep -Fq "入口边界改错" <<<"$hook_out" || fail "session hook must include the entry summary"
@@ -629,7 +631,8 @@ broken_project="${tmpdir}/broken-project"
 mkdir -p "${broken_project}/.harness"
 printf 'harness: no-such-harness\nsource-commit: 000000000000\n' > "${broken_project}/.harness/VERSION"
 printf '%s\n' "$broken_project" "$(cat "${tmpdir}/projects.txt")" > "${tmpdir}/projects.txt"
-sed -i '' 's/^source-commit: .*/source-commit: 000000000000/' "${managed_project}/.harness/VERSION"
+sed -i.bak 's/^source-commit: .*/source-commit: 000000000000/' "${managed_project}/.harness/VERSION"
+rm -f "${managed_project}/.harness/VERSION.bak"
 if apply_out="$(HOME="$refresh_home" HARNESS_PROJECTS_FILE="${tmpdir}/projects.txt" CODEX_HOME="$refresh_home/.codex" bash "${ROOT_DIR}/scripts/harness-refresh.sh" apply --no-force --no-openspec 2>&1)"; then
     fail "refresh apply must exit non-zero when a project fails"
 fi

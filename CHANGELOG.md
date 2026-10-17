@@ -7,7 +7,15 @@
 > 版本号体系于 2026-09-18 重置，从 1.0.0 重新开始。此前的 1.0.0 ~ 1.17.0 条目与对应 tag 已移除；
 > 那段历史连同其中记录的实测结论仍完整保留在 git 历史里，用 `git show 446246d:CHANGELOG.md` 取回。
 
-## [Unreleased]
+## [1.3.0] - 2026-10-18
+
+### Added
+- 新增 `frontend-harness`，面向 Vue 3 + Vite/TypeScript 纯前端项目，包含前端架构、编码、API、测试和 review guides。
+- 新增共享 `acceptance-gates.md`，按变更面路由 `frontend-acceptance` / `backend-acceptance`，并规定关键项未验证时不得准入。
+
+### Changed
+- `go-harness`、`go-grpc-harness`、`laravel-harness` 和 `openresty-harness` 的运行行为交付前强制加载 `$backend-acceptance`。
+- `fullstack-harness` 与 `laravel-fullstack-harness` 对后端、前端和契约变更分别加载对应验收 skill；`harness-review` 统一负责路由。
 
 ## [1.2.0] - 2026-09-21
 

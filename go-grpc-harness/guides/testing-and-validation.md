@@ -97,3 +97,7 @@ case 名说明业务场景；断言具体；覆盖 success、error、edge。
 - 修复后重跑受影响包全量测试，再跑项目必需检查。
 - 测试失败不能只改断言凑绿。
 - 交付说明实际跑过的命令；没跑说明原因。
+
+## 交付验收
+
+运行行为交付前读取 `.harness/guides/acceptance-gates.md` 并加载 `$backend-acceptance`。gRPC status、proto 生成和 `-race` 不能替代业务不变量、deadline/取消、幂等、权限、跨实例和外部依赖证据。

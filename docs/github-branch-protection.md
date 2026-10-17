@@ -66,7 +66,7 @@ main
 
 当前 CI 只做自动检查，不做部署：
 
-1. `bash -n go-harness/setup.sh fullstack-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh`
+1. `bash -n go-harness/setup.sh fullstack-harness/setup.sh frontend-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh`
 2. `shellcheck -S warning <所有 setup.sh + scripts/error-journal/*.sh + scripts/sync-claude-from-agents.sh + tests/*.sh>`
 3. `bash scripts/sync-claude-from-agents.sh --check`
 4. `bash tests/setup_smoke_test.sh`

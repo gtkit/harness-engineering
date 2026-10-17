@@ -66,6 +66,7 @@
 | Go 扩展包 | `.harness/guides/pkg-design.md` |
 | CI / 传感器 | `.harness/guides/ci-sensors.md` |
 | 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 交付验收 | `.harness/guides/acceptance-gates.md`；运行行为交付前加载 `$backend-acceptance`，关键项未验证不得准入 |
 | 代码审查 | `.harness/guides/review-checklist.md` |
 | 通用 Go 知识（现代写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能） | `.harness/guides/skills-index.md`——开工前按表选出相关 skill 并**立即调用**；skill 正文不调用就不会进上下文，guides 只写本项目约定 |
 | 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
@@ -199,6 +200,12 @@ scripts/check-architecture.sh
 2. 代码 ↔ 测试：公开方法有对应测试
 3. 代码 ↔ 文档：GoDoc 注释与行为一致
 4. 新代码 ↔ 存量代码：不破坏已有测试
+
+## 交付验收门禁
+
+本 harness 属于后端/网关项目。运行行为、数据库、迁移、鉴权、队列、worker、定时任务、外部调用或服务配置发生变化时，交付前必须加载 `$backend-acceptance`，并读取 `.harness/guides/acceptance-gates.md`。
+
+编译、lint、单测、`-race` 或 OpenResty 四步验证只证明对应局部。后端验收还必须核对需求来源、业务不变量、事务、幂等、并发、权限、SQL/索引、外部依赖失败、安全和容量。需求来源、关键不变量或核心依赖未验证时，结论为“不准入”，不能写 Ready。
 
 ## 错误记忆
 

@@ -53,3 +53,7 @@ php artisan route:list
 - 修复 bug 时优先补回归测试
 - 交付前说明本次实际跑过的验证命令
 - 没跑到的命令必须明确说明阻塞条件
+
+## 交付验收
+
+Laravel 运行行为交付前读取 `.harness/guides/acceptance-gates.md` 并加载 `$backend-acceptance`。测试、静态分析和 `route:list` 不能替代业务规则来源、事务、队列重试、授权、幂等、数据库索引、外部依赖失败和生产容量证据。

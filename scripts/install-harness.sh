@@ -4,7 +4,7 @@ set -euo pipefail
 # ============================================================
 # Harness 统一安装共享库（macOS / Linux）
 #
-# 5 套 harness 的 setup.sh 都是薄包装，统一调用本文件的 install_harness。
+# 各套 harness 的 setup.sh 都是薄包装，统一调用本文件的 install_harness。
 # 与 PowerShell 端 scripts/install-harness.ps1 的 Invoke-HarnessSetup 对齐，
 # 把 .gitignore 规则、安装流程等收敛到单一源头，避免 sh / ps1 漂移。
 # ============================================================

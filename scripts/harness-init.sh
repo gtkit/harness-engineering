@@ -8,8 +8,8 @@ set -euo pipefail
 # 也可以直接执行：
 #   bash scripts/harness-init.sh <harness> [project-dir] [选项] [-- <openspec-auto install 额外参数>]
 #
-#   <harness>      go-harness | go-grpc-harness | fullstack-harness | go-pkg-harness
-#                  | laravel-harness | laravel-fullstack-harness | openresty-harness
+#   <harness>      go-harness | go-grpc-harness | fullstack-harness | frontend-harness
+#                  | go-pkg-harness | laravel-harness | laravel-fullstack-harness | openresty-harness
 #   [project-dir]  目标项目目录，缺省为当前目录；不存在则创建
 #
 # 选项：

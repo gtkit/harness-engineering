@@ -132,6 +132,7 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | Queue / Scheduler / Event / Listener | `.harness/guides/queues-events-scheduling.md` |
 | Notification / Mail / Channel | `.harness/guides/notifications-and-mail.md` |
 | 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 交付验收 | `.harness/guides/acceptance-gates.md`；运行行为交付前加载 `$backend-acceptance`，关键项未验证不得准入 |
 | 检测到 `Modules/` 或 `nwidart/laravel-modules` | `.harness/guides/laravel-modules.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
 | 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
@@ -218,6 +219,12 @@ php artisan route:list
 - [x] 代码质量门禁：无明显冗余，复用合理，职责清晰，健壮性已检查
 - [x] 无编造内容
 ```
+
+## 交付验收门禁
+
+本 harness 属于后端/网关项目。运行行为、数据库、迁移、鉴权、队列、worker、定时任务、外部调用或服务配置发生变化时，交付前必须加载 `$backend-acceptance`，并读取 `.harness/guides/acceptance-gates.md`。
+
+编译、lint、单测、`-race` 或 OpenResty 四步验证只证明对应局部。后端验收还必须核对需求来源、业务不变量、事务、幂等、并发、权限、SQL/索引、外部依赖失败、安全和容量。需求来源、关键不变量或核心依赖未验证时，结论为“不准入”，不能写 Ready。
 
 ## 错误记忆
 

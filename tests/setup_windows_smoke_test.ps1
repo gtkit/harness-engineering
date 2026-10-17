@@ -379,6 +379,7 @@ function Invoke-SetupBat {
 $modules = @(
     "go-harness",
     "fullstack-harness",
+    "frontend-harness",
     "go-pkg-harness",
     "laravel-harness",
     "laravel-fullstack-harness"
