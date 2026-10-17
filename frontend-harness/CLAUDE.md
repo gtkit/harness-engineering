@@ -28,8 +28,10 @@
 | 任务 | 读哪个 Guide |
 |---|---|
 | 组件/页面/路由/状态 | `.harness/guides/frontend-architecture.md` + `.harness/guides/frontend-coding.md` |
-| API/DTO/错误码 | `.harness/guides/frontend-api.md` |
-| 测试/回归/构建 | `.harness/guides/testing-and-validation.md` |
+| API/DTO/错误码 | `.harness/guides/frontend-api.md`；跨 Go/PHP API 契约和兼容性追加 `cross-stack-api-contract` |
+| 测试/回归/构建 | `.harness/guides/testing-and-validation.md`；跨栈测试策略追加 `polyglot-test-engineering` |
+| 跨层性能、依赖供应链或版本升级 | 分别追加 `fullstack-performance`、`polyglot-security-supply-chain`、`runtime-upgrade-migration` |
+| 跨栈发布、事故响应或网关联调 | 分别追加 `polyglot-release-engineering`、`incident-response`、`cross-stack-observability` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
 | 交付验收 | `.harness/guides/acceptance-gates.md`，加载 `$frontend-acceptance` |
 | 提交 message / CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |

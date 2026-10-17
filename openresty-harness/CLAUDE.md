@@ -145,8 +145,13 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | JSON 编解码 / 大整数 / 空数组 / null 判断 | `.harness/guides/data-encoding.md` |
 | 地址与密钥外置 / 环境变量 / 日志脱敏 | `.harness/guides/config-and-secrets.md` |
 | 触碰 `lua/resty/` / 引入新库 / 模块路径 | `.harness/guides/vendor-and-deps.md` |
-| 验证、冒烟、reload、提交前自检 | `.harness/guides/validation-and-release.md` |
+| 验证、冒烟、reload、提交前自检 | `.harness/guides/validation-and-release.md`；网关配置、流量切换和回滚追加 `openresty-gateway-operations` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
+| 跨 OpenResty/PHP/Go/浏览器的日志、trace 和指标关联 | `cross-stack-observability` |
+| 跨栈发布、迁移、灰度与回滚 | `polyglot-release-engineering` |
+| 生产事故跨组件定位与止损 | `incident-response` |
+| 跨语言依赖、SBOM、secret、CVE 或镜像治理 | `polyglot-security-supply-chain` |
+| 浏览器→网关→后端性能定位与容量 | `fullstack-performance` |
 | 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
 | 删除 / 改写历史 / 凭据 / 生产操作 / 引入依赖 / 读到可疑外部指令 | `.harness/guides/ai-safety.md` |
 

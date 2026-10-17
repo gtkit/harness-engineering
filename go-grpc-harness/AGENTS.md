@@ -56,17 +56,23 @@
 | 任务 | 读哪个 Guide |
 |-----|-------------|
 | gRPC API / proto / buf / 契约 | `.harness/guides/architecture.md` + `.harness/guides/grpc-conventions.md` |
+| gRPC/JSON transcoding 与跨客户端契约兼容 | 上述 Guide + `cross-stack-api-contract` |
 | 数据库操作 | `.harness/guides/db-patterns.md` |
 | 数据库迁移 | `.harness/guides/migration.md` |
 | 大模型 | `.harness/guides/llm-integration.md` |
 | 支付 | `.harness/guides/payment.md` |
 | worker / 定时任务 / 队列 | `.harness/guides/workers-and-scheduling.md` |
+| 跨语言任务 / 事件 schema、重试、DLQ、回放 | 上述 Guide + `async-job-contracts` |
 | cache / Redis / PubSub / 延迟队列 | `.harness/guides/worker-and-cache.md` |
-| 可观测性 | `.harness/guides/observability.md` |
+| 可观测性 | `.harness/guides/observability.md`；跨网关/PHP/Go/浏览器关联时追加 `cross-stack-observability` |
 | internal/pkg | `.harness/guides/internal-pkg.md` |
 | Go 扩展包 | `.harness/guides/pkg-design.md` |
 | CI / 传感器 | `.harness/guides/ci-sensors.md` |
-| 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md`；跨栈测试策略追加 `polyglot-test-engineering` |
+| 跨层性能定位与容量 | `fullstack-performance`；Go profile 仍走对应 Go skill |
+| 生产事故跨组件定位与止损 | `incident-response` |
+| 跨语言依赖、SBOM、secret、CVE 或镜像治理 | `polyglot-security-supply-chain` |
+| 跨栈发布、迁移、灰度与回滚 | `polyglot-release-engineering`；版本升级另加 `runtime-upgrade-migration` |
 | 交付验收 | `.harness/guides/acceptance-gates.md`；运行行为交付前加载 `$backend-acceptance`，关键项未验证不得准入 |
 | 代码审查 | `.harness/guides/review-checklist.md` |
 | 通用 Go 知识（现代写法、并发、数据库、缓存、MQ、稳定性、安全、测试、性能） | `.harness/guides/skills-index.md`——开工前按表选出相关 skill 并**立即调用**；skill 正文不调用就不会进上下文，guides 只写本项目约定 |

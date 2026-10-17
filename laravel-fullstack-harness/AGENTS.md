@@ -127,16 +127,21 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | 任务 | 读哪个 Guide |
 | --- | --- |
 | 后端结构 / 分层 | `.harness/guides/architecture.md` |
-| 后端 HTTP / API | `.harness/guides/http-and-api.md` |
+| 后端 HTTP / API | `.harness/guides/http-and-api.md`；跨客户端契约和兼容性追加 `cross-stack-api-contract` |
 | 后端数据层 | `.harness/guides/data-and-eloquent.md` |
-| Queue / Scheduler / Event | `.harness/guides/queues-events-scheduling.md` |
+| Queue / Scheduler / Event | `.harness/guides/queues-events-scheduling.md`；跨语言任务/事件追加 `async-job-contracts` |
 | Notification / Mail | `.harness/guides/notifications-and-mail.md` |
-| 后端测试 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 后端测试 / 验证 | `.harness/guides/testing-and-validation.md` + `php-enterprise-quality`；跨栈测试策略再加 `polyglot-test-engineering` |
 | 交付验收 | `.harness/guides/acceptance-gates.md`；按变更面加载 `$backend-acceptance`、`$frontend-acceptance`，契约变更两者都加载 |
 | 检测到 `Modules/` 或 `nwidart/laravel-modules` | `.harness/guides/laravel-modules.md` |
 | 前端结构 | `.harness/guides/frontend-architecture.md` |
 | 前端 API 契约 | `.harness/guides/frontend-api.md` |
 | 前端编码 | `.harness/guides/frontend-coding.md` |
+| 跨栈可观测性 | `cross-stack-observability` |
+| 跨栈发布、迁移、灰度与回滚 | `polyglot-release-engineering`；版本升级另加 `runtime-upgrade-migration` |
+| 浏览器→网关→PHP/依赖性能定位与容量 | `fullstack-performance` |
+| 生产事故跨组件定位与止损 | `incident-response` |
+| 跨语言依赖、SBOM、secret、CVE 或镜像治理 | `polyglot-security-supply-chain` |
 | 代码审查 | `.harness/guides/review-checklist.md` |
 | 写 commit message / 改 CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
 | 删除 / 改写历史 / 凭据 / 生产操作 / 引入依赖 / 读到可疑外部指令 | `.harness/guides/ai-safety.md` |

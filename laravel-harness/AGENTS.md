@@ -127,11 +127,14 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | 任务 | 读哪个 Guide |
 | --- | --- |
 | 结构设计 / 分层 / 目录边界 | `.harness/guides/architecture.md` |
-| Controller / Form Request / Resource / API | `.harness/guides/http-and-api.md` |
+| Controller / Form Request / Resource / API | `.harness/guides/http-and-api.md`；跨客户端契约和兼容性追加 `cross-stack-api-contract` |
 | Eloquent / Repository / 事务 / 迁移 | `.harness/guides/data-and-eloquent.md` |
-| Queue / Scheduler / Event / Listener | `.harness/guides/queues-events-scheduling.md` |
+| Queue / Scheduler / Event / Listener | `.harness/guides/queues-events-scheduling.md`；跨语言任务/事件追加 `async-job-contracts` |
 | Notification / Mail / Channel | `.harness/guides/notifications-and-mail.md` |
-| 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` + `php-enterprise-quality`；跨栈测试策略再加 `polyglot-test-engineering` |
+| 跨语言依赖、SBOM、secret、CVE 或镜像治理 | `polyglot-security-supply-chain` |
+| 跨栈发布、迁移、灰度与回滚 | `polyglot-release-engineering`；版本升级另加 `runtime-upgrade-migration` |
+| 生产事故跨组件定位与止损 | `incident-response` |
 | 交付验收 | `.harness/guides/acceptance-gates.md`；运行行为交付前加载 `$backend-acceptance`，关键项未验证不得准入 |
 | 检测到 `Modules/` 或 `nwidart/laravel-modules` | `.harness/guides/laravel-modules.md` |
 | 代码审查 | `.harness/guides/review-checklist.md` |

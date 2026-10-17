@@ -133,21 +133,27 @@ setup 把六个工作流 skill 各装一份到 `.claude/skills/harness-*/`（Cla
 | 任务 | 读哪个 Guide |
 |-----|-------------|
 | 后端 API | `.harness/guides/architecture.md` + `.harness/guides/api-conventions.md` |
+| 跨栈 API 契约、版本兼容、前后端联调 | 上述 Guide + `cross-stack-api-contract` |
 | 数据库操作 | `.harness/guides/db-patterns.md` |
 | 数据库迁移 | `.harness/guides/migration.md` |
 | 大模型 | `.harness/guides/llm-integration.md` |
 | 支付 | `.harness/guides/payment.md` |
 | 后台 worker / 定时任务 / 队列消费 | `.harness/guides/workers-and-scheduling.md` |
+| 跨语言任务 / 事件 schema、重试、DLQ、回放 | 上述 Guide + `async-job-contracts` |
 | cache / Redis / PubSub / 延迟队列 | `.harness/guides/worker-and-cache.md` |
-| 可观测性 | `.harness/guides/observability.md` |
+| 可观测性 | `.harness/guides/observability.md`；跨 OpenResty/PHP/Go/浏览器关联时追加 `cross-stack-observability` |
 | internal/pkg | `.harness/guides/internal-pkg.md` |
 | Go 扩展包 | `.harness/guides/pkg-design.md` |
 | CI / 传感器 | `.harness/guides/ci-sensors.md` |
-| 后端测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md` |
+| 后端测试 / 回归 / 验证 | `.harness/guides/testing-and-validation.md`；跨栈测试策略追加 `polyglot-test-engineering` |
 | 交付验收 | `.harness/guides/acceptance-gates.md`；按变更面加载 `$backend-acceptance`、`$frontend-acceptance`，契约变更两者都加载 |
 | 前端页面/组件 | `.harness/guides/frontend-architecture.md` + `.harness/guides/frontend-coding.md` |
 | 前端 API 对接 | `.harness/guides/frontend-api.md` |
 | 前后端联调 | `.harness/guides/api-conventions.md` + `.harness/guides/frontend-api.md` + `.harness/guides/testing-and-validation.md` |
+| 跨栈发布、迁移、灰度与回滚 | `polyglot-release-engineering`；版本升级另加 `runtime-upgrade-migration` |
+| 浏览器→网关→Go/依赖性能定位与容量 | `fullstack-performance` |
+| 生产事故跨组件定位与止损 | `incident-response` |
+| 跨语言依赖、SBOM、secret、CVE 或镜像治理 | `polyglot-security-supply-chain` |
 | 前端测试 / 验证 | `.harness/guides/testing-and-validation.md` + `.harness/guides/frontend-coding.md` |
 | 新增或改动 `backend/` 下的 `.go` 文件（现代语法 / 泛型方法 / UUID） | `.harness/guides/go-modern.md` |
 | 新增模块 / 新建包 / 跨层改动 / 调整依赖方向 | `.harness/guides/architecture.md` |
