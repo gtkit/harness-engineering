@@ -1,6 +1,6 @@
 ---
 name: harness-doctor
-description: Diagnose harness, OpenSpec, and optional MCP tool availability.
+description: Diagnose harness files, required technical skills, OpenSpec, and optional MCP tool availability without installing anything.
 argument-hint: [optional focus]
 ---
 
@@ -28,6 +28,12 @@ Run this before a complex task or after installing a harness.
    - `.claude/skills/harness-{doctor,init-openspec,research,plan,implement,review}/SKILL.md`
    - `.agents/skills/harness-{doctor,init-openspec,research,plan,implement,review}/SKILL.md`
    - `.claude/rules/harness-*.md` (path-scoped pointers to `.harness/guides/`; Claude Code only)
+   - Identify the harness from `.harness/VERSION` (`harness:`) or project facts; if ambiguous, report it as unverified.
+   - Read `references/skill-dependencies.md` for the harness and current task/phase. Check external technical skills as well as the six workflow skills.
+   - Use the skill list exposed by the current runtime first. If needed, check project `.claude/skills` / `.agents/skills` and the active runtime's user skill roots (`~/.claude/skills`, `~/.agents/skills`, `$CODEX_HOME/skills` or `~/.codex/skills`). Do not scan credentials or entire user directories.
+   - Record exact resolved paths and overrides. A readable file proves presence, not automatic discovery or execution; report those states separately. Multiple differing copies require identifying which one is active.
+   - Missing optional skills are warnings. Missing task/phase requirements allow independent work within the user's existing authorization, including implementation supported by available project rules, but block the corresponding unverified gate/readiness conclusion. Do not invent the missing skill, silently skip a required gate, or stop all authorized work just because a reference skill is absent.
+   - Give a source-specific sync/install suggestion using the known skills repository; do not run it without authorization, fetch arbitrary packages, or refresh unrelated projects.
 4. Check optional OpenSpec:
    - `openspec --version`
    - `openspec/` directory
@@ -45,7 +51,8 @@ Run this before a complex task or after installing a harness.
    - current branch
    - test/CI entry points if obvious
 7. Output:
-   - Ready
+   - Ready for which phase (research / implementation / validation / release); never a blanket Ready from file presence
+   - Per dependency: task/phase, required or conditional, resolved path, presence/discovery/execution status
    - Warnings
    - Required actions
    - Suggested next command

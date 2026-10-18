@@ -855,7 +855,7 @@ $harness-review
 /harness-doctor
 ```
 
-检查项目是否已安装 harness、OpenSpec 与 openspec-auto 是否可用、`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/` 是否齐全，以及可选 MCP 工具是否可用。
+检查项目是否已安装 harness、OpenSpec 与 openspec-auto 是否可用、`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/` 是否齐全，以及可选 MCP 工具是否可用。另按 [技术 skill 依赖清单](skills/harness-doctor/references/skill-dependencies.md) 检查当前 harness/任务阶段需要的外部技术 skill，分别报告文件存在、运行时可发现和本次已执行；缺失关键门禁时不能给对应阶段 Ready。doctor 只诊断，不自动安装或同步。
 
 ### 2. 初始化 OpenSpec（可选）
 

@@ -28,6 +28,8 @@ make push-tag
 使用约束：
 
 - `BUMP` 只接受 `patch` 和 `minor`。传 `major` 会被拒绝并指向 MINOR 路径——只 bump tag 而不改 module path 是错误发布。
+- 本 harness 的现有发布入口只支持 patch/minor；这不允许把破坏性变更当作 MINOR。发现兼容性破坏时保持阻断，先保留兼容接口或单独提出经用户批准的 major/module path 迁移方案，不能自动提交、打标签或推送。
+- 下方 MAJOR 与 v2+ 规则用于识别兼容性和检查已有 module path；项目特有的“不发 v3”等限制以项目配置为准，不写成所有 Go 模块的通用限制。
 - `REQUIRE_CHANGELOG=1`（默认）时 `CHANGELOG.md` 必须已有 `## [vX.Y.Z] - YYYY-MM-DD` 条目，脚本会把该条目正文写进 tag message。
 - `version.go` 里 `const Version = "vX.Y.Z"` 这行的形状不能改，注释中不能出现版本号字面量——脚本取文件里第一个匹配到的版本号。
 - 格式化只走 `make fmt`；`make tool` 是只读检查，发现未格式化文件会失败而不是就地改写。
