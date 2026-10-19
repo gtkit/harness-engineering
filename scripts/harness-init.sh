@@ -14,10 +14,10 @@ set -euo pipefail
 #
 # 选项：
 #   --no-openspec          只装 harness，不接 openspec-auto
-#   --force                强制刷新 CLAUDE.md / AGENTS.md / skills / rules / 运行脚本与 guides，
+#   --force                仅首次安装的旧式强刷参数；已有安装拒绝此参数。强制刷新 CLAUDE.md / AGENTS.md / skills / rules / 运行脚本与 guides，
 #                          并把 --force 传给 openspec-auto install
-#   --force-project-files  只强制刷新 CLAUDE.md / AGENTS.md / skills / rules / 运行脚本
-#   --force-guides         只强制刷新 .harness/guides/
+#   --force-project-files  仅首次安装；只强制刷新 CLAUDE.md / AGENTS.md / skills / rules / 运行脚本
+#   --force-guides         仅首次安装；只强制刷新 .harness/guides/
 #   --version              打印本仓库当前的 commit / tag
 #   -- ...                 其后参数原样传给 openspec-auto install（如 --skip-codex-user-config）
 #
@@ -34,7 +34,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 usage() {
     local d
-    echo "用法: ${HARNESS_CMD_NAME:-harness-init.sh <harness>} [project-dir] [--no-openspec] [--force] [--force-project-files] [--force-guides] [-- <openspec-auto install 额外参数>]"
+    echo "安全更新: ${HARNESS_CMD_NAME:-harness-init.sh <harness>} update [project-dir] [--no-openspec] [--dry-run]"
+    echo "首次安装: ${HARNESS_CMD_NAME:-harness-init.sh <harness>} [project-dir] [--no-openspec] [--force] [--force-project-files] [--force-guides] [-- <openspec-auto install 额外参数>]"
     if [ -z "${HARNESS_CMD_NAME:-}" ]; then
         echo ""
         echo "可用 harness："
@@ -54,6 +55,32 @@ SETUP="${ROOT_DIR}/${HARNESS}/setup.sh"
 if [ ! -f "${SETUP}" ]; then
     echo "✗ 未知 harness: ${HARNESS}"
     usage
+fi
+
+run_safe_update() {
+    local update_project="" update_argument
+    local update_options=()
+    for update_argument in "$@"; do
+        case "$update_argument" in
+            --dry-run|--no-openspec) update_options+=("$update_argument") ;;
+            -h|--help)
+                echo "用法: ${HARNESS} update [project-dir] [--no-openspec] [--dry-run]"
+                echo "只更新已安装组件；先备份再三方合并，有冲突时整个项目不写入。"
+                exit 0
+                ;;
+            -*) echo "✗ 安全更新不支持参数: $update_argument" >&2; exit 1 ;;
+            *) [ -z "$update_project" ] || { echo "✗ 只能指定一个项目目录" >&2; exit 1; }; update_project="$update_argument" ;;
+        esac
+    done
+    local update_python
+    update_python="$(command -v python3 || command -v python || true)"
+    [ -n "${update_python}" ] || { echo "✗ 安全更新需要 Python 3.10+" >&2; exit 1; }
+    exec "${update_python}" "${ROOT_DIR}/scripts/safe_update.py" update --component harness --source "${ROOT_DIR}" --kind "${HARNESS}" --openspec-source "${OPENSPEC_AUTO_BOOTSTRAP_DIR:-${ROOT_DIR}/../openspec-auto-bootstrap}" "${update_project:-.}" "${update_options[@]+"${update_options[@]}"}"
+}
+
+if [ "${1:-}" = update ]; then
+    shift
+    run_safe_update "$@"
 fi
 
 PROJECT_DIR=""
@@ -90,6 +117,18 @@ while [ "$#" -gt 0 ]; do
 done
 
 PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
+# Re-running an installed harness without destructive legacy flags uses safe update.
+if [ -f "${PROJECT_DIR}/.harness/VERSION" ]; then
+    if [ "${FORCE_PROJECT_FILES}" = 1 ] || [ "${FORCE_GUIDES}" = 1 ] || [ "${#OPENSPEC_ARGS[@]}" -gt 0 ]; then
+        echo "✗ 已安装项目请使用 ${HARNESS} update；安全更新不接受强刷或 openspec-auto install 参数。" >&2
+        exit 1
+    fi
+    if [ "${WITH_OPENSPEC}" = 0 ]; then
+        run_safe_update "${PROJECT_DIR}" --no-openspec
+    else
+        run_safe_update "${PROJECT_DIR}"
+    fi
+fi
 mkdir -p "${PROJECT_DIR}"
 PROJECT_DIR="$(cd "${PROJECT_DIR}" && pwd)"
 

@@ -514,6 +514,8 @@ EOF
     echo ""
 
     local version_file="${project_dir}/.harness/VERSION"
+    local capture_update_base=0
+    if [ ! -f "${version_file}" ] || { [ "${force_project_files}" = 1 ] && [ "${force_guides}" = 1 ]; }; then capture_update_base=1; fi
     local source_commit source_tag installed_at
     source_commit="$(git -C "${harness_root}" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
     source_tag="$(git -C "${harness_root}" describe --tags --abbrev=0 2>/dev/null || true)"
@@ -528,6 +530,9 @@ EOF
         printf 'installed-at: %s\n' "${installed_at}"
         printf 'installer: setup.sh\n'
     } > "${version_file}"
+    if [ "${capture_update_base}" = 1 ] && [ -n "${hook_python}" ]; then
+        "${hook_python}" "${harness_root}/scripts/safe_update.py" record "${project_dir}" --component harness --source "${harness_root}" --kind "${module_name}"
+    fi
     echo "  ✓ 已写入 .harness/VERSION (commit: ${source_commit})"
     echo ""
 

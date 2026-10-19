@@ -237,7 +237,7 @@ bash install.sh                          # 装到 ~/go/bin
 HARNESS_BIN_DIR=~/.local/bin bash install.sh   # 换目录
 ```
 
-目标目录下会多出 `go-harness`、`go-grpc-harness`、`fullstack-harness`、`frontend-harness`、`go-pkg-harness`、`laravel-harness`、`laravel-fullstack-harness`、`openresty-harness` 八个命令。它们是几行长的包装脚本，直接 `exec` 本仓库的 `scripts/harness-init.sh`：改了仓库里的 guides / 规则 / 安装脚本立即生效，不需要重装；仓库换了位置重跑一次 `install.sh` 即可。除 bash 外没有别的依赖。
+目标目录下会多出 `go-harness`、`go-grpc-harness`、`fullstack-harness`、`frontend-harness`、`go-pkg-harness`、`laravel-harness`、`laravel-fullstack-harness`、`openresty-harness` 八个命令。它们是几行长的包装脚本，直接 `exec` 本仓库的 `scripts/harness-init.sh`：改了仓库里的 guides / 规则 / 安装脚本立即生效，不需要重装；仓库换了位置重跑一次 `install.sh` 即可。首次安装使用 Bash；安全更新还需要 Python 3.10+ 和 Git（三方合并使用 `git merge-file`）。
 
 不装命令也可以直接跑各目录下的 `setup.sh`，效果与命令加 `--no-openspec` 一致：
 
@@ -249,26 +249,47 @@ bash ~/tools/harness-engineering/go-harness/setup.sh
 
 ### 第二步：在项目目录里敲命令名
 
-每个项目只需要运行一次。缺省目标是当前目录，也可以显式传目录（不存在则创建）：
+首次安装时缺省目标是当前目录，也可显式传目录（不存在则创建）。已有 harness 的项目直接重跑会进入安全更新，不会新增未安装的组件：
 
 ```bash
 cd ~/code/your-backend-project
 go-harness                          # 装 go-harness 规则 + openspec-auto 工作流
 go-harness ~/code/new-project       # 指定目录
 go-harness --no-openspec            # 只装 harness
-go-harness --force                  # 强制刷新 CLAUDE.md / AGENTS.md / skills / rules / guides，并给 openspec-auto 传 --force
-go-harness --force-guides           # 只强刷 guides；--force-project-files 只强刷入口文件 / skills / rules / 运行脚本
+go-harness update ~/code/your-project  # 安全更新 harness，以及已经安装的 openspec-auto
+go-harness update --dry-run          # 只预览，不写项目、不创建备份
+go-harness update --no-openspec      # 只更新已有 harness
 go-harness -- --skip-codex-user-config   # -- 之后的参数原样传给 openspec-auto install
 go-harness --version                # 打印本仓库当前 commit / tag
 ```
 
-命令会做五件事：
+首次安装命令会做五件事：
 
 1. 目标目录不是 git 仓库就 `git init`（忽略规则要写进 `.git/info/exclude`）
 2. 清理旧版本装过的全局 skill（`~/.claude/skills/<harness>/`、`~/.agents/skills/<harness>/`、`~/.codex/skills/<harness>/`）：入口文件本来就自动加载，那个只说"去读 CLAUDE.md"的全局 skill 只在每个项目的 skill 列表里占位，现已不再安装
 3. **项目文件** 安装到项目目录：`CLAUDE.md`、`AGENTS.md`、`.harness/`（guides、error-journal、运行脚本、SessionStart 与 PreToolUse 两个 hook）、六个工作流 skill（`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/`）、Claude Code 的路径限定规则 `.claude/rules/harness-*.md`
 4. **忽略规则** 自动创建/补齐：通用产物（`.idea/`、`.vscode/`、`.DS_Store`、`*.log`、`*.out`，以及应用型 harness 的 `.env`）写进 `.gitignore`；本地工具与 Agent 运行产物（整个 `.harness/`、`CLAUDE.md`、`AGENTS.md`、`.claude/`、`.codex/`、`.agents/`、`openspec/`、`.openspec-auto/`、计划文件等）写进 `.git/info/exclude`（仅本地、不进版本库，避免忽略规则本身泄露 AI 工具链）
 5. 运行 `openspec-auto install`，接入自动 OpenSpec 工作流（hooks、skill、`CLAUDE.md` / `AGENTS.md` 里的托管块）
+
+### 安全更新已有项目
+
+```bash
+go-harness update /path/to/project
+go-grpc-harness update /path/to/grpc-project
+go-pkg-harness update /path/to/library
+fullstack-harness update /path/to/fullstack-project
+openspec-auto update /path/to/project  # 仅更新 OpenSpec，不改 harness
+```
+
+按 `.harness/VERSION` 记录的类型选命令，类型不符会停止。`update` 的目录默认是当前目录；路径不存在或组件未安装时跳过，不会 mkdir、git init、安装组件或执行 `openspec init`，也不会创建业务 change。
+
+- harness 更新默认联动**已安装**的 OpenSpec；源仓库使用 `OPENSPEC_AUTO_BOOTSTRAP_DIR`，留空回落到 harness 仓库同级的 `../openspec-auto-bootstrap`。`--no-openspec` 只更新 harness。此环境变量用于选择本地模板源，必须是存在的 bootstrap 仓库目录；不访问远端或自动拉取 Git。
+- 先备份当前托管文件、权限及基线到 `~/.config/harness-engineering/backups/<UTC时间.唯一标识>/<项目名>/`，再用“旧模板 / 项目当前内容 / 新模板”三方合并。OpenSpec 托管块与项目规则分别处理，其他 hooks/settings、自定义文件、错误日志和运行状态保持原样。
+- 先完成两个组件的全部合并，再写项目。任一文件冲突都会停止；项目文件不写入，冲突三份保存在备份下的 `conflicts/`。对照 `base/local/template` 在项目文件中完成合并后重新执行。写入过程的普通异常会回滚本次已写文件；进程被强制杀死或断电时需对照备份恢复，残留锁不会自动移除。
+- 首次安装记录纯模板基线 `.harness/update-base.json`；旧 harness 通过安装时的 `source-commit` 读取本地 Git 历史。基线缺失、损坏或对应历史已不可用时停止，不能拿项目当前文件猜作旧模板。请保留这些本地元数据；它们位于已有工具忽略目录内。
+- `--dry-run` 只显示计划，不写项目、不创建备份；有冲突仍返回非零。正式执行包括无变更检查都会先备份；重复执行不会反复修改项目文件。
+
+已安装项目的普通 `go-harness /path/to/project` 会走相同安全流程。已安装项目不再接受命令行 `--force`、`--force-guides`、`--force-project-files` 或安装透传参数；请改用 `update`。直接调用低层 `setup.sh` 的历史强刷开关仍为旧式重装行为，不属于安全更新接口。
 
 ### 为什么顺序固定为 harness 先、openspec-auto 后
 
@@ -287,7 +308,7 @@ harness 这一侧已经做了配合：日常重跑比对入口文件是否为本
 2. openspec-auto-bootstrap 的仓库目录：`$OPENSPEC_AUTO_BOOTSTRAP_DIR`，缺省为本仓库同级的 `../openspec-auto-bootstrap`，直接调用它的 `install.sh`
 3. PATH 上的 `openspec-auto`（通常在 `~/go/bin`，由它仓库里的 `install-cli.sh` 生成，同样是指向仓库的包装脚本）
 
-openspec-auto 与本仓库一样是纯 sh 实现，三条路都是直接运行仓库里的脚本：它的模板或脚本更新后不需要重装，下次运行就是新版。三处都没有时 harness 部分已经装好，命令以非零退出并提示 clone 地址（或加 `--no-openspec`）。
+openspec-auto 与本仓库一样通过包装命令运行本地源脚本，三条路都是直接运行仓库里的脚本：它的模板或脚本更新后不需要重装，下次运行就是新版。三处都没有时 harness 部分已经装好，命令以非零退出并提示 clone 地址（或加 `--no-openspec`）。
 
 其中：
 
@@ -955,7 +976,7 @@ AI 调用 .harness/scripts/append-error-journal.*
            主动规避同类错误
 ```
 
-AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加靠 agent 按项目规则调用脚本；**读取不再只靠模型自觉**：setup 会把 `.harness/hooks/session_start.py` 注册进 `.claude/settings.json` 与 `.codex/hooks.json` 的 SessionStart 事件，每次会话开始时自动把 `Status: open` 的条目摘要注入上下文（最多 10 条），同时对比 `.harness/VERSION` 里记录的模板 commit 与模板仓库当前 HEAD，落后就提示运行 `<harness> --force-guides`。两条都没有可说的时 hook 不输出任何内容。hook 由 Claude Code 与 Codex 共用同一份脚本，按 `python3` → `python` 探测解释器；本机没有 Python 时 setup 跳过注册并提示。
+AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加靠 agent 按项目规则调用脚本；**读取不再只靠模型自觉**：setup 会把 `.harness/hooks/session_start.py` 注册进 `.claude/settings.json` 与 `.codex/hooks.json` 的 SessionStart 事件，每次会话开始时自动把 `Status: open` 的条目摘要注入上下文（最多 10 条），同时对比 `.harness/VERSION` 里记录的模板 commit 与模板仓库当前 HEAD，落后就提示运行 `<harness> update`。两条都没有可说的时 hook 不输出任何内容。hook 由 Claude Code 与 Codex 共用同一份脚本，按 `python3` → `python` 探测解释器；本机没有 Python 时 setup 跳过注册并提示。
 
 ---
 
@@ -1060,12 +1081,12 @@ bash .harness/scripts/close-error-journal.sh . ERR-20260915-001 "已在 architec
 ```bash
 harness-refresh add ~/code/proj-a ~/code/proj-b   # 清单在 ~/.config/harness-engineering/projects.txt，可用 HARNESS_PROJECTS_FILE 换位置
 harness-refresh                                   # 只读报告：harness 名、已装 commit、是否落后、CLAUDE.md / AGENTS.md 是否与模板不同
-harness-refresh apply                             # 对落后的项目逐个执行 <harness> <dir> --force（含 openspec-auto --force）
+harness-refresh apply                             # 对所有已安装项目检查并安全更新，联动已有 OpenSpec
 harness-refresh apply --all --no-openspec         # 全部刷新、只刷 harness
-harness-refresh apply --no-force                  # 不强刷：只补缺失文件、修复只剩托管块的入口文件，本地改动一律保留
+harness-refresh apply --no-force                  # 兼容参数；现在默认就是安全合并
 ```
 
-`apply` 每次覆盖前先把该项目的 `CLAUDE.md`、`AGENTS.md`、`.harness/guides/` 备份到 `~/.config/harness-engineering/backups/<UTC 时间戳>/<项目名>/`，因为这些文件在 `.git/info/exclude` 里不入库，覆盖后没有别处可找回。默认等价于进每个目录跑 `<harness> --force`：openspec-auto 的托管块保留，其余本地改动被模板覆盖；先看报告再决定用不用 `--no-force`。
+`apply` 先把每个项目的托管文件、权限及基线保存到 `~/.config/harness-engineering/backups/<UTC时间.唯一标识>/<项目名>/files/`，并记录 `manifest.json`；备份覆盖本次两个组件可能更新的所有文件。现在统一执行 `<harness> update`，不再强刷。提交号相同也会检查模板内容与已有 OpenSpec；单个项目冲突时不写该项目，其他项目独立处理，最后汇总失败。`--all` / `--no-force` 保留为兼容参数。
 
 ### 查看 harness 版本
 
@@ -1099,14 +1120,14 @@ laravel-fullstack-harness ~/code/new-lf   # Laravel + Vue 全栈
 
 不传目录就装到当前目录。只装 harness 加 `--no-openspec`，或直接跑对应目录的 `setup.sh`。命令直接运行仓库里的脚本，仓库改了什么，下次运行就是什么。
 
-如果你要把一个老项目的 `CLAUDE.md` / `AGENTS.md` 刷新到最新模板：
+已有项目升级规则、guides 和工作流请使用：
 
 ```bash
-go-harness --force-project-files
-HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.sh   # 直接跑 setup.sh 的等价写法
+go-harness update --dry-run
+go-harness update
 ```
 
-这个开关会刷新项目根目录规则文件、六个工作流 skill、`.claude/rules/` 和 `.harness/scripts/` 里的运行时脚本，但不会强制覆盖你已经修改过的 `.harness/guides/`（那个用 `--force-guides` / `HARNESS_FORCE_GUIDES=1`，`--force` 两者都刷）。`CLAUDE.md` / `AGENTS.md` 里 openspec-auto 写入的托管块（`OPENSPEC-AUTO:START/END`）在刷新时原样保留；日常重跑 setup 比对入口文件是否为本版本时也会忽略这个块。
+默认联动已安装的 OpenSpec；加 `--no-openspec` 仅更新 harness。自动备份并保留定制，冲突时停止，不再使用 `--force-project-files` 刷入口文件。
 
 ---
 
@@ -1172,31 +1193,16 @@ task_plan.md
 
 **Q：guides 改错了想恢复怎么办？**
 
-默认重跑只会补齐缺失 guide，不会覆盖你已经修改过的内容。想强制恢复模板版本：
-
-```bash
-go-harness --force-guides
-HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/go-harness/setup.sh   # 脚本等价写法
-```
-
-Laravel 系列同理：
-
-```bash
-HARNESS_FORCE_GUIDES=1 bash ~/tools/harness-engineering/laravel-harness/setup.sh
-```
+安全更新会把本地改动当作定制保留；误改时先从备份的 `files/.harness/guides/` 恢复对应文件，再执行 `go-harness update`。不要用强刷绕过冲突提示。
 
 **Q：项目里的 `CLAUDE.md` / `AGENTS.md` 老了想升级怎么办？**
 
-默认重跑不会覆盖项目里已存在的入口文件。想刷新到仓库当前模板时：
-
 ```bash
-go-harness --force-project-files
-HARNESS_FORCE_PROJECT_FILES=1 bash ~/tools/harness-engineering/go-harness/setup.sh   # 脚本等价写法
+go-harness update --dry-run
+go-harness update
 ```
 
-`CLAUDE.md` / `AGENTS.md` 里 openspec-auto 的托管块会原样保留。
-
-Laravel / fullstack / go-pkg 也同理，只需要替换对应目录。
+旧模板、当前规则和新模板三方合并；OpenSpec 托管块与项目自定义规则分别保留。Laravel / fullstack / go-pkg 等项目换成对应类型命令。无可信基线或发生冲突时停止并说明位置。
 
 **Q：setup.sh 在 macOS 上能跑吗？**
 

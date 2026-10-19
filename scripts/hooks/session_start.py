@@ -96,7 +96,7 @@ def main() -> int:
         harness = version.get("harness", "harness")
         lines.append(
             f"harness 模板已更新：项目里是 {installed}，模板仓库当前是 {current}。"
-            f"提醒用户在项目目录运行 `{harness} --force-guides`（只刷 guides）或 `{harness} --force`（连入口文件、skills、rules 一起刷）后再继续。"
+            f"提醒用户在项目目录运行 `{harness} update`（只刷 guides）或 `{harness} --force`（连入口文件、skills、rules 一起刷）后再继续。"
         )
 
     if lines:

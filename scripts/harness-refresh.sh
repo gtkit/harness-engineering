@@ -10,15 +10,14 @@ set -euo pipefail
 # 用法：
 #   harness-refresh                 # 逐个项目报告：harness 名、已装 commit、是否落后、入口文件是否被改过
 #   harness-refresh add <dir>...    # 把目录加进清单（已在清单里的跳过）
-#   harness-refresh apply [--no-openspec] [-- <openspec-auto install 额外参数>]
-#                                   # 对清单里所有落后的项目执行 <harness> <dir> --force
-#   harness-refresh apply --all ... # 不管是否落后，全部执行
+#   harness-refresh apply [--no-openspec]
+#                                   # 对已安装项目执行 <harness> update <dir>，联动已安装 OpenSpec
+#   harness-refresh apply --all ... # 兼容参数；安全模式始终检查所有已安装项目
 #   harness-refresh apply --no-force ...
-#                                   # 不强刷：只补缺失文件、修复只剩托管块的入口文件，本地改动一律保留
+#                                   # 兼容参数；所有更新均备份并三方合并，冲突时该项目停止
 #
-# 报告只读 .harness/VERSION，不碰项目文件。apply 每次覆盖前先把该项目的 CLAUDE.md、AGENTS.md、
-# .harness/guides/ 备份到 ~/.config/harness-engineering/backups/<UTC 时间戳>/<项目名>/——这些文件
-# 在 .git/info/exclude 里不入库，覆盖后没有别的地方能找回。
+# 报告只读 .harness/VERSION；apply 调用统一安全更新器，先备份所有托管文件和基线，
+# 三方合并有冲突时不写该项目。备份位置按项目输出，其他项目可独立继续并汇总失败。
 # ============================================================
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,7 +25,7 @@ PROJECTS_FILE="${HARNESS_PROJECTS_FILE:-${HOME}/.config/harness-engineering/proj
 CURRENT_COMMIT="$(git -C "${ROOT_DIR}" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 
 usage() {
-    echo "用法: harness-refresh | harness-refresh add <dir>... | harness-refresh apply [--all] [--no-force] [--no-openspec] [-- <openspec-auto 参数>]"
+    echo "用法: harness-refresh | harness-refresh add <dir>... | harness-refresh apply [--all] [--no-force] [--no-openspec]"
     echo "清单文件: ${PROJECTS_FILE}"
     exit "${1:-1}"
 }
@@ -112,51 +111,29 @@ add_projects() {
     done
 }
 
-# 备份一个项目里会被覆盖的本地文件；输出备份目录
-backup_project() {
-    local dir="$1" name="$2" stamp="$3"
-    local dest="${HOME}/.config/harness-engineering/backups/${stamp}/${name}"
-    mkdir -p "$dest"
-    local f
-    for f in CLAUDE.md AGENTS.md; do
-        [ -f "${dir}/${f}" ] && cp "${dir}/${f}" "${dest}/${f}"
-    done
-    [ -d "${dir}/.harness/guides" ] && cp -R "${dir}/.harness/guides" "${dest}/guides"
-    printf '%s\n' "$dest"
-}
-
 apply() {
-    local all=0 force=1
     local init_args=()
     while [ "$#" -gt 0 ]; do
         case "$1" in
-            --all) all=1 ;;
-            --no-force) force=0 ;;
+            --all) : ;; # compatibility; every installed project is checked safely
+            --no-force) : ;; # retained compatibility alias; safe update never forces local content
             --no-openspec) init_args+=(--no-openspec) ;;
-            --) shift; init_args+=(-- "$@"); break ;;
+            --) echo "✗ 安全更新不接受 openspec-auto install 透传参数；请直接使用 update。" >&2; return 1 ;;
             *) echo "✗ 未知选项: $1"; usage ;;
         esac
         shift
     done
-    [ "$force" = 1 ] && init_args=(--force "${init_args[@]+"${init_args[@]}"}")
-    local stamp
-    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-    local dir harness commit backup done_count=0 failed=""
+    local dir harness commit done_count=0 failed=""
     while IFS= read -r dir; do
         [ -d "$dir" ] || continue
         harness="$(version_field "$dir" harness)"
         [ -n "$harness" ] || continue
         commit="$(version_field "$dir" source-commit)"
-        if [ "$all" = 0 ] && [ "$commit" = "${CURRENT_COMMIT}" ]; then
-            continue
-        fi
-        backup="$(backup_project "$dir" "$(basename "$dir")" "$stamp")"
         echo "============================================"
         echo "  刷新 ${dir}（${harness} ${commit} → ${CURRENT_COMMIT}）"
-        echo "  备份：${backup}"
         echo "============================================"
         # 单个项目失败不中断批量：记下来最后一起报，其余项目照常刷新
-        if HARNESS_CMD_NAME="$harness" bash "${ROOT_DIR}/scripts/harness-init.sh" "$harness" "$dir" "${init_args[@]+"${init_args[@]}"}"; then
+        if HARNESS_CMD_NAME="$harness" bash "${ROOT_DIR}/scripts/harness-init.sh" "$harness" update "$dir" "${init_args[@]+"${init_args[@]}"}"; then
             done_count=$((done_count + 1))
         else
             failed="${failed}${dir}
@@ -165,7 +142,7 @@ apply() {
     done <<EOF
 $(list_projects)
 EOF
-    printf '\n已刷新 %d 个项目；覆盖前的本地文件在 %s/.config/harness-engineering/backups/%s/\n' "$done_count" "$HOME" "$stamp"
+    printf '\n已刷新 %d 个项目；各项目备份位置见上方输出。\n' "$done_count"
     if [ -n "$failed" ]; then
         printf '\n✗ 以下项目刷新失败（看上方对应输出）：\n%s' "$failed"
         return 1
