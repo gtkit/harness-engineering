@@ -27,7 +27,7 @@ github.com/gtkit/pkgname/
 
 ## Functional Options 模板
 
-> 日志一律 `github.com/gtkit/logger`（major 以项目 go.mod 已引用的为准，未引用时用最新 major，当前 `/v2`），库内直接调包级函数，不提供 `WithLogger` 注入；`log` / `log/slog` 包括当接口层的变通写法都不用。
+> 日志一律 `github.com/gtkit/logger`（沿用项目 go.mod 已锁定的 module 路径与版本；尚未引用时先核实兼容性，并按项目依赖审批约定确认具体版本；不默认选用或升级到最新 major），库内直接调包级函数，不提供 `WithLogger` 注入；`log` / `log/slog` 包括当接口层的变通写法都不用。
 
 ```go
 type Option func(*config)

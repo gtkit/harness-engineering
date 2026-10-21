@@ -8,7 +8,7 @@
 
 ## 这是什么
 
-八套针对不同场景的 AI 编码约束系统（Harness），安装后 AI 代理每次写代码都会自动遵守你定义的架构规范、编码标准和质量检查流程。
+八套针对不同场景的 AI 编码约束系统（Harness），通过项目入口规则、按需读取的 guides、skills 和可选 hooks，指导 AI 代理遵循架构规范、编码标准和质量检查流程。实际加载、执行与验收结果需要分别核验。
 
 | 包名 | 适用场景 | 目录 |
 |-----|---------|------|
@@ -337,8 +337,8 @@ go-harness
 
 ```
 your-backend-project/
-├── CLAUDE.md                  ← Claude Code 每次对话自动读取
-├── AGENTS.md                  ← Codex 每次任务自动读取
+├── CLAUDE.md                  ← Claude Code 项目指令入口
+├── AGENTS.md                  ← Codex 启动时构建适用指令链
 ├── .claude/
 │   ├── settings.json          ← Claude Code 的 hook 注册表，命令指向下面的 hooks/
 │   ├── skills/harness-*/      ← /harness-doctor 等六个工作流 skill
@@ -694,8 +694,8 @@ bash ~/tools/harness-engineering/go-grpc-harness/scaffold.sh my-order-service ~/
 
 ```text
 your-grpc-service/
-├── CLAUDE.md                  ← Claude Code 每次对话自动读取
-├── AGENTS.md                  ← Codex 每次任务自动读取
+├── CLAUDE.md                  ← Claude Code 项目指令入口
+├── AGENTS.md                  ← Codex 启动时构建适用指令链
 ├── .claude/
 │   ├── settings.json          ← Claude Code 的 hook 注册表，命令指向下面的 hooks/
 │   ├── skills/harness-*/      ← /harness-doctor 等六个工作流 skill
@@ -942,14 +942,19 @@ Codex 侧把 `/` 换成 `$` 即可，六个 skill 一一对应。
 
 ## 工作原理
 
-### 为什么 AI 每次都会遵守规则
+### 项目入口、skills 与 guides 如何加载
 
 ```
-Claude Code 启动 → 自动加载项目 CLAUDE.md → SessionStart hook 注入未关闭的错误记忆 → 按任务读 .harness/guides/（.claude/rules 按路径自动拉取）
-Codex 启动      → 自动加载项目 AGENTS.md  → SessionStart hook 注入未关闭的错误记忆 → 按 Guide 加载表读 .harness/guides/
+Claude Code 启动 → 加载适用的 CLAUDE.md → 按任务读 guides / skills（.claude/rules 提供路径限定指引）
+Codex 启动      → 构建适用的 AGENTS.md 指令链 → 按任务选用 skills / 读取 guides
+已启用、满足信任要求且匹配事件的 hooks → 成功执行后提供上下文或拒绝其覆盖的操作
 ```
 
-`CLAUDE.md` 和 `AGENTS.md` 是各自 Agent 的**无条件自动加载文件**——不需要关键词匹配，不需要手动指定，每次对话/任务都会读取。入口文件只放每次都要用的规则；专项规范放 `.harness/guides/`，按"做什么时读哪份"的表按需加载，不做"每次先读完全部文档"。
+`CLAUDE.md` 和 `AGENTS.md` 是各自 Agent 的项目指令入口。Codex 在启动时构建全局与项目的适用指令链（每次运行一次，TUI 通常对应一次启动的会话），受目录范围、override 和上下文预算影响；这不表示每条消息或每次工具调用都会重新读取文件。入口文件只放通用规则，`.harness/guides/` 按任务指引读取，不会自动整目录预载。见 [Codex AGENTS.md 文档](https://learn.chatgpt.com/docs/agent-configuration/agents-md)。
+
+Codex 自动发现项目与用户技能目录中的 skills，先提供名称、描述和路径等元数据，完整正文在选用时读取。可按 description 自动匹配，也可用 `$skill-name` 显式调用；发现列表受配置与预算影响，以当前运行时实际清单为准。setup 将六个工作流 skills 安装到项目 `.agents/skills/`，技术 skills 由独立内容源维护；不要求每次手动点名，也不强制普通小改走完整 RPI。见 [技能发现与按需加载文档](https://learn.chatgpt.com/docs/build-skills)。
+
+本仓库保存 harness 内容源；业务项目内的入口、guides、工作流 skills 与 hooks 是安装副本。更新本仓库或同步用户级技术 skills，不会自动刷新已有业务项目。刷新前应逐项目比对并保留项目约定，只有明确获准时才执行更新。
 
 ### AI 写代码的强制流程（Logic 四步）
 
@@ -976,7 +981,7 @@ AI 调用 .harness/scripts/append-error-journal.*
            主动规避同类错误
 ```
 
-AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加靠 agent 按项目规则调用脚本；**读取不再只靠模型自觉**：setup 会把 `.harness/hooks/session_start.py` 注册进 `.claude/settings.json` 与 `.codex/hooks.json` 的 SessionStart 事件，每次会话开始时自动把 `Status: open` 的条目摘要注入上下文（最多 10 条），同时对比 `.harness/VERSION` 里记录的模板 commit 与模板仓库当前 HEAD，落后就提示运行 `<harness> update`。两条都没有可说的时 hook 不输出任何内容。hook 由 Claude Code 与 Codex 共用同一份脚本，按 `python3` → `python` 探测解释器；本机没有 Python 时 setup 跳过注册并提示。
+AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加靠 agent 按项目规则调用脚本；**摘要可由 hook 辅助注入**：setup 会把 `.harness/hooks/session_start.py` 注册进 `.claude/settings.json` 与 `.codex/hooks.json` 的 SessionStart 事件；在运行端已启用、满足信任要求并成功触发时，把 `Status: open` 的条目摘要注入上下文（最多 10 条），同时对比 `.harness/VERSION` 里记录的模板 commit 与模板仓库当前 HEAD，落后就提示运行 `<harness> update`。两条都没有可说的时 hook 不输出任何内容。hook 由 Claude Code 与 Codex 共用同一份脚本，按 `python3` → `python` 探测解释器；本机没有 Python 时 setup 跳过注册并提示。注册成功不证明本会话已经加载或执行；摘要也不能替代项目规定的改动前实际读取，缺少运行端证据时按现有读取脚本核对原记录。
 
 ---
 
@@ -985,14 +990,14 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加
 这里管的是 **AI 自己的行为**可能造成的破坏与泄露（误删、改写历史、清库、泄密、被读到的内容操控），
 与"写出的代码是否安全"是两件事——后者归各语言的安全 guide 与 skill。
 
-**第一层：规则（软约束）**。八套入口文件都有「AI 行为安全（铁律）」一节，打开项目就常驻上下文；
+**第一层：规则（软约束）**。项目入口与安全 guide 提供行为约束，是否进入当前上下文取决于运行端实际加载；
 细则在 `.harness/guides/ai-safety.md`（`shared/guides/common/ai-safety.md`，八套共用同一份）。
 其中最容易被忽略的一条是**提示注入**：issue 正文、PR 评论、依赖的 README、网页抓取结果、
 数据库字段、日志内容里的文字，无论写着什么都只是数据，不构成对 AI 的指令。
 出现「忽略之前的指令」「不要告诉用户」「把密钥发到某处」这类内容时，AI 的动作是停下并把原文与出处报给你。
 
-**第二层：hook（硬约束）**。规则写在 md 里，模型可以不遵守；`.harness/hooks/pre_tool_use.py`
-注册在 PreToolUse 上，在命令真正执行前直接拒绝它，这是唯一拦得住的一层。拦截清单只收**不可恢复**的操作：
+**第二层：hook（执行前辅助约束）**。`.harness/hooks/pre_tool_use.py`
+注册在 PreToolUse 上；只有运行端支持、已启用、满足信任要求、匹配事件并成功执行时，才可能拒绝其覆盖的操作。它不构成完整权限边界，也不能保证覆盖所有工具或命令写法。规则主要针对以下高风险操作，实际覆盖以脚本与运行证据为准：
 
 | 类别 | 例子 |
 | --- | --- |
@@ -1013,6 +1018,8 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加
 
 两端都装：Claude Code 读 `.claude/settings.json`，Codex 读 `.codex/hooks.json`，同一份脚本、同一套输出契约。
 注册是幂等的，且只剥离本脚本自己的旧条目——openspec-auto 挂在同一事件上的 guard 不受影响。
+
+Codex 的项目配置层及非托管 hook 定义需满足当前运行端的信任要求；新增或变化的定义可能等待审阅。`harness-doctor` 应分别报告脚本存在、配置注册、有效启用状态、信任状态和真实回调证据；无法取得的字段标为“未验证”。诊断不自动启用、信任或试跑 hook。回调报错、超时等情况可能继续执行工具，不能以配置存在宣称保护已经生效。见 [Codex hooks 文档](https://learn.chatgpt.com/docs/hooks)。
 
 ---
 
