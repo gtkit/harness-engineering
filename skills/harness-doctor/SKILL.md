@@ -1,16 +1,20 @@
 ---
 name: harness-doctor
-description: Diagnose harness files, hook evidence, required technical skills, OpenSpec, and optional MCP tool availability without installing anything.
+description: Diagnose harness, skills, hooks, OpenSpec, and optional MCP after installation/updates, environment changes, or loading anomalies; not routine development.
 argument-hint: [optional focus]
 ---
 
 # Harness Doctor
 
-Run this before a complex task or after installing a harness.
+Use after skills/harness installation or updates, loading-related environment changes, or loading anomalies. Do not run as a routine development preflight; a complex task, new session, or phase transition alone is not a trigger.
 
 ## Guardrails
 
 - Do not modify project files.
+- Unless the user explicitly requests diagnosis, require one of the triggers above. If none applies, skip diagnosis and continue independently authorized work; do not claim uninspected items passed.
+- Reuse the current runtime skill list, loaded project instructions, and existing valid evidence first. Select only checks implicated by the change or anomaly; do not run all steps by default or scan unrelated skill roots and optional tools.
+- Reading relevant skill instructions, references, guides, approved plans, or error records is normal task execution. This policy does not waive required pre-edit reads or task-specific business, quality, or acceptance verification.
+- Keep unexposed runtime status unverified when the task does not depend on it; do not repeatedly probe or exercise the runtime just to fill status fields. Historical checks do not prove current-session execution.
 - Report missing tools as actionable warnings, not fatal errors, unless the requested workflow requires them.
 - Prefer project facts over assumptions.
 - Keep output in Chinese.
@@ -19,7 +23,7 @@ Run this before a complex task or after installing a harness.
 
 ## Steps
 
-1. Detect OS and shell.
+1. Identify the installation/update, loading-related environment change, or loading anomaly being diagnosed (or the explicit diagnostic request), and bound the affected components. Detect OS and shell only if relevant facts are not already available.
 2. Check project-level harness files:
    - `CLAUDE.md`
    - `AGENTS.md`
@@ -38,7 +42,7 @@ Run this before a complex task or after installing a harness.
    - `.claude/rules/harness-*.md` (path-scoped pointers to `.harness/guides/`; Claude Code only)
    - Identify the harness from `.harness/VERSION` (`harness:`) or project facts; if ambiguous, report it as unverified.
    - Read `references/skill-dependencies.md` for the harness and current task/phase. Check external technical skills as well as the six workflow skills.
-   - Use the skill list exposed by the current runtime first. If needed, check project `.claude/skills` / `.agents/skills` and the active runtime's user skill roots (`~/.claude/skills`, `~/.agents/skills`, `$CODEX_HOME/skills` or `~/.codex/skills`). Do not scan credentials or entire user directories.
+   - Use the skill list exposed by the current runtime first. For a missing, changed, unreadable, or conflicting skill only, check the implicated project `.claude/skills` / `.agents/skills` or active runtime user skill root (`~/.claude/skills`, `~/.agents/skills`, `$CODEX_HOME/skills` or `~/.codex/skills`). Do not rescan every root, credentials, or entire user directories.
    - Record exact resolved paths and overrides. A readable file proves presence, not automatic discovery or execution; report those states separately. Multiple differing copies require identifying which one is active.
    - Missing optional skills are warnings. Missing task/phase requirements allow independent work within the user's existing authorization, including implementation supported by available project rules, but block the corresponding unverified gate/readiness conclusion. Do not invent the missing skill, silently skip a required gate, or stop all authorized work just because a reference skill is absent.
    - Give a source-specific sync/install suggestion using the known skills repository; do not run it without authorization, fetch arbitrary packages, or refresh unrelated projects.
@@ -58,7 +62,7 @@ Run this before a complex task or after installing a harness.
    - working tree status
    - current branch
    - test/CI entry points if obvious
-7. Output:
+7. Output only for the inspected scope; unrelated steps are outside this diagnosis, not passed or mandatory follow-up checks:
    - Ready for which phase (research / implementation / validation / release); never a blanket Ready from file presence
    - Per dependency: task/phase, required or conditional, resolved path, presence/discovery/execution status
    - Per hook event: runtime, source path, script presence, registration, enabled state, trust, callback evidence/result, and remaining gaps; no blanket claim that hooks are active

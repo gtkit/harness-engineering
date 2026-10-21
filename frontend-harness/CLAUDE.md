@@ -37,6 +37,13 @@
 | 提交 message / CHANGELOG / 发版 | `.harness/guides/commit-and-changelog.md` |
 | 删除/凭据/生产操作/引入依赖 | `.harness/guides/ai-safety.md` |
 
+## Skills 与 harness 按需加载
+
+- 日常开发按已加载的适用 `AGENTS.md` / `CLAUDE.md`、Guide 加载表和当前会话 skills 清单选用相关技能，再读取对应 `SKILL.md`、references 与 Guide；不重复扫描技能目录，不把自动加载能力检测或 `harness-doctor` 设为开工前置步骤。
+- 除用户明确要求诊断外，仅在 skills/harness 安装或更新后、影响加载的环境变化，或加载异常时检查。环境变化包括客户端/运行端、项目根目录、`CODEX_HOME`、技能路径、加载配置或权限变化；异常包括所需技能未列出、路径不可读、同名副本冲突或适用规则未加载。新会话、复杂任务或切换阶段本身不触发检查。
+- 诊断先复用当前会话清单、已加载规则和已有有效证据，只检查变化或异常涉及的部分，不默认完整运行 doctor。运行时未暴露且本次任务不依赖的状态保留未验证，不为补齐状态主动检测。
+- 按任务读取技能正文、项目约定、原计划和错误记录是正常执行；既有改动前实际读取、业务验证及质量/验收门禁仍按任务要求执行。文件存在、可发现、已读取和本次已执行/通过分开报告，不把历史验证当作本次证据。
+
 ## 工作流 skills（Claude Code 与 Codex 同一套）
 
 setup 会安装 `harness-doctor`、`harness-init-openspec`、`harness-research`、`harness-plan`、`harness-implement`、`harness-review`。对应 Codex 调用方式包括 `$harness-research`、`$harness-plan`、`$harness-implement` 和 `$harness-review`。复杂任务按 `research → plan → implement → review`，最终交付必须保留验收报告。

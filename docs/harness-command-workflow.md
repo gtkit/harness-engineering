@@ -6,7 +6,7 @@
 
 | 目的 | Claude Code | Codex |
 |-----|-------------|-------|
-| 检查环境 | `/harness-doctor` | `$harness-doctor` |
+| 安装更新、环境变化或加载异常时诊断 | `/harness-doctor` | `$harness-doctor` |
 | 初始化 OpenSpec | `/harness-init-openspec` | `$harness-init-openspec` |
 | 研究需求和约束 | `/harness-research` | `$harness-research ...` |
 | 生成执行计划 | `/harness-plan` | `$harness-plan` |
@@ -28,7 +28,7 @@
 
 ## 典型场景
 
-### 场景 1：安装后检查环境
+### 场景 1：安装更新、环境变化或加载异常时诊断
 
 Claude Code:
 
@@ -42,7 +42,7 @@ Codex:
 $harness-doctor
 ```
 
-适合刚执行 setup 后确认 `AGENTS.md`、`CLAUDE.md`、`.harness/guides/`、`.claude/skills/harness-*/`、`.agents/skills/harness-*/` 是否齐全。
+适用于 skills/harness 安装更新后、影响加载的环境变化或加载异常时，按变化或异常范围检查相关入口、Guide、技能与工具。优先复用当前会话 skills 清单和已加载规则，不默认完整体检；日常开发按任务直接读取相关技能正文，复杂任务、新会话或切换阶段本身不触发 doctor。
 
 ### 场景 2：复杂功能先研究
 
@@ -130,7 +130,7 @@ $harness-init-openspec
 复杂需求优先使用：
 
 ```text
-doctor -> research -> plan -> implement -> review
+research -> plan -> implement -> review
 ```
 
-已确认环境时可以跳过 `doctor`。已有批准计划时可以直接从 `implement` 开始。简单任务不要强行套完整流程。
+`doctor` 不属于日常开发的前置步骤；除用户明确要求诊断外，仅在安装更新、影响加载的环境变化或加载异常时，针对相关范围单独使用。已有批准计划时可以直接从 `implement` 开始。简单任务不要强行套完整流程。

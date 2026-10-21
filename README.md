@@ -870,13 +870,15 @@ $harness-review
 
 ### 命令说明
 
-### 1. 诊断环境
+### 1. 按需诊断环境
 
 ```text
 /harness-doctor
 ```
 
-检查项目是否已安装 harness、OpenSpec 与 openspec-auto 是否可用、`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/` 是否齐全，以及可选 MCP 工具是否可用。另按 [技术 skill 依赖清单](skills/harness-doctor/references/skill-dependencies.md) 检查当前 harness/任务阶段需要的外部技术 skill，分别报告文件存在、运行时可发现和本次已执行；缺失关键门禁时不能给对应阶段 Ready。doctor 只诊断，不自动安装或同步。
+除用户明确要求诊断外，仅在 skills/harness 安装或更新后、影响加载的环境变化或加载异常时，检查对应范围；复杂任务、新会话或切换阶段本身不触发 doctor，也不默认完整体检。
+
+诊断范围涉及相关组件时，检查项目是否已安装 harness、OpenSpec 与 openspec-auto 是否可用、`.claude/skills/harness-*/` 与 `.agents/skills/harness-*/` 是否齐全，以及可选 MCP 工具是否可用。另按 [技术 skill 依赖清单](skills/harness-doctor/references/skill-dependencies.md) 检查当前 harness/任务阶段需要的外部技术 skill，分别报告文件存在、运行时可发现和本次已执行；缺失关键门禁时不能给对应阶段 Ready。doctor 只诊断，不自动安装或同步。
 
 ### 2. 初始化 OpenSpec（可选）
 
@@ -1043,7 +1045,7 @@ Codex 的项目配置层及非托管 hook 定义需满足当前运行端的信�
 
 ### 安装完就不用管了
 
-脚本只需运行一次。之后正常用 Claude Code 或 Codex 写代码，AI 会自动遵守所有规则。重复执行默认只补齐缺失文件，不覆盖你已经修改过的 guide。
+安装后，日常开发直接使用已加载的适用项目入口规则和当前会话 skills 清单，按 Guide 加载表读取相关技能正文与 Guide，不重复扫描目录或检测自动加载能力。除用户明确要求诊断外，仅在安装更新、影响加载的环境变化或加载异常时检查对应范围；任务复杂、新会话或切换阶段本身不触发 doctor。读取相关规则、技能、原计划与错误记录属于正常执行，业务验证和质量/验收门禁仍按本次任务要求执行；不把文件存在或历史验证当作当前会话已经加载、执行或通过的证据。
 
 ### 修改规范
 
