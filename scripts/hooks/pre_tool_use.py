@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """harness 的 PreToolUse hook：在破坏性操作真正执行前拒绝它。
 
-入口文件与 .harness/guides/ai-safety.md 是"软约束"，模型可以不遵守；这个 hook 是唯一
-能真正拦住命令的一层。拦截清单只收**不可恢复**的操作——删除、改写历史、清库、提权、
-远端脚本直接执行、凭据读取、写用户级配置。可恢复的操作不拦，否则误伤会逼用户关掉整个 hook。
+这是执行前的辅助约束，不替代运行端权限边界。除 Bash 规则外，文件工具与 Codex
+apply_patch 共用路径保护；补丁检查全部新增、删除、更新源及移动目标，不扫描正文内容。
+只有运行端已启用、满足信任要求并实际调用本脚本时，拒绝才会生效。
 
 输出契约（Claude Code 与 Codex 一致）：拒绝时输出
 hookSpecificOutput.permissionDecision = "deny"；放行时输出空对象，把决定权留给用户
@@ -218,18 +218,106 @@ def check_bash(command: str) -> str | None:
     return None
 
 
-def check_file_write(path_str: str) -> str | None:
+def check_file_write(path_str: str, cwd: str | None = None) -> str | None:
     if not path_str:
         return None
-    home = str(Path.home())
-    resolved = os.path.expanduser(path_str)
-    for marker in USER_CONFIG_PATHS:
-        if resolved.startswith(home) and marker in resolved[len(home):] + "/":
-            return f"写用户级配置（{path_str}）会影响用户在所有项目里的环境。"
-    if resolved.startswith("/etc/"):
-        return f"写系统配置（{path_str}）。"
-    if "/.git/" in resolved.replace(str(ROOT), "", 1):
-        return f"直接改 .git 内部文件（{path_str}）会绕过 git 自身的保护，用 git 命令代替。"
+    try:
+        base = Path(cwd) if cwd else ROOT
+        if not base.is_absolute():
+            return "无法确定文件操作的绝对 cwd，拒绝猜测写入目标。"
+        path = Path(os.path.expanduser(path_str))
+        absolute = path if path.is_absolute() else base / path
+        lexical = Path(os.path.abspath(absolute))
+        # Python 3.13 的非严格 resolve 可留下链接环。先严格核对现存前缀，
+        # 再允许其后的新文件/目录不存在；损坏链接也不能作为安全前缀。
+        existing = absolute
+        while True:
+            try:
+                existing.lstat()
+            except FileNotFoundError:
+                if existing == existing.parent:
+                    raise
+                existing = existing.parent
+            else:
+                existing.resolve(strict=True)
+                break
+        # 同时保留词法路径：解析 symlink 后也不能抹掉 .git 等受保护路径的身份。
+        candidates = (lexical, absolute.resolve())
+        homes = (Path.home().absolute(), Path.home().resolve())
+        system_dirs = (Path("/etc"), Path("/etc").resolve())
+        for candidate in candidates:
+            for home in homes:
+                if candidate.is_relative_to(home):
+                    parts = candidate.relative_to(home).parts
+                    for marker in USER_CONFIG_PATHS:
+                        protected = Path(marker.strip("/")).parts
+                        if parts[:len(protected)] == protected:
+                            return f"写用户级配置（{path_str}）会影响用户在所有项目里的环境。"
+            if any(candidate.is_relative_to(folder) for folder in system_dirs):
+                return f"写系统配置（{path_str}）。"
+            if ".git" in candidate.parts:
+                return f"直接改 .git 内部文件（{path_str}）会绕过 git 自身的保护，用 git 命令代替。"
+    except (OSError, RuntimeError, ValueError) as exc:
+        return f"无法安全解析写入路径（{path_str}）：{exc}"
+    return None
+
+
+def patch_paths(command: str) -> list[str]:
+    """提取控制头中的全部操作路径；正文的 +/-/空格前缀不是控制头。
+
+    这不是补丁应用器。未知格式明确拒绝，避免提取不完整后把风险留给执行端。
+    """
+    lines = command.strip().splitlines()
+    if len(lines) < 2 or lines[0] != "*** Begin Patch" or lines[-1] != "*** End Patch":
+        raise ValueError("缺少完整的 Begin Patch / End Patch 边界")
+    paths: list[str] = []
+    operation = ""
+    can_move = False
+    headers = ("*** Add File: ", "*** Delete File: ", "*** Update File: ")
+    for line in lines[1:-1]:
+        # 执行端会去掉控制头行尾空白；正文仍按原始前缀识别。
+        control = line.rstrip()
+        header = next((prefix for prefix in headers if control.startswith(prefix)), None)
+        if header is not None:
+            path = control[len(header):]
+            if not path.strip() or "\0" in path:
+                raise ValueError("补丁文件路径为空或包含 NUL")
+            paths.append(path)
+            operation = header
+            can_move = header == "*** Update File: "
+        elif control.startswith("*** Move to: "):
+            if not can_move:
+                raise ValueError("Move to 必须紧随 Update File，且不能重复")
+            path = control[len("*** Move to: "):]
+            if not path.strip() or "\0" in path:
+                raise ValueError("移动目标为空或包含 NUL")
+            paths.append(path)
+            can_move = False
+        elif line == "":
+            can_move = False
+        elif operation == "*** Add File: " and line.startswith("+"):
+            continue
+        elif operation == "*** Update File: " and (
+            line.startswith(("@@", " ", "+", "-")) or line == "*** End of File"
+        ):
+            can_move = False
+        else:
+            raise ValueError("无法识别补丁控制头或正文前缀")
+    return paths
+
+
+def check_apply_patch(tool_input: object, cwd: str | None = None) -> str | None:
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if not isinstance(command, str):
+        return "apply_patch 缺少字符串 tool_input.command，无法核对全部写入路径。"
+    try:
+        paths = patch_paths(command)
+    except ValueError as exc:
+        return f"无法完整识别 apply_patch 的目标路径：{exc}。"
+    for path in paths:
+        reason = check_file_write(path, cwd)
+        if reason:
+            return reason
     return None
 
 
@@ -244,11 +332,15 @@ def main() -> None:
     tool = payload.get("tool_name", "")
     tool_input = payload.get("tool_input") or {}
 
+    cwd = payload.get("cwd")
+    cwd = cwd if isinstance(cwd, str) and cwd else None
     reason = None
-    if tool == "Bash":
+    if tool == "apply_patch":
+        reason = check_apply_patch(tool_input, cwd)
+    elif tool == "Bash":
         reason = check_bash(tool_input.get("command", "") or "")
     elif tool in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
-        reason = check_file_write(tool_input.get("file_path", "") or tool_input.get("notebook_path", "") or "")
+        reason = check_file_write(tool_input.get("file_path", "") or tool_input.get("notebook_path", "") or "", cwd)
 
     if reason:
         deny(reason)

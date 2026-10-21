@@ -586,7 +586,7 @@ function Invoke-HarnessSetup {
     if ($hookPython) {
         foreach ($cfg in @((Join-Path $projectDir ".claude\settings.json"), (Join-Path $projectDir ".codex\hooks.json"))) {
             Register-HarnessHook -ConfigPath $cfg -Python $hookPython -Event "SessionStart" -Matcher ".*" -ScriptName "session_start.py" -TimeoutSeconds 15
-            Register-HarnessHook -ConfigPath $cfg -Python $hookPython -Event "PreToolUse" -Matcher "Bash|Write|Edit|MultiEdit|NotebookEdit" -ScriptName "pre_tool_use.py" -TimeoutSeconds 10
+            Register-HarnessHook -ConfigPath $cfg -Python $hookPython -Event "PreToolUse" -Matcher "Bash|apply_patch|Write|Edit|MultiEdit|NotebookEdit" -ScriptName "pre_tool_use.py" -TimeoutSeconds 10
         }
         Write-Host "  OK session_start.py (SessionStart) and pre_tool_use.py (PreToolUse) registered in .claude/settings.json and .codex/hooks.json"
     }

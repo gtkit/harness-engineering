@@ -399,7 +399,7 @@ install_harness() {
     if [ -n "${hook_python}" ]; then
         for cfg in "${project_dir}/.claude/settings.json" "${project_dir}/.codex/hooks.json"; do
             _harness_register_hook "${cfg}" "${hook_python}" SessionStart '.*' session_start.py 15
-            _harness_register_hook "${cfg}" "${hook_python}" PreToolUse 'Bash|Write|Edit|MultiEdit|NotebookEdit' pre_tool_use.py 10
+            _harness_register_hook "${cfg}" "${hook_python}" PreToolUse 'Bash|apply_patch|Write|Edit|MultiEdit|NotebookEdit' pre_tool_use.py 10
         done
         echo "  ✓ session_start.py (SessionStart) 与 pre_tool_use.py (PreToolUse) 已注册到 .claude/settings.json 与 .codex/hooks.json"
     else

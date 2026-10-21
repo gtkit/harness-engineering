@@ -1010,6 +1010,8 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加
 | 凭据 | 读 `~/.ssh/`、`~/.aws/credentials`，`echo $TOKEN`，把环境变量发往外部 |
 | 用户级配置 | 写 `~/.zshrc`、`~/.gitconfig`、`~/.claude/`、`/etc/` |
 
+文件编辑同样受路径规则约束：Codex 的 `apply_patch` 从 `tool_input.command` 读取补丁，检查新增、删除、更新的源路径及移动目标；其中任一目标属于用户级配置、系统配置或 `.git` 元数据时，整份补丁拒绝。控制头路径先去掉行尾空白，再按事件 `cwd` 归一化并核对符号链接目标；正文中的路径示例或危险命令不作为目标。缺失或无法识别的补丁格式明确拒绝；脚本自身的异常仍遵循下方 fail-open 说明。注册 matcher 显式包含 `apply_patch`，不依赖 `Write` / `Edit` 别名转换 payload。
+
 设计上刻意只拦不可恢复的操作，可恢复的一律放行——误伤会逼你关掉整个 hook，那就一层都不剩了。
 为此 hook 会剥掉 heredoc 正文（写文档时正文里常含危险命令示例）并跳过 `grep` / `rg` 这类搜索命令，
 `rm -rf build/`、`git push origin main`、`grep -rn "DROP TABLE" .` 这些都正常放行。
