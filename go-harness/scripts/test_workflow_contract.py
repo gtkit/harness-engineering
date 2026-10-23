@@ -6,6 +6,8 @@ import contextlib
 import io
 import json
 import os
+import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -432,6 +434,124 @@ class EvidenceTests(WorkflowCase):
             workflow.ready(self.store)
         with self.assertRaises(workflow.WorkflowError):
             workflow.finish(self.store)
+
+
+class JournalCommandTests(WorkflowCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.script = self.root / '.harness/scripts/append-error-journal.sh'
+        self.script.parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / '.harness/scripts/append-error-journal.sh', self.script)
+        self.journal = self.root / '.harness/error-journal.md'
+        self.original = '# Existing journal\n\nDo not change this text.\n'
+        self.journal.write_text(self.original)
+        self.contract['allowed_files'].append({'path': '.harness/error-journal.md', 'kind': 'document'})
+        self.write_plan()
+        self.prepare()
+
+    def argv(self, shell: str = 'bash') -> list[str]:
+        return [shell, str(self.script), str(self.root), 'tool_failure', 'journal-test', 'Known failure details']
+
+    def allowed(self, argv: list[str], **fields: object) -> tuple[bool, str]:
+        payload = {'session_id': 'session-A', 'cwd': str(self.root),
+                   'tool_input': {'command': shlex.join(argv)}, **fields}
+        return workflow.allow_shell(self.root, payload)
+
+    def test_reviewed_append_runs_through_sh_and_bash_without_rewriting_history(self) -> None:
+        before = self.original
+        for shell in ('/bin/sh', '/bin/bash'):
+            with self.subTest(shell=shell):
+                argv = self.argv(shell)
+                self.assertTrue(self.allowed(argv)[0], self.allowed(argv))
+                result = subprocess.run(argv, cwd=self.root, text=True, capture_output=True, timeout=5, check=False)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                identifier = result.stdout.strip()
+                self.assertRegex(identifier, r'^ERR-\d{8}-\d{3}$')
+                after = self.journal.read_text()
+                self.assertTrue(after.startswith(before))
+                appended = after[len(before):]
+                self.assertEqual(appended.count('## [ERR-'), 1)
+                self.assertIn('## [' + identifier + ']', appended)
+                self.assertIn('Known failure details', appended)
+                before = after
+
+    def test_relative_absolute_and_spaced_project_paths(self) -> None:
+        for shell in ('sh', 'bash', '/bin/sh', '/bin/bash'):
+            for script, root in ((str(self.script), str(self.root)),
+                                 ('.harness/scripts/append-error-journal.sh', '.'),
+                                 ('./.harness/scripts/append-error-journal.sh', './')):
+                with self.subTest(shell=shell, script=script, root=root):
+                    argv = [shell, script, root, 'tool_failure', 'area', 'message with spaces']
+                    self.assertTrue(self.allowed(argv)[0], self.allowed(argv))
+        self.assertEqual(self.journal.read_text(), self.original)
+
+    def test_missing_wrong_readonly_and_stopped_session_denied(self) -> None:
+        for identity in ('', 'other-session'):
+            self.assertFalse(self.allowed(self.argv(), session_id=identity)[0])
+        for prompt in ('只解释代码，不修改', '停止实施'):
+            workflow.record_request(self.store, '实施第二阶段代码')
+            self.prepare()
+            workflow.record_request(self.store, prompt)
+            self.assertFalse(self.allowed(self.argv())[0])
+        self.assertEqual(self.journal.read_text(), self.original)
+
+    def test_unbound_and_unread_plan_denied(self) -> None:
+        workflow.record_request(self.store, '实施第二阶段代码')
+        self.assertFalse(self.allowed(self.argv())[0])
+        self.prepare()
+        (self.root / 'AGENTS.md').write_text('rules changed\n')
+        self.assertFalse(self.allowed(self.argv())[0])
+
+    def test_unplanned_journal_and_unready_change_denied(self) -> None:
+        with patch.object(common, 'openspec_status', return_value={'applyRequires': ['tasks'], 'artifacts': []}):
+            self.assertFalse(self.allowed(self.argv())[0])
+        self.contract['allowed_files'] = [{'path': 'app.py', 'kind': 'code'}]
+        self.write_plan()
+        self.prepare()
+        self.assertFalse(self.allowed(self.argv())[0])
+
+    def test_wrong_script_root_arguments_and_shell_denied(self) -> None:
+        variants = []
+        for index, value in ((0, '/tmp/bash'), (1, str(self.root / 'append-error-journal.sh')),
+                             (2, str(self.root.parent)), (3, ''), (4, ''), (5, '')):
+            argv = self.argv()
+            argv[index] = value
+            variants.append(argv)
+        variants.extend([self.argv() + ['extra'], self.argv()[:-1], ['bash', '-x', *self.argv()[1:]]])
+        for argv in variants:
+            with self.subTest(argv=argv):
+                self.assertFalse(self.allowed(argv)[0])
+        self.assertEqual(self.journal.read_text(), self.original)
+
+    def test_changed_script_and_symlink_targets_denied(self) -> None:
+        original = self.script.read_bytes()
+        self.script.write_bytes(original + b'\nprintf changed\n')
+        self.assertFalse(self.allowed(self.argv())[0])
+        self.script.unlink()
+        target = self.root / 'copy.sh'
+        target.write_bytes(original)
+        self.script.symlink_to(target)
+        self.assertFalse(self.allowed(self.argv())[0])
+        self.script.unlink()
+        self.script.write_bytes(original)
+        self.journal.unlink()
+        alternate = self.root / 'other.md'
+        alternate.write_text(self.original)
+        self.journal.symlink_to(alternate)
+        self.assertFalse(self.allowed(self.argv())[0])
+        self.assertEqual(alternate.read_text(), self.original)
+
+    def test_compound_commands_and_controlled_checks_stay_denied(self) -> None:
+        command = shlex.join(self.argv())
+        for suffix in ('; true', ' && true', '\ntrue', ' | cat', ' > output'):
+            payload = {'session_id': 'session-A', 'cwd': str(self.root),
+                       'tool_input': {'command': command + suffix}}
+            self.assertFalse(workflow.allow_shell(self.root, payload)[0])
+        for command in ('go vet ./...', 'make check', 'bash other.sh'):
+            self.assertFalse(workflow.allow_shell(self.root, {'session_id': 'session-A',
+                             'tool_input': {'command': command}})[0])
+        self.assertEqual(self.store.read()['request']['granted_checks'], [])
+        self.assertEqual(self.journal.read_text(), self.original)
 
 
 class CommandTests(WorkflowCase):

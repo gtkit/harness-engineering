@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase-one functional tests; never run payload commands or project Go gates."""
+"""Hook regressions; only the reviewed journal fixture command is executed, never Go gates."""
 from __future__ import annotations
 
 import contextlib
@@ -7,6 +7,7 @@ import io
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -209,7 +210,8 @@ class HookCommandTests(IsolatedCase):
             shutil.copytree(ROOT / relative, self.root / relative, ignore=shutil.ignore_patterns("__pycache__"))
         for relative in ("AGENTS.md", "CLAUDE.md", ".codex/hooks.json", ".claude/settings.json",
                          ".harness/scripts/check-agent-rules.py", ".agents/skills/openspec-auto/SKILL.md",
-                         ".claude/skills/openspec-auto/SKILL.md", ".harness/scripts/workflow.py"):
+                         ".claude/skills/openspec-auto/SKILL.md", ".harness/scripts/workflow.py",
+                         ".harness/scripts/append-error-journal.sh"):
             destination = self.root / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / relative, destination)
@@ -315,6 +317,36 @@ class HookCommandTests(IsolatedCase):
                             self.assertEqual(output, {})
                         else:
                             self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_journal_append_uses_existing_guards_for_both_clients(self) -> None:
+        self.state.write_text(json.dumps({"changes": [{"name": "fixture-change"}], "ready": True}))
+        for config in self.configs:
+            with self.subTest(client=self.configs.index(config)):
+                self.activate_workflow()
+                contract = json.loads((self.root / 'plan.md').read_text().split('```json\n')[1].split('\n```')[0])
+                contract['allowed_files'].append({'path': '.harness/error-journal.md', 'kind': 'document'})
+                (self.root / 'plan.md').write_text(workflow.MARKER + '\n```json\n' + json.dumps(contract) + '\n```\n')
+                trace = SubprocessTrace(subprocess, self.records, self.cli)
+                with contextlib.redirect_stdout(io.StringIO()), patch.dict(os.environ, self.env), patch.dict(common.OPEN_SPEC_ENV, self.env), patch.object(common, 'subprocess', trace):
+                    store = workflow.SessionStore(self.root, 'phase-one-fixture')
+                    workflow.read_context(store, 'plan.md', 'plan.md', 1, 1000)
+                    workflow.activate(store, 'plan.md')
+                script = self.root / '.harness/scripts/append-error-journal.sh'
+                argv = ['/bin/bash', str(script), str(self.root), 'tool_failure', 'journal-test', 'fixture append']
+                output = self.hooks(config, 'PreToolUse', {'tool_name': 'Bash', 'tool_input': {'command': shlex.join(argv)}})
+                self.assertTrue(all(item == {} for item in output), output)
+                journal = self.root / '.harness/error-journal.md'
+                before = journal.read_text()
+                result = self.invoke(argv, cwd=self.root, env=self.env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(journal.read_text().startswith(before))
+                self.assertIn('## [' + result.stdout.strip() + ']', journal.read_text()[len(before):])
+                invalid = [*argv[:2], str(self.root.parent), *argv[3:]]
+                denied = self.hooks(config, 'PreToolUse', {'tool_name': 'Bash', 'tool_input': {'command': shlex.join(invalid)}}, 'openspec_guard.py')
+                self.assertEqual(denied[0]['hookSpecificOutput']['permissionDecision'], 'deny')
+                self.hooks(config, 'UserPromptSubmit', {'prompt': '只解释代码，不修改'})
+                denied = self.hooks(config, 'PreToolUse', {'tool_name': 'Bash', 'tool_input': {'command': shlex.join(argv)}}, 'openspec_guard.py')
+                self.assertEqual(denied[0]['hookSpecificOutput']['permissionDecision'], 'deny')
 
     def test_document_write_exemption(self) -> None:
         for config in self.configs:
