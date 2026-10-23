@@ -4,13 +4,14 @@ set -euo pipefail
 # 文件名沿用早期的 "commands"：现在装的是 skills（Claude Code 与 Codex 各一份）与 Claude 的
 # 路径限定 rules，旧的 .claude/commands/harness/ 会被清掉。
 
-# _harness_copy_tree <source_dir> <target_dir> <force> <label>
+# _harness_copy_tree <source_dir> <target_dir> <force> [profile_overlay]
 # 把 source_dir 下的 .md 文件（含一层子目录里的 SKILL.md）复制到 target_dir；
 # 已存在的文件默认保留，force=1 时覆盖。输出 "新增 保留" 两个计数。
 _harness_copy_tree() {
     local source_dir="$1"
     local target_dir="$2"
     local force="$3"
+    local overlay="${4:-}"
     local copied=0
     local preserved=0
     local f rel dest
@@ -18,6 +19,9 @@ _harness_copy_tree() {
     while IFS= read -r f; do
         rel="${f#"${source_dir}"/}"
         dest="${target_dir}/${rel}"
+        if [ -n "${overlay}" ] && [ -f "${overlay}/${rel}" ]; then
+            f="${overlay}/${rel}"
+        fi
         mkdir -p "$(dirname "${dest}")"
         if [ "${force}" = "1" ] || [ ! -f "${dest}" ]; then
             cp "$f" "${dest}"
@@ -67,9 +71,9 @@ install_harness_skills() {
 
     # 同一份 SKILL.md 双端各装一份：Claude Code 读 .claude/skills，Codex 读 .agents/skills
     _harness_report_copy ".claude/skills/harness-*/" "${force}" \
-        "$(_harness_copy_tree "${skills_dir}" "${project_dir}/.claude/skills" "${force}")"
+        "$(_harness_copy_tree "${skills_dir}" "${project_dir}/.claude/skills" "${force}" "${module_dir}/skills")"
     _harness_report_copy ".agents/skills/harness-*/" "${force}" \
-        "$(_harness_copy_tree "${skills_dir}" "${project_dir}/.agents/skills" "${force}")"
+        "$(_harness_copy_tree "${skills_dir}" "${project_dir}/.agents/skills" "${force}" "${module_dir}/skills")"
 
     # Claude Code 的路径限定规则：只在读到匹配文件时把对应 guide 拉进上下文。
     # 先清掉本模板没有的旧 harness-*.md（换 harness 类型或模板删 guide 后留下的），

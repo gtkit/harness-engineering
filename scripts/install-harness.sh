@@ -390,6 +390,17 @@ install_harness() {
         echo "  ✓ .harness/scripts/ — 新增 ${runtime_copied} 个，保留 ${runtime_preserved} 个"
     fi
 
+    # Profile-specific runtime assets (shared error-journal tools remain unchanged).
+    if [ -d "${script_dir}/scripts" ]; then
+        for f in "${script_dir}/scripts/"*; do
+            [ -f "$f" ] || continue
+            dest="${project_dir}/.harness/scripts/$(basename "$f")"
+            if [ "${force_project_files}" = "1" ] || [ ! -f "$dest" ]; then
+                cp "$f" "$dest"
+            fi
+        done
+    fi
+
     # -- .harness/hooks/（SessionStart + PreToolUse）--
     mkdir -p "${project_dir}/.harness/hooks"
     cp "${harness_root}/scripts/hooks/session_start.py" "${project_dir}/.harness/hooks/session_start.py"

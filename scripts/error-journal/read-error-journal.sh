@@ -9,4 +9,4 @@ if [ ! -f "${FILE}" ]; then
   exit 1
 fi
 
-sed -n '1,240p' "${FILE}"
+cat "${FILE}"

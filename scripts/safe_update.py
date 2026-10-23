@@ -41,7 +41,11 @@ def owned(component, name):
         valid = name.startswith(prefixes) or name.startswith('.claude/rules/harness-')
     else:
         prefixes = ('.openspec-auto/hooks/', '.openspec-auto/tools/', '.agents/skills/openspec-auto/', '.claude/skills/openspec-auto/', 'tools/openspec/', '.claude/hooks/openspec_', '.codex/hooks/openspec_')
-        valid = name.startswith(prefixes) or name in {'.codex/config.toml.append', '.codex/prompts/openspec-auto.md'}
+        valid = name.startswith(prefixes) or name in {
+            '.codex/config.toml.append', '.codex/prompts/openspec-auto.md',
+            '.harness/scripts/workflow.py', '.harness/guides/workflow-contract.md',
+            '.harness/guides/workflow-plan-example.md',
+        }
     if not valid:
         raise UpdateError('基线或模板越过组件管理范围: ' + name)
     return name
@@ -156,6 +160,15 @@ def templates(component, source, kind=None, revision=None):
             for prefix, target in (
                 ('skills/', '.agents/skills/'), ('skills/', '.claude/skills/'),
                 ('scripts/error-journal/', '.harness/scripts/'), (kind + '/rules/', '.claude/rules/'),
+            ):
+                if path.startswith(prefix):
+                    files[target + path[len(prefix):]] = tree.read(path)
+        # Profile assets override shared assets deterministically, as in first install.
+        for path in tree.modes:
+            for prefix, target in (
+                (kind + '/scripts/', '.harness/scripts/'),
+                (kind + '/skills/', '.agents/skills/'),
+                (kind + '/skills/', '.claude/skills/'),
             ):
                 if path.startswith(prefix):
                     files[target + path[len(prefix):]] = tree.read(path)

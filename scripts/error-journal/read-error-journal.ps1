@@ -11,4 +11,4 @@ if (-not (Test-Path -LiteralPath $filePath)) {
     throw "missing: $filePath"
 }
 
-Get-Content -LiteralPath $filePath -TotalCount 240
+Get-Content -LiteralPath $filePath

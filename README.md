@@ -1339,3 +1339,11 @@ docker run --rm -v "$PWD:/work" -w /work mcr.microsoft.com/powershell:7.4-ubuntu
 ```
 
 提交规范：见 [Git 提交建议](#git-提交建议)；CHANGELOG `[Unreleased]` 区段必须同步更新（见 `CHANGELOG.md`）。
+
+## 本机 Go 模板回归
+
+本机的 go-harness 包装命令直接引用本仓库，修改源文件后不需要重新安装命令。首装和 update 都从当前源读取；更新采用已有三方合并，冲突时停止，不强制覆盖本地定制。
+
+运行 `python3 tests/test_go_harness_local.py` 核对本次资产映射；运行 `python3 tests/test_go_harness_local.py --integration` 使用本机已有 OpenSpec/Node/Python 在隔离临时目录生成、更新并执行工作流功能回归。不会下载工具、运行 Go 质量门禁或修改用户级配置。日志目录在输出中给出。
+
+Go 模板包含两端一致的规则、完整错误 reader、规则比较脚本、工作流回归及失败采集。配合相邻 openspec-auto-bootstrap 源提供会话工具；`--no-openspec` 仍只安装 harness。脚本验收不代表新项目已在原生客户端获信任或实际触发 hook；这两项需要各客户端自身证据。
