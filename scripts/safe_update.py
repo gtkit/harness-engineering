@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Transactional template updates. Mirrored in openspec-auto-bootstrap/safe_update.py."""
+"""Transactional template updates; harness metadata omits machine-local source paths."""
 from __future__ import annotations
 
 import argparse
@@ -236,7 +236,8 @@ def snapshot(component, source, kind=None):
     result = {'schema': 1, 'component': component, 'kind': kind, 'version': version,
               'revision': revision, 'files': {p: packed(v) for p, v in sorted(files.items())}}
     if component == 'harness':
-        result['source_path'] = str(Path(source).resolve())
+        # Keep the schema-1 field for older readers without persisting a local path.
+        result['source_path'] = None
         try:
             result['tag'] = git(source, 'describe', '--tags', '--abbrev=0').decode().strip()
         except UpdateError:
@@ -401,9 +402,9 @@ def version_entry(root, current, component, changed):
     rel = '.harness/VERSION'
     old = project_file(root, rel)
     text = old[0].decode()
-    fields = {'source-commit': current['version'], 'source-path': current['source_path'], 'source-tag': current['tag']}
-    prior = dict(re.findall(r'^(source-commit|source-path|source-tag):\s*([^\n]+)', text, re.M))
-    if not changed and all(prior.get(k) == v for k, v in fields.items()):
+    fields = {'source-commit': current['version'], 'source-path': None, 'source-tag': current['tag']}
+    prior = dict(re.findall(r'^(source-commit|source-path|source-tag):[ \t]*([^\r\n]*)', text, re.M))
+    if not changed and 'source-path' not in prior and all(prior.get(k) == v for k, v in fields.items()):
         return rel, old
     fields.update({'installed-at': dt.datetime.now().astimezone().isoformat(timespec='seconds'), 'installer': 'safe-update'})
     for key, value in fields.items():

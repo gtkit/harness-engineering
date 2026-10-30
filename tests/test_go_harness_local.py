@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import importlib.util
 import json
@@ -52,9 +53,19 @@ class DistributionTests(unittest.TestCase):
         self.assertEqual((OPENSPEC / "templates/repo/AGENTS.md").read_bytes(),
                          (OPENSPEC / "templates/repo/CLAUDE.md").read_bytes())
 
-    def test_update_engines_stay_identical(self) -> None:
-        self.assertEqual((ROOT / "scripts/safe_update.py").read_bytes(),
-                         (OPENSPEC / "safe_update.py").read_bytes())
+    def test_update_engines_share_merge_and_transaction_contract(self) -> None:
+        # Only harness source metadata differs; all merge/ownership/transaction code stays shared.
+        def common_tree(path: Path) -> str:
+            tree = ast.parse(path.read_text())
+            tree.body = [node for node in tree.body
+                         if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+                                 and isinstance(node.value.value, str))
+                         and not (isinstance(node, ast.FunctionDef)
+                                  and node.name in {"snapshot", "version_entry"})]
+            return ast.dump(tree, include_attributes=False)
+
+        self.assertEqual(common_tree(ROOT / "scripts/safe_update.py"),
+                         common_tree(OPENSPEC / "safe_update.py"))
 
 
 def integration(output: Path, legacy: Path | None) -> None:

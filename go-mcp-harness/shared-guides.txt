@@ -1,0 +1,4 @@
+# 共用 Agent 行为约束；MCP 验收与技术路由由本包维护。
+common/ai-safety.md
+common/commit-and-changelog.md
+common/error-journal-template.md

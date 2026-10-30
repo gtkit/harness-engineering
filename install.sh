@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================
-# 把命令装到 PATH：八个 harness 命令（go-harness / go-grpc-harness / fullstack-harness /
+# 把命令装到 PATH：十个 harness 命令（go-harness / go-grpc-harness / go-mcp-harness / ts-mcp-harness / fullstack-harness /
 # frontend-harness / go-pkg-harness / laravel-harness / laravel-fullstack-harness / openresty-harness）
 # 加 harness-refresh
 #

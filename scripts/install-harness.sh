@@ -533,7 +533,6 @@ EOF
     installed_at="$(date '+%Y-%m-%dT%H:%M:%S%z')"
     {
         printf 'harness: %s\n' "${module_name}"
-        printf 'source-path: %s\n' "${harness_root}"
         printf 'source-commit: %s\n' "${source_commit}"
         if [ -n "${source_tag:-}" ]; then
             printf 'source-tag: %s\n' "${source_tag}"

@@ -7,6 +7,16 @@
 > 版本号体系于 2026-09-18 重置，从 1.0.0 重新开始。此前的 1.0.0 ~ 1.17.0 条目与对应 tag 已移除；
 > 那段历史连同其中记录的实测结论仍完整保留在 git 历史里，用 `git show 446246d:CHANGELOG.md` 取回。
 
+## [1.4.0] - 2026-10-30
+
+### Added
+- 新增 `go-mcp-harness`：按需加载 stdio 与 Streamable HTTP 规则，覆盖协议版本、工具契约、权限隔离、取消与流、gtkit 优先选型、测试和分发；沿用现有安装/更新入口，保留业务项目目录与依赖。
+- 新增 Go MCP 内存分发与命令发现测试，接入 Bash/PowerShell 包清单和 CI；Node 分发脚本按实际运行环境验收，不自动归为浏览器前端。
+- 新增独立 `ts-mcp-harness`，覆盖 TypeScript 运行时、stdio / Streamable HTTP 与 npm 分发，不引入 Go；Go MCP 保留独立入口并明确 npm 安装器和预编译二进制的边界。
+
+### Fixed
+- 共享安装器不再向 VERSION 写本机源码目录；安全更新将旧路径元数据迁移为无路径格式并保留 schema 1 兼容。SessionStart 使用可选 `HARNESS_SOURCE_DIR` 运行时定位，兼容旧字段读取；新增元数据迁移、冲突/回滚与双语言分发测试。
+
 ## [1.3.0] - 2026-10-18
 
 ### Added

@@ -344,7 +344,7 @@ assert_file_contains "${workflow_file}" "bash -n go-harness/setup.sh go-grpc-har
 assert_file_contains "${workflow_file}" "bash scripts/sync-claude-from-agents.sh --check"
 assert_file_contains "${workflow_file}" "bash tests/setup_smoke_test.sh"
 
-for harness_dir in go-harness go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
+for harness_dir in go-harness go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness go-mcp-harness ts-mcp-harness; do
     assert_all_guides_are_referenced "${harness_dir}"
     assert_entry_files_tracked "${harness_dir}"
 done
@@ -432,7 +432,7 @@ assert_line_exists "${migrate_project}/.gitignore" "/build/"
 assert_gitignore_baseline "${migrate_project}/.gitignore" "go-harness"
 assert_exclude_baseline "${migrate_project}/.git/info/exclude"
 
-for harness_dir in go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
+for harness_dir in go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness go-mcp-harness ts-mcp-harness; do
     if [ "${harness_dir}" = "go-pkg-harness" ]; then
         project_dir="${tmpdir}/pkgdemo"
     else
@@ -509,7 +509,7 @@ assert_file_contains "${ROOT_DIR}/README.md" "docs/harness-command-workflow.md"
 assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "## 命令对照"
 assert_file_contains "${ROOT_DIR}/docs/harness-command-workflow.md" "doctor -> research -> plan -> implement -> review"
 
-for harness_dir in go-harness go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness; do
+for harness_dir in go-harness go-grpc-harness fullstack-harness frontend-harness go-pkg-harness laravel-harness laravel-fullstack-harness openresty-harness go-mcp-harness ts-mcp-harness; do
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "## 本机容器与镜像纪律（铁律）"
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "docker images"
     assert_file_contains "${ROOT_DIR}/${harness_dir}/AGENTS.md" "docker ps -a"
@@ -591,18 +591,20 @@ for rule in "${managed_project}"/.claude/rules/harness-*.md; do
 done
 
 # SessionStart hook：无 open 条目且版本一致时静默；有 open 条目且版本落后时注入两条
-assert_file_contains "${managed_project}/.harness/VERSION" "source-path: ${ROOT_DIR}"
-hook_out="$(cd "$managed_project" && echo '{}' | python3 .harness/hooks/session_start.py)"
+if grep -q '^source-path:' "${managed_project}/.harness/VERSION"; then
+    fail "version metadata must not retain a local source path"
+fi
+hook_out="$(cd "$managed_project" && echo '{}' | HARNESS_SOURCE_DIR="${ROOT_DIR}" python3 .harness/hooks/session_start.py)"
 [ -z "$hook_out" ] || fail "session hook must print nothing when journal has no open entry and template is current, got: ${hook_out}"
 err_id="$(bash "${managed_project}/.harness/scripts/append-error-journal.sh" "$managed_project" user-correction auth "入口边界改错")"
 sed -i.bak 's/^source-commit: .*/source-commit: 000000000000/' "${managed_project}/.harness/VERSION"
 rm -f "${managed_project}/.harness/VERSION.bak"
-hook_out="$(cd "$managed_project" && echo '{}' | python3 .harness/hooks/session_start.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])')"
+hook_out="$(cd "$managed_project" && echo '{}' | HARNESS_SOURCE_DIR="${ROOT_DIR}" python3 .harness/hooks/session_start.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])')"
 grep -Fq "$err_id" <<<"$hook_out" || fail "session hook must list open journal entry ${err_id}"
 grep -Fq "入口边界改错" <<<"$hook_out" || fail "session hook must include the entry summary"
 grep -Fq "go-harness update" <<<"$hook_out" || fail "session hook must suggest refresh when template commit differs"
 bash "${managed_project}/.harness/scripts/close-error-journal.sh" "$managed_project" "$err_id" "已修" >/dev/null
-hook_out="$(cd "$managed_project" && echo '{}' | python3 .harness/hooks/session_start.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])')"
+hook_out="$(cd "$managed_project" && echo '{}' | HARNESS_SOURCE_DIR="${ROOT_DIR}" python3 .harness/hooks/session_start.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])')"
 if grep -Fq "$err_id" <<<"$hook_out"; then
     fail "closed journal entry must not be injected by session hook"
 fi

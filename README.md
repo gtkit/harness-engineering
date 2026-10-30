@@ -8,12 +8,14 @@
 
 ## 这是什么
 
-八套针对不同场景的 AI 编码约束系统（Harness），通过项目入口规则、按需读取的 guides、skills 和可选 hooks，指导 AI 代理遵循架构规范、编码标准和质量检查流程。实际加载、执行与验收结果需要分别核验。
+十套针对不同场景的 AI 编码约束系统（Harness），通过项目入口规则、按需读取的 guides、skills 和可选 hooks，指导 AI 代理遵循架构规范、编码标准和质量检查流程。实际加载、执行与验收结果需要分别核验。
 
 | 包名 | 适用场景 | 目录 |
 |-----|---------|------|
 | **go-harness** | 纯 Go 后端业务服务（Gin + GORM + gtkit） | `go-harness/` |
 | **go-grpc-harness** | 纯 Go gRPC 微服务（grpc-go + buf + protovalidate + ormx + gtkit） | `go-grpc-harness/` |
+| **go-mcp-harness** | Go MCP 服务/插件（双传输、gtkit 优先，允许 npm 分发） | `go-mcp-harness/` |
+| **ts-mcp-harness** | TypeScript MCP 服务（双传输、npm 分发，不使用 Go） | `ts-mcp-harness/` |
 | **fullstack-harness** | Go 后端 + Vue 前端（同一项目目录） | `fullstack-harness/` |
 | **frontend-harness** | 纯 Vue 3 + Vite/TypeScript 前端项目 | `frontend-harness/` |
 | **go-pkg-harness** | Go 扩展包 / 第三方库开发 | `go-pkg-harness/` |
@@ -21,9 +23,9 @@
 | **laravel-fullstack-harness** | Laravel 后端 + Vue 前端（`backend/` + `frontend/` 同仓库） | `laravel-fullstack-harness/` |
 | **openresty-harness** | OpenResty / ngx_lua 项目（Nginx 内 Lua 接口服务、网关、WAF、签名与限流脚本） | `openresty-harness/` |
 
-八套互相独立，按项目类型选用一套即可。后端 harness 在运行行为交付前必须加载 `$backend-acceptance`；前端 harness 必须加载 `$frontend-acceptance`；全栈 harness 两者都要加载。
+十套互相独立，按项目类型选用一套即可。后端 harness 在运行行为交付前必须加载 `$backend-acceptance`；前端 harness 必须加载 `$frontend-acceptance`；全栈 harness 两者都要加载。
 
-构建、lint、类型检查和单元测试属于开发验证，不能替代交付验收。需求来源、关键业务不变量、权限、事务/幂等、并发、真实 API 或核心依赖未验证时，验收结论必须是“不准入”。统一规则见 `shared/guides/common/acceptance-gates.md`。
+构建、lint、类型检查和单元测试属于开发验证，不能替代交付验收。需求来源、关键业务不变量、权限、事务/幂等、并发、真实 API 或核心依赖未验证时，验收结论必须是“不准入”。统一规则见 `shared/guides/common/acceptance-gates.md`；两套 MCP 包使用各自的 `guides/acceptance-gates.md`，按实际语言、传输和分发范围验收，检查权限以用户指令为准。
 
 安装后还会在项目内装一组可选的工作流 skills，Claude Code 与 Codex 读的是同一份 `SKILL.md`。普通小改动可以不用；复杂、高风险、跨模块任务可以用它把工作拆成可恢复的 Research → Plan → Implementation 流程：
 
@@ -43,7 +45,7 @@
 ```
 harness-engineering/
 ├── README.md                ← 你正在读的文件
-├── install.sh               ← 往 ~/go/bin 写包装命令：八个 harness 名 + harness-refresh
+├── install.sh               ← 往 ~/go/bin 写包装命令：十个 harness 名 + harness-refresh
 ├── scripts/
 │   ├── harness-init.sh      ← harness 命令的实际逻辑：git init → setup.sh → openspec-auto install
 │   ├── harness-refresh.sh   ← 批量查看 / 刷新清单里所有项目
@@ -109,6 +111,20 @@ harness-engineering/
 │       ├── testing-and-validation.md
 │       ├── review-checklist.md
 │       └── error-journal-template.md
+│
+├── go-mcp-harness/          ← Go MCP 服务/插件
+│   ├── setup.sh / setup.ps1 / setup.bat
+│   ├── AGENTS.md / CLAUDE.md
+│   ├── shared-guides.txt    ← 共用安全、提交和错误模板
+│   ├── rules/              ← 按文件/任务读取专项指南
+│   └── guides/             ← 协议、两种传输、依赖、安全、测试与分发
+│
+├── ts-mcp-harness/          ← TypeScript MCP 服务，不引入 Go
+│   ├── setup.sh / setup.ps1 / setup.bat
+│   ├── AGENTS.md / CLAUDE.md
+│   ├── shared-guides.txt
+│   ├── rules/              ← TS、传输、依赖、安全、测试与分发
+│   └── guides/             ← TypeScript 运行时、MCP 双传输与 npm 产物
 │
 ├── fullstack-harness/       ← Go + Vue 全栈项目
 │   ├── setup.sh
@@ -228,7 +244,7 @@ harness-engineering/
 
 ## 安装步骤
 
-### 第一步：把八个命令装到 PATH
+### 第一步：把十个命令装到 PATH
 
 把仓库放到固定位置后，在仓库根目录执行一次：
 
@@ -237,7 +253,7 @@ bash install.sh                          # 装到 ~/go/bin
 HARNESS_BIN_DIR=~/.local/bin bash install.sh   # 换目录
 ```
 
-目标目录下会多出 `go-harness`、`go-grpc-harness`、`fullstack-harness`、`frontend-harness`、`go-pkg-harness`、`laravel-harness`、`laravel-fullstack-harness`、`openresty-harness` 八个命令。它们是几行长的包装脚本，直接 `exec` 本仓库的 `scripts/harness-init.sh`：改了仓库里的 guides / 规则 / 安装脚本立即生效，不需要重装；仓库换了位置重跑一次 `install.sh` 即可。首次安装使用 Bash；安全更新还需要 Python 3.10+ 和 Git（三方合并使用 `git merge-file`）。
+目标目录下会多出 `go-harness`、`go-grpc-harness`、`go-mcp-harness`、`ts-mcp-harness`、`fullstack-harness`、`frontend-harness`、`go-pkg-harness`、`laravel-harness`、`laravel-fullstack-harness`、`openresty-harness` 十个命令。它们是几行长的包装脚本，直接 `exec` 本仓库的 `scripts/harness-init.sh`：改了仓库里的 guides / 规则 / 安装脚本立即生效，不需要重装；仓库换了位置重跑一次 `install.sh` 即可。首次安装使用 Bash；安全更新还需要 Python 3.10+ 和 Git（三方合并使用 `git merge-file`）。
 
 不装命令也可以直接跑各目录下的 `setup.sh`，效果与命令加 `--no-openspec` 一致：
 
@@ -276,6 +292,8 @@ go-harness --version                # 打印本仓库当前 commit / tag
 ```bash
 go-harness update /path/to/project
 go-grpc-harness update /path/to/grpc-project
+go-mcp-harness update /path/to/mcp-project
+ts-mcp-harness update /path/to/ts-mcp-project
 go-pkg-harness update /path/to/library
 fullstack-harness update /path/to/fullstack-project
 openspec-auto update /path/to/project  # 仅更新 OpenSpec，不改 harness
@@ -811,6 +829,52 @@ your-openresty-project/
 
 ---
 
+## Go MCP 服务与插件
+
+`go-mcp-harness` 面向 Go 编写的本地 stdio 工具和 Streamable HTTP 服务。同一套规则按项目实际传输加载，支持项目明确选择双传输；保留原目录、业务接口和已有 SDK，不强制 Gin/GORM、数据库或 Node，不生成业务骨架。
+
+- **协议与安全**：工具/schema/结果与错误契约、资源和 prompts、权限、文件/外部命令、SSRF、token、按用户隔离、取消、提交后清理失败。
+- **两种传输**：stdio 的协议输出与进程生命周期；HTTP 的 Origin/认证、JSON/SSE、代理、超时、并发、关闭与按协议版本处理的状态。
+- **依赖选择**：标准库可直接满足时保持简单；需要第三方时优先核实 gtkit 的 logger、json、golimit、gojwt、redisx、ormx，具体主版本沿用项目。JWT 能力不等于完整 OAuth，日志不能污染 stdio stdout。
+- **交付验证**：业务功能、协议、真实依赖、客户端和分发证据分别记录。协议版本、SDK 版本与客户端组合需要实际核实；不把某个版本的会话/流规则推广到所有版本。
+
+Go MCP 允许通过 npm/npx 安装和启动：npm 层负责安装器/launcher，MCP 服务仍由 Go 实现。预编译二进制的使用端不默认要求安装 Go；缺少平台资产时明确失败，不静默下载 Go 或编译。存在 package.json 不等于改用 TypeScript 服务规则。
+
+共享首装与安全更新现在使用不含源码目录的项目元数据；旧字段兼容与可选版本提醒配置见“查看 harness 版本”。本轮没有安装到业务项目，实际环境证据边界见实施计划。
+
+只装规则可在已确认的目标原项目目录中运行：
+
+```bash
+bash /path/to/harness-engineering/go-mcp-harness/setup.sh
+```
+
+已有命令包装器时，使用 `go-mcp-harness --no-openspec`；尚未安装包装器也可从本源仓库调用 `bash scripts/harness-init.sh go-mcp-harness /path/to/mcp-project --no-openspec`。全局包装命令安装仍须单独授权并执行 `install.sh`。更新使用 `go-mcp-harness update /path/to/mcp-project --no-openspec`，预览再加 `--dry-run`。命令只安装/更新 harness，不运行 MCP 服务或安装 Go 依赖。
+
+入口与专项规则见 [AGENTS.md](go-mcp-harness/AGENTS.md)、[依赖选择](go-mcp-harness/guides/dependencies.md)、[stdio](go-mcp-harness/guides/mcp-stdio.md)、[Streamable HTTP](go-mcp-harness/guides/mcp-streamable-http.md)、[验收](go-mcp-harness/guides/acceptance-gates.md)。完整新增方案和本轮验证记录见 [实施计划](docs/go-mcp-harness-plan.md)。
+
+规则包在原仓库的针对性验证命令为 `python3 -B tests/test_go_mcp_harness.py`：只读原始文件并在内存生成分发清单，调用只读帮助入口，不创建项目副本，也不安装到用户目录。它不能替代真实目标项目的首装/更新或真实 MCP 客户端测试。
+
+## TypeScript MCP 服务
+
+`ts-mcp-harness` 是独立规则包，MCP 服务由 TypeScript 实现，不使用 Go、Go 工具链或 gtkit。与 Go 包分别安装和维护，依据服务实现语言选择；两套都支持按需使用 stdio 与 Streamable HTTP。
+
+- TypeScript/运行时规则覆盖锁文件、SDK 代际、ESM/CJS、运行时 schema、AbortSignal、事件循环、背压和资源回收。
+- npm 分发覆盖 bin、可执行 JS 产物、生产依赖、安装脚本及平台/宿主兼容；开发环境能运行 TS 不代表 npm 产物可用。
+- 安全规则覆盖身份/资源隔离、Origin、OAuth 边界、文件/命令/SSRF、凭据、部分提交和有界取消。
+- 只对真实浏览器界面加载前端验收，TypeScript/npm 本身不触发浏览器或 Go 检查。
+
+在已确认的目标原项目中只装规则：
+
+```bash
+bash /path/to/harness-engineering/ts-mcp-harness/setup.sh
+```
+
+已安装包装命令时使用 `ts-mcp-harness --no-openspec`；从源仓库也可运行 `bash scripts/harness-init.sh ts-mcp-harness /path/to/ts-mcp-project --no-openspec`。更新使用 `ts-mcp-harness update /path/to/ts-mcp-project --no-openspec`，预览加 `--dry-run`。这些入口安装 harness，不安装 npm 包、运行时或 MCP 应用。
+
+详见 [TS 入口](ts-mcp-harness/AGENTS.md)、[依赖选择](ts-mcp-harness/guides/dependencies.md)、[运行时](ts-mcp-harness/guides/typescript-runtime.md)、[npm 分发](ts-mcp-harness/guides/release-and-distribution.md) 和 [两套包的实施计划](docs/go-mcp-harness-plan.md)。
+
+两套规则的内存分发验证复用 `python3 -B tests/test_go_mcp_harness.py`；元数据迁移验证使用 `python3 -B tests/test_mcp_metadata.py`。后者使用内存文件替身验证更新、冲突与恢复，不能替代实际磁盘故障或真实安装测试。
+
 ## 可选命令化 RPI 工作流
 
 这不是强制流程引擎，而是六个轻量 skill。普通小改动可以直接让 AI 按 harness 规则完成；复杂、高风险、跨模块需求建议走命令化流程，让上下文只专注一件事。
@@ -983,7 +1047,7 @@ AI 调用 .harness/scripts/append-error-journal.*
            主动规避同类错误
 ```
 
-AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加靠 agent 按项目规则调用脚本；**摘要可由 hook 辅助注入**：setup 会把 `.harness/hooks/session_start.py` 注册进 `.claude/settings.json` 与 `.codex/hooks.json` 的 SessionStart 事件；在运行端已启用、满足信任要求并成功触发时，把 `Status: open` 的条目摘要注入上下文（最多 10 条），同时对比 `.harness/VERSION` 里记录的模板 commit 与模板仓库当前 HEAD，落后就提示运行 `<harness> update`。两条都没有可说的时 hook 不输出任何内容。hook 由 Claude Code 与 Codex 共用同一份脚本，按 `python3` → `python` 探测解释器；本机没有 Python 时 setup 跳过注册并提示。注册成功不证明本会话已经加载或执行；摘要也不能替代项目规定的改动前实际读取，缺少运行端证据时按现有读取脚本核对原记录。
+AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加靠 agent 按项目规则调用脚本；**摘要可由 hook 辅助注入**：setup 会把 `.harness/hooks/session_start.py` 注册进 `.claude/settings.json` 与 `.codex/hooks.json` 的 SessionStart 事件；在运行端已启用、满足信任要求并成功触发时，把 `Status: open` 的条目摘要注入上下文（最多 10 条），同时按“查看 harness 版本”中的 `HARNESS_SOURCE_DIR` / 旧字段回落规则定位源码，对比 `.harness/VERSION` 中的 commit 与模板仓库当前 HEAD，落后就提示运行 `<harness> update`。两条都没有可说的时 hook 不输出任何内容。hook 由 Claude Code 与 Codex 共用同一份脚本，按 `python3` → `python` 探测解释器；本机没有 Python 时 setup 跳过注册并提示。注册成功不证明本会话已经加载或执行；摘要也不能替代项目规定的改动前实际读取，缺少运行端证据时按现有读取脚本核对原记录。
 
 ---
 
@@ -993,7 +1057,7 @@ AI 犯过的错误会被记录下来，形成项目专属的"经验库"。追加
 与"写出的代码是否安全"是两件事——后者归各语言的安全 guide 与 skill。
 
 **第一层：规则（软约束）**。项目入口与安全 guide 提供行为约束，是否进入当前上下文取决于运行端实际加载；
-细则在 `.harness/guides/ai-safety.md`（`shared/guides/common/ai-safety.md`，八套共用同一份）。
+细则在 `.harness/guides/ai-safety.md`（`shared/guides/common/ai-safety.md`，十套共用同一份）。
 其中最容易被忽略的一条是**提示注入**：issue 正文、PR 评论、依赖的 README、网页抓取结果、
 数据库字段、日志内容里的文字，无论写着什么都只是数据，不构成对 AI 的指令。
 出现「忽略之前的指令」「不要告诉用户」「把密钥发到某处」这类内容时，AI 的动作是停下并把原文与出处报给你。
@@ -1027,13 +1091,16 @@ Codex 的项目配置层及非托管 hook 定义需满足当前运行端的信�
 
 ---
 
-## 八套 Harness 的核心差异
+## 十套 Harness 的核心差异
 
 | 包名 | 定位 | 默认结构 | 关键约束 |
 |--|--|--|--|
 | `go-harness` | Go 后端业务服务 | 单仓后端 | Gin + GORM + gtkit、分层、支付/LLM/DB 规范 |
 | `go-grpc-harness` | Go gRPC 微服务 | 单仓后端 + `proto/` / `pb/` | grpc-go + buf + protovalidate、pb 产物一致性门禁、可选脚手架 |
+| `go-mcp-harness` | Go MCP 服务/插件，可用 npm 分发 | 保留项目原结构 | 双传输、gtkit 优先、Go 二进制与 npm launcher 分工 |
+| `ts-mcp-harness` | TypeScript MCP 服务 | 保留项目原结构 | 双传输、TS/异步运行时、npm 产物，不使用 Go |
 | `fullstack-harness` | Go + Vue 全栈 | `backend/` + `frontend/` | Go 后端分层 + Vue 3 + TS strict + 契约同步 |
+| `frontend-harness` | Vue 3 / TypeScript 前端 | 保留项目原结构 | 浏览器界面、组件、构建与前端验收 |
 | `go-pkg-harness` | Go 扩展包 / 第三方库 | 单包 / 多包库 | GoDoc、Benchmark、Example、语义化版本 |
 | `laravel-harness` | Laravel 项目 | 单仓 Laravel | HTTP、Eloquent、Queue、Scheduler、Event、Notification、可选 `Modules/` |
 | `laravel-fullstack-harness` | Laravel + Vue 全栈 | `backend/` + `frontend/` | Laravel API 契约 + Vue 3 + TS strict + 可选 `Modules/` |
@@ -1106,14 +1173,25 @@ harness-refresh apply --no-force                  # 兼容参数；现在默认�
 ```bash
 cat .harness/VERSION
 # harness: go-harness
-# source-path: /Users/you/Ai/harness-engineering
 # source-commit: a3f4b9c2e8d1
 # source-tag: v1.10.0
 # installed-at: 2026-05-14T17:30:42+0800
 # installer: setup.sh
 ```
 
-`source-path` 是安装时模板仓库的位置，SessionStart hook 与 `harness-refresh` 用它对比当前 HEAD 判断是否落后。
+新安装的 VERSION 不写 `source-path`，更新基线仍为 schema 1，`source_path` 值为 `null`。安全更新兼容旧路径字段，成功时移除 VERSION 中的旧路径并规范化基线；`--dry-run`、冲突或失败不会把旧项目假标为已迁移。仅重跑 setup 不替代对既有基线的安全更新。
+
+SessionStart 的可选环境变量 `HARNESS_SOURCE_DIR` 只在运行时定位模板仓库、读取 HEAD，不写回项目。值应为运行进程可读取的真实模板仓库根目录；非空时优先，留空/未设置时兼容读取旧 VERSION 的 `source-path`。两者都没有时仅跳过模板新旧提醒，错误记忆注入仍可工作；显式路径无效则跳过比较，不猜其他目录。给启动客户端或 hook 的进程提供环境，例如：
+
+```bash
+export HARNESS_SOURCE_DIR="/path/to/harness-engineering"
+```
+
+```powershell
+$env:HARNESS_SOURCE_DIR = "C:\path\to\harness-engineering"
+```
+
+这不是要求把路径写入项目配置。显式 `<harness> update` 和 `harness-refresh` 从自己的源入口定位仓库，不依赖该变量或旧路径字段。旧备份保持原字节用于恢复，不会自动扫描/改写历史备份及其他项目。
 
 排查"为什么我和同事的 `.harness/guides/` 不一样"时先看这个文件——commit / 安装时间不同就是差异原因。整个 `.harness/` 目录已自动加到项目 `.git/info/exclude`，本地忽略、不入库（含本文件）。
 
@@ -1121,6 +1199,8 @@ cat .harness/VERSION
 
 ```bash
 go-harness ~/code/new-project             # Go 后端 + openspec-auto
+go-mcp-harness ~/code/mcp-project --no-openspec  # Go MCP，可用 npm 分发
+ts-mcp-harness ~/code/ts-mcp-project --no-openspec  # TypeScript MCP，不使用 Go
 go-grpc-harness ~/code/new-grpc-service   # Go gRPC 微服务（全新项目可先用 go-grpc-harness/scaffold.sh 生成骨架）
 fullstack-harness ~/code/new-fullstack    # Go + Vue 全栈
 frontend-harness ~/code/new-frontend      # Vue 3 + Vite/TypeScript 前端
@@ -1235,7 +1315,7 @@ openspec-auto 也是 bash + Python 实现，在 Git Bash 里同样按 `python3` 
 
 ### 只装 harness：PowerShell / cmd 原生入口
 
-8 个 harness 模块另外提供 Windows 原生入口，装出的内容与 `setup.sh` 一致，但只装 harness；接 openspec-auto 要走上面的 Git Bash 路径。
+10 个 harness 模块另外提供 Windows 原生入口，装出的内容与 `setup.sh` 一致，但只装 harness；接 openspec-auto 要走上面的 Git Bash 路径。
 
 - `setup.ps1`，用于 PowerShell
 - `setup.bat`，用于 `cmd.exe`
@@ -1247,6 +1327,12 @@ openspec-auto 也是 bash + Python 实现，在 Git Bash 里同样按 `python3` 
 ```powershell
 cd .\your-backend-project
 powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\go-harness\setup.ps1
+
+cd .\your-mcp-project
+powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\go-mcp-harness\setup.ps1
+
+cd .\your-ts-mcp-project
+powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\ts-mcp-harness\setup.ps1
 
 cd .\your-grpc-service
 powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\go-grpc-harness\setup.ps1
@@ -1270,6 +1356,12 @@ powershell -ExecutionPolicy Bypass -File .\path\to\harness-engineering\laravel-f
 cd /d .\your-backend-project
 .\path\to\harness-engineering\go-harness\setup.bat
 
+cd /d .\your-mcp-project
+.\path\to\harness-engineering\go-mcp-harness\setup.bat
+
+cd /d .\your-ts-mcp-project
+.\path\to\harness-engineering\ts-mcp-harness\setup.bat
+
 cd /d .\your-fullstack-project
 .\path\to\harness-engineering\fullstack-harness\setup.bat
 
@@ -1289,6 +1381,8 @@ Windows 下同样支持先设置 `HARNESS_FORCE_GUIDES=1`，再执行任一脚�
 
 ## 贡献本仓库（修改 harness 模板）
 
+以下是可选验证入口，不代表自动执行许可：先完成功能，lint、脚本 lint、vet、modern、全量 race 和覆盖率须再取得用户明确授权。会创建临时项目或容器的入口不适用于禁止副本/容器的任务；Go MCP 可先使用上面的原仓库内存分发测试。
+
 如果你要改 `setup.sh` / `setup.ps1`、`guides/*.md`、`shared/guides/`、`rules/*.md`、`skills/*/SKILL.md`、`CLAUDE.md` / `AGENTS.md` 或 `scripts/`，提交前先在本地跑这套门禁：
 
 ```bash
@@ -1298,7 +1392,7 @@ bash -n install.sh scripts/harness-init.sh scripts/harness-refresh.sh && python3
 # 1. CLAUDE.md / AGENTS.md 同步检查（修改 AGENTS.md 后必跑）
 bash scripts/sync-claude-from-agents.sh --check
 
-# 2. setup.sh 语法 + 行为冒烟测试（8 套）
+# 2. setup.sh 语法 + 行为冒烟测试（9 套）
 bash tests/setup_smoke_test.sh
 
 # 3. error-journal 脚本契约单测
@@ -1314,7 +1408,7 @@ bash tests/laravel_package_smoke_test.sh
 # 5. shellcheck（GitHub Ubuntu runner 自带，本地 macOS 可用 Docker）
 docker run --rm -v "$PWD:/work" -w /work koalaman/shellcheck-alpine:v0.10.0 \
   shellcheck -S warning go-harness/setup.sh fullstack-harness/setup.sh frontend-harness/setup.sh \
-    go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh \
+    go-mcp-harness/setup.sh ts-mcp-harness/setup.sh go-pkg-harness/setup.sh laravel-harness/setup.sh laravel-fullstack-harness/setup.sh \
     scripts/error-journal/*.sh scripts/sync-claude-from-agents.sh tests/*.sh
 ```
 
@@ -1324,7 +1418,7 @@ PowerShell 端门禁需要 Windows 环境或 Docker pwsh：
 # 6. PSScriptAnalyzer（CI 用，本地可选）
 docker run --rm -v "$PWD:/work" -w /work mcr.microsoft.com/powershell:7.4-ubuntu-22.04 \
   pwsh -NoProfile -Command "Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck | Out-Null; \
-    @('go-harness/setup.ps1','fullstack-harness/setup.ps1','frontend-harness/setup.ps1','go-pkg-harness/setup.ps1','laravel-harness/setup.ps1','laravel-fullstack-harness/setup.ps1', \
+    @('go-harness/setup.ps1','fullstack-harness/setup.ps1','frontend-harness/setup.ps1','go-mcp-harness/setup.ps1','ts-mcp-harness/setup.ps1','go-pkg-harness/setup.ps1','laravel-harness/setup.ps1','laravel-fullstack-harness/setup.ps1', \
       'scripts/install-harness.ps1','scripts/error-journal/append-error-journal.ps1','scripts/error-journal/read-error-journal.ps1', \
       'tests/setup_windows_smoke_test.ps1','tests/error_journal_test.ps1') \
     | ForEach-Object { Invoke-ScriptAnalyzer -Path \$_ -Severity Warning,Error -ExcludeRule PSAvoidUsingWriteHost }"

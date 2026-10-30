@@ -430,7 +430,6 @@ function Write-HarnessVersion {
 
     $lines = @(
         "harness: $ModuleName",
-        "source-path: $repoRoot",
         "source-commit: $sourceCommit"
     )
     if (-not [string]::IsNullOrEmpty($sourceTag)) {

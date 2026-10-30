@@ -1,0 +1,4 @@
+# 共用 Agent 行为约束；TypeScript MCP 的技术与验收规则独立维护。
+common/ai-safety.md
+common/commit-and-changelog.md
+common/error-journal-template.md

@@ -378,6 +378,8 @@ function Invoke-SetupBat {
 
 $modules = @(
     "go-harness",
+    "go-mcp-harness",
+    "ts-mcp-harness",
     "fullstack-harness",
     "frontend-harness",
     "go-pkg-harness",

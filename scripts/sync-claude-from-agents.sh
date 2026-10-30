@@ -7,6 +7,8 @@ MODE="${1:-write}"
 MODULES=(
     "go-harness"
     "go-grpc-harness"
+    "go-mcp-harness"
+    "ts-mcp-harness"
     "fullstack-harness"
     "frontend-harness"
     "go-pkg-harness"

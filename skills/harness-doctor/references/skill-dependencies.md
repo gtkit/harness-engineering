@@ -12,6 +12,8 @@
 |---|---|---|
 | go-harness | use-modern-go、go-enterprise-quality | backend-acceptance |
 | go-grpc-harness | use-modern-go、go-enterprise-quality；gRPC实现读go-microservice | backend-acceptance |
+| go-mcp-harness | use-modern-go、go-enterprise-quality 的适用部分；传输/安全/依赖按项目 skills-index 读取，受控检查须单独授权 | 按 MCP acceptance-gates：工具/传输验收适用的 backend-acceptance 项；无浏览器界面的 Node 分发不触发前端验收 |
+| ts-mcp-harness | senior-nodejs-engineer；按 TypeScript MCP skills-index 读取，不加载 Go 技能，受控检查须单独授权 | 按 MCP acceptance-gates：工具/传输验收适用的 backend-acceptance 项；TypeScript/npm 不自动触发浏览器前端验收 |
 | fullstack-harness | 后端：use-modern-go、go-enterprise-quality；前端：vue-frontend-engineer | 按变更面：backend-acceptance、frontend-acceptance；跨端契约两者 |
 | go-pkg-harness | use-modern-go、go-enterprise-quality；审查读go-review；发布读go-engineering-governance | 包专属 review/API兼容/测试；无业务入口时不强制业务验收 |
 | laravel-harness | senior-php-engineer、use-modern-php、php-enterprise-quality | backend-acceptance |
@@ -23,7 +25,7 @@
 
 ## Go 条件依赖与共享参考
 
-以下适用于 go-harness、go-grpc-harness、fullstack-harness 的 Go 部分及 go-pkg-harness；按当前任务选择，不把这些项全部设为每次必读。
+以下适用于 go-harness、go-grpc-harness、go-mcp-harness、fullstack-harness 的 Go 部分及 go-pkg-harness；按当前任务选择，不把这些项全部设为每次必读。
 
 | 当前任务 | 条件依赖或资源 | 缺失影响 |
 |---|---|---|

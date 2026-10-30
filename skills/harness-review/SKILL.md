@@ -12,6 +12,8 @@ Use this before final delivery or before asking for human review.
 
 `harness-review` 负责识别变更面并调用全局验收 skill；本 skill 只编排，不复制验收正文。
 
+- `go-mcp-harness` 与 `ts-mcp-harness` 先按项目 `.harness/guides/acceptance-gates.md` 路由：工具/传输行为验收适用的后端项；Go 的 npm 安装器和 TS MCP 服务都不是浏览器前端；仅有真实浏览器界面才追加前端验收。TS 包不加载 Go 技能或检查。纯文档不运行测试。以下 Web/全栈默认规则适用于其他 harness，不能覆盖 MCP 的专项路由与用户的检查授权边界。
+
 - 看到后端运行行为、数据库、迁移、鉴权、队列、worker、定时任务或外部调用：**REQUIRED SUB-SKILL** `$backend-acceptance`。
 - 看到前端页面、组件、路由、store、composable、API client 或浏览器安全/性能：**REQUIRED SUB-SKILL** `$frontend-acceptance`。
 - 前后端契约、DTO、错误码、权限、数据库 schema、支付或消息状态变化：两个验收 skill 都要加载；先核对后端不变量，再核对前端契约和真实交互。
