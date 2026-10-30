@@ -17,7 +17,7 @@
 ### Fixed
 - 共享安装器不再向 VERSION 写本机源码目录；安全更新将旧路径元数据迁移为无路径格式并保留 schema 1 兼容。SessionStart 使用可选 `HARNESS_SOURCE_DIR` 运行时定位，兼容旧字段读取；新增元数据迁移、冲突/回滚与双语言分发测试。
 
-## [1.3.0] - 2026-10-18
+## [1.8.0] - 2026-10-18
 
 ### Added
 - 新增 `frontend-harness`，面向 Vue 3 + Vite/TypeScript 纯前端项目，包含前端架构、编码、API、测试和 review guides。
