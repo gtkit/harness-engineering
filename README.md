@@ -303,6 +303,7 @@ openspec-auto update /path/to/project  # 仅更新 OpenSpec，不改 harness
 
 - harness 更新默认联动**已安装**的 OpenSpec；源仓库使用 `OPENSPEC_AUTO_BOOTSTRAP_DIR`，留空回落到 harness 仓库同级的 `../openspec-auto-bootstrap`。`--no-openspec` 只更新 harness。此环境变量用于选择本地模板源，必须是存在的 bootstrap 仓库目录；不访问远端或自动拉取 Git。
 - 先备份当前托管文件、权限及基线到 `~/.config/harness-engineering/backups/<UTC时间.唯一标识>/<项目名>/`，再用“旧模板 / 项目当前内容 / 新模板”三方合并。OpenSpec 托管块与项目规则分别处理，其他 hooks/settings、自定义文件、错误日志和运行状态保持原样。
+- 备份清单的 `project` 使用带 `sha256:` 前缀的项目身份，不记录真实项目目录。更新前核对模板、原文件及解码后的基线是否含当前项目、模板源或用户目录的字节/JSON 转义表示；命中时在创建备份前停止，保留原文件。合并结果也在写入项目之前核对。该保护覆盖已知本机根，不是通用敏感信息扫描；不会为了脱敏改写原始备份字节。
 - 先完成两个组件的全部合并，再写项目。任一文件冲突都会停止；项目文件不写入，冲突三份保存在备份下的 `conflicts/`。对照 `base/local/template` 在项目文件中完成合并后重新执行。写入过程的普通异常会回滚本次已写文件；进程被强制杀死或断电时需对照备份恢复，残留锁不会自动移除。
 - 首次安装记录纯模板基线 `.harness/update-base.json`；旧 harness 通过安装时的 `source-commit` 读取本地 Git 历史。基线缺失、损坏或对应历史已不可用时停止，不能拿项目当前文件猜作旧模板。请保留这些本地元数据；它们位于已有工具忽略目录内。
 - `--dry-run` 只显示计划，不写项目、不创建备份；有冲突仍返回非零。正式执行包括无变更检查都会先备份；重复执行不会反复修改项目文件。
@@ -1179,7 +1180,7 @@ cat .harness/VERSION
 # installer: setup.sh
 ```
 
-新安装的 VERSION 不写 `source-path`，更新基线仍为 schema 1，`source_path` 值为 `null`。安全更新兼容旧路径字段，成功时移除 VERSION 中的旧路径并规范化基线；`--dry-run`、冲突或失败不会把旧项目假标为已迁移。仅重跑 setup 不替代对既有基线的安全更新。
+新安装的 VERSION 不写 `source-path`，更新基线仍为 schema 1，`source_path` 值为 `null`。读取兼容旧字段，但含本机真实目录的旧元数据会触发上述备份前检查，需在另行授权的范围内处理，不能先复制泄漏内容再迁移。不存在这类内容的成功更新会移除 VERSION 中的旧路径字段并规范化基线；`--dry-run`、冲突或失败不会把旧项目假标为已迁移。仅重跑 setup 不替代对既有基线的安全更新。
 
 SessionStart 的可选环境变量 `HARNESS_SOURCE_DIR` 只在运行时定位模板仓库、读取 HEAD，不写回项目。值应为运行进程可读取的真实模板仓库根目录；非空时优先，留空/未设置时兼容读取旧 VERSION 的 `source-path`。两者都没有时仅跳过模板新旧提醒，错误记忆注入仍可工作；显式路径无效则跳过比较，不猜其他目录。给启动客户端或 hook 的进程提供环境，例如：
 

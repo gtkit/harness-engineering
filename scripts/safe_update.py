@@ -78,6 +78,25 @@ def json_bytes(value):
     return (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + '\n').encode()
 
 
+def project_identity(root):
+    return 'sha256:' + hashlib.sha256(os.fsencode(Path(root).resolve())).hexdigest()
+
+
+def check_local_paths(files, paths):
+    needles = set()
+    for path in paths:
+        name = str(path)
+        if not Path(name).is_absolute():
+            continue
+        for text in {name, name.replace('\\', '/')}:
+            needles.add(os.fsencode(text))
+            for ascii_only in (False, True):
+                needles.add(json.dumps(text, ensure_ascii=ascii_only)[1:-1].encode())
+    for rel, value in files.items():
+        if value is not None and any(needle in value[0] for needle in needles):
+            raise UpdateError('检测到本机目录，停止写入: ' + rel)
+
+
 def git(source, *args):
     try:
         result = subprocess.run(['git', '-C', str(source), *args], capture_output=True)
@@ -225,6 +244,7 @@ def combine_root(original, merged, component):
 
 def snapshot(component, source, kind=None):
     files = templates(component, source, kind)
+    check_local_paths(files, (Path(source).resolve(), Path.home()))
     try:
         revision = git(source, 'rev-parse', 'HEAD').decode().strip()
     except UpdateError:
@@ -386,14 +406,16 @@ def atomic_write(root, rel, value, created):
     for p in reversed(missing):
         p.mkdir()
         created.append(p)
-    with tempfile.NamedTemporaryFile(dir=target.parent, prefix='.agent-update-', delete=False) as stream:
-        temporary = Path(stream.name)
-        stream.write(value[0])
+    temporary = None
     try:
+        with tempfile.NamedTemporaryFile(dir=target.parent, prefix='.agent-update-', delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(value[0])
         temporary.chmod(value[1])
         os.replace(temporary, target)
     finally:
-        temporary.unlink(missing_ok=True)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def version_entry(root, current, component, changed):
@@ -439,6 +461,7 @@ def update(root, components, dry_run=False):
         return 0
     with (nullcontext() if dry_run else locked(root, [c[0] for c in selected])):
         currents = {c: snapshot(c, source, kind) for c, source, kind in selected}
+        local_roots = [root, Path.home(), *(source.resolve() for _, source, _ in selected)]
         originals, working, conflicts = {}, {}, []
         bases = {}
         for c, source, kind in selected:
@@ -452,7 +475,11 @@ def update(root, components, dry_run=False):
                 if rel not in originals:
                     originals[rel] = project_file(root, rel)
                     working[rel] = originals[rel]
-        # Backups precede merge and any project writes. They live outside the project.
+        check_local_paths(originals, local_roots)
+        for base in bases.values():
+            if base is not None:
+                check_local_paths(base, local_roots)
+        # Preserve exact backup bytes; reject path-bearing inputs before copying them.
         backup = None
         if not dry_run:
             stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '.' + uuid.uuid4().hex[:8]
@@ -467,7 +494,7 @@ def update(root, components, dry_run=False):
                     target.chmod(value[1])
                     if target.read_bytes() != value[0] or target.stat().st_mode & 0o777 != value[1]:
                         raise UpdateError('备份校验失败: ' + str(target))
-            (backup / 'manifest.json').write_bytes(json_bytes({'project': str(root), 'files': {p: packed(v) for p, v in originals.items()}}))
+            (backup / 'manifest.json').write_bytes(json_bytes({'project': project_identity(root), 'files': {p: packed(v) for p, v in originals.items()}}))
             print('备份: ' + str(backup))
         for c, source, kind in selected:
             if bases[c] is None:
@@ -494,6 +521,7 @@ def update(root, components, dry_run=False):
             working[baseline_path(c)] = entry(json_bytes(currents[c]), 0o600)
             rel, value = version_entry(root, currents[c], c, own_changed)
             working[rel] = value
+        check_local_paths(working, local_roots)
         if conflicts:
             for c, rel, b, l, n, reason in conflicts:
                 print('冲突: ' + c + '/' + rel + ' — ' + reason, file=sys.stderr)
@@ -560,6 +588,8 @@ def main():
         if project_file(root, marker) is None:
             raise UpdateError('不能为未安装组件记录基线')
         current = snapshot(args.component, args.source, args.kind)
+        check_local_paths({p: unpacked(v) for p, v in current['files'].items()},
+                          (root, Path(args.source).resolve(), Path.home()))
         atomic_write(root, baseline_path(args.component), entry(json_bytes(current), 0o600), [])
         return 0
     components = [(args.component, args.source, args.kind)]
